@@ -14,8 +14,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             /* 核心配色：波普风格 */
@@ -63,31 +61,14 @@
             flex-direction: column;
         }
 
-        /* --- 自定义标题栏 --- */
+        /* --- 自定义标题栏（浏览器版本隐藏）--- */
         .custom-titlebar {
-            height: 40px;
-            background: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 3px solid var(--border-color);
-            flex-shrink: 0;
-            -webkit-app-region: drag;
-            user-select: none;
+            display: none !important;
         }
 
-        body.dark-mode .custom-titlebar {
-            background: var(--border-color);
-        }
-
-        /* 浏览器环境隐藏标题栏 */
-        @media not print {
-            .custom-titlebar {
-                display: none !important;
-            }
-            body {
-                padding-top: 0 !important;
-            }
+        /* --- 容器（浏览器版本全高） --- */
+        .container {
+            height: 100vh !important;
         }
 
         .titlebar-left {
@@ -2525,129 +2506,159 @@
         }
     </script>
 
-    <!-- Supabase 云同步配置 -->
+    <!-- 云同步配置（使用 fetch API，不依赖 SDK）-->
     <script>
-        // 替换为你的 Supabase 项目信息
         const SUPABASE_URL = 'https://gcrdheovyzjywwyijjli.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN4eTb6cZNrzH3-GFkKtxv0imkOSBM';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM';
 
-        // 初始化 Supabase 客户端（仅在云端模式下使用）
-        let supabase = null;
-
-        // 检测是否使用云端模式（已启用）
-        const USE_CLOUD = true;
-
-        // 延迟初始化 Supabase，确保 SDK 已加载
-        function initSupabase() {
-            if (USE_CLOUD && window.supabase) {
-                try {
-                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                    console.log('Supabase 初始化成功');
-                } catch (e) {
-                    console.warn('Supabase 初始化失败，使用本地模式', e);
-                }
-            } else {
-                console.log('云同步已启用，等待 SDK 加载...');
-            }
-        }
-
-        // 页面加载完成后初始化
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initSupabase);
-        } else {
-            initSupabase();
-        }
-
-        // 如果 SDK 在页面加载后才完成，再次尝试初始化
-        window.addEventListener('load', () => {
-            if (!supabase && window.supabase) {
-                initSupabase();
-            }
-        });
-
-        // 用户认证状态
         let currentUser = null;
+        let accessToken = null;
 
         // 登录
         async function signIn(email, password) {
-            if (!supabase) return { error: '请先配置 Supabase' };
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) return { error: error.message };
-            currentUser = data.user;
-            localStorage.setItem('user_id', data.user.id);
-            await syncFromCloud();
-            return { success: true };
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                console.log('登录响应:', data);
+
+                if (!res.ok) {
+                    return { error: data.error_description || data.error?.message || '登录失败' };
+                }
+
+                if (!data.user || !data.access_token) {
+                    return { error: '登录失败：未返回用户信息，请确认邮箱已验证' };
+                }
+
+                currentUser = data.user;
+                accessToken = data.access_token;
+                localStorage.setItem('user_id', data.user.id);
+                localStorage.setItem('access_token', data.access_token);
+                await syncFromCloud();
+                return { success: true };
+            } catch (e) {
+                console.error('登录异常:', e);
+                return { error: '网络错误：' + e.message };
+            }
         }
 
         // 注册
         async function signUp(email, password) {
-            if (!supabase) return { error: '请先配置 Supabase' };
-            const { data, error } = await supabase.auth.signUp({ email, password });
-            if (error) return { error: error.message };
-            currentUser = data.user;
-            localStorage.setItem('user_id', data.user.id);
-            await syncFromCloud();
-            return { success: true };
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                console.log('注册响应:', data);
+                console.log('响应状态:', res.status);
+
+                if (!res.ok) {
+                    let errorMsg = data.msg || data.error_description || data.error?.message || JSON.stringify(data);
+                    return { error: '注册失败: ' + errorMsg };
+                }
+
+                // 注册成功，需要验证邮箱
+                return {
+                    success: true,
+                    needVerification: true,
+                    message: '注册成功！请检查邮箱并点击验证链接，然后返回登录。'
+                };
+            } catch (e) {
+                console.error('注册异常:', e);
+                return { error: '网络错误：' + e.message };
+            }
         }
 
         // 登出
         async function signOut() {
-            if (supabase) {
-                await supabase.auth.signOut();
-            }
             currentUser = null;
+            accessToken = null;
             localStorage.removeItem('user_id');
+            localStorage.removeItem('access_token');
             location.reload();
         }
 
-        // 云端同步 - 上传数据
+        // 云端同步 - 上传
         async function syncToCloud() {
-            if (!supabase || !currentUser) return;
-
-            const userId = currentUser.id;
-            const userData = {
-                id: userId,
-                todos: state.todos,
-                transactions: state.transactions,
-                groups: state.groups,
-                updated_at: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('user_data')
-                .upsert(userData);
-
-            if (error) {
-                console.error('同步失败:', error);
+            if (!currentUser || !accessToken) return;
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Prefer': 'resolution=ignore-duplicates'
+                    },
+                    body: JSON.stringify({
+                        id: currentUser.id,
+                        todos: state.todos,
+                        transactions: state.transactions,
+                        groups: state.groups,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                return res.ok;
+            } catch (e) {
+                console.error('同步失败:', e);
                 return false;
             }
-            return true;
         }
 
-        // 云端同步 - 下载数据
+        // 云端同步 - 下载
         async function syncFromCloud() {
-            if (!supabase || !currentUser) return;
-
-            const { data, error } = await supabase
-                .from('user_data')
-                .select('*')
-                .eq('id', currentUser.id)
-                .single();
-
-            if (error) {
-                console.error('下载失败:', error);
-                return false;
+            if (!currentUser || !accessToken) return;
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data[0]) {
+                    state.todos = data[0].todos || [];
+                    state.transactions = data[0].transactions || [];
+                    state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
+                    save();
+                    renderAll();
+                }
+            } catch (e) {
+                console.error('下载失败:', e);
             }
-
-            if (data) {
-                state.todos = data.todos || [];
-                state.transactions = data.transactions || [];
-                state.groups = data.groups || [];
-                save();
-                renderAll();
-            }
-            return true;
         }
+
+        // 保存时自动同步
+        const originalSave = save;
+        function save() {
+            originalSave();
+            if (currentUser) syncToCloud();
+        }
+
+        // 检查已保存的登录状态
+        function checkAuthStatus() {
+            const savedUserId = localStorage.getItem('user_id');
+            const savedToken = localStorage.getItem('access_token');
+            if (savedUserId && savedToken) {
+                currentUser = { id: savedUserId };
+                accessToken = savedToken;
+                syncFromCloud();
+            }
+        }
+        checkAuthStatus();
 
         // 认证模式切换
         let isLoginMode = true;
@@ -2659,11 +2670,10 @@
             document.getElementById('authError').style.display = 'none';
         }
 
-        // 提交认证表单
+        // 提交认证
         async function submitAuth() {
             const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value;
-            const useCloud = document.getElementById('authRemember').checked;
             const errorDiv = document.getElementById('authError');
 
             if (!email || !password) {
@@ -2678,28 +2688,16 @@
                 return;
             }
 
-            // 设置云同步模式
-            if (useCloud) {
-                localStorage.setItem('useCloud', 'true');
-                if (!supabase) {
-                    errorDiv.innerText = '请先配置 Supabase 凭证信息';
-                    errorDiv.style.display = 'block';
-                    return;
-                }
-            }
-
-            // 执行登录或注册
-            let result;
-            if (isLoginMode) {
-                result = await signIn(email, password);
-            } else {
-                result = await signUp(email, password);
-            }
+            let result = isLoginMode ? await signIn(email, password) : await signUp(email, password);
 
             if (result.error) {
                 errorDiv.innerText = result.error;
                 errorDiv.style.display = 'block';
-            } else if (result.success) {
+            } else if (result.needVerification) {
+                // 注册成功，需要验证邮箱
+                alert(result.message || '注册成功！请检查邮箱并点击验证链接，然后返回登录。');
+                switchAuthMode(); // 切换到登录模式
+            } else {
                 closeModal('authModal');
                 updateCloudStatus();
             }
@@ -2714,7 +2712,7 @@
             openModal('authModal');
         }
 
-        // 更新云同步状态显示
+        // 更新云同步状态
         function updateCloudStatus() {
             const cloudBtn = document.getElementById('cloudSyncBtn');
             if (currentUser) {
@@ -2729,12 +2727,8 @@
         // 云同步按钮点击
         document.getElementById('cloudSyncBtn').onclick = () => {
             if (currentUser) {
-                // 已登录，显示用户信息
-                if (confirm('当前已登录，是否退出？')) {
-                    signOut();
-                }
+                if (confirm('当前已登录，是否退出？')) signOut();
             } else {
-                // 未登录，打开登录窗口
                 openAuthModal();
             }
         };
@@ -2802,20 +2796,6 @@
             };
             input.click();
         }
-
-        // 页面加载时检查登录状态
-        window.addEventListener('load', () => {
-            const userId = localStorage.getItem('user_id');
-            if (userId && USE_CLOUD && supabase) {
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    if (session) {
-                        currentUser = session.user;
-                        updateCloudStatus();
-                        syncFromCloud();
-                    }
-                });
-            }
-        });
     </script>
 </body>
 </html>
