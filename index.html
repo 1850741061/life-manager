@@ -2445,14 +2445,16 @@
             renderFinance();
         }
 
-        function save() {
+        // 基础保存函数 - 只保存到本地
+        function baseSave() {
             localStorage.setItem('todos', JSON.stringify(state.todos));
             localStorage.setItem('groups', JSON.stringify(state.groups));
             localStorage.setItem('transactions', JSON.stringify(state.transactions));
-            // 云同步
-            if (typeof syncToCloud === 'function' && USE_CLOUD && currentUser) {
-                syncToCloud();
-            }
+        }
+
+        // save 函数 - 将在后面被包装成带云同步的版本
+        function save() {
+            baseSave();
         }
 
         function animateValue(id, start, end, duration) {
@@ -2788,16 +2790,18 @@
         }
 
         // 保存时自动同步 - 添加防抖，减少同步频率
-        window.originalSave = save;
+        // 保存原始 save 函数的引用（在重定义之前）
+        const originalSaveFunc = save;
         let syncTimer = null;
         const SYNC_DELAY = 2000; // 2秒防抖，停止操作2秒后才同步
 
+        // 重写 save 函数，添加云同步
         function save() {
-            window.originalSave();
+            // 先调用原始保存函数
+            originalSaveFunc();
+            // 云同步（带防抖）
             if (currentUser) {
-                // 清除之前的定时器
                 if (syncTimer) clearTimeout(syncTimer);
-                // 设置新的定时器
                 syncTimer = setTimeout(() => {
                     console.log('[自动同步] 开始上传...');
                     syncToCloud();
