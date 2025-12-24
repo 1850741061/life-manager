@@ -2787,12 +2787,31 @@
             }
         }
 
-        // 保存时自动同步 - 将原始函数存储到全局，供其他地方使用
+        // 保存时自动同步 - 添加防抖，减少同步频率
         window.originalSave = save;
+        let syncTimer = null;
+        const SYNC_DELAY = 2000; // 2秒防抖，停止操作2秒后才同步
+
         function save() {
             window.originalSave();
-            if (currentUser) syncToCloud();
+            if (currentUser) {
+                // 清除之前的定时器
+                if (syncTimer) clearTimeout(syncTimer);
+                // 设置新的定时器
+                syncTimer = setTimeout(() => {
+                    console.log('[自动同步] 开始上传...');
+                    syncToCloud();
+                }, SYNC_DELAY);
+            }
         }
+
+        // 页面卸载前立即同步
+        window.addEventListener('beforeunload', () => {
+            if (syncTimer) {
+                clearTimeout(syncTimer);
+                syncToCloud();
+            }
+        });
 
         // 检查已保存的登录状态
         async function checkAuthStatus() {
