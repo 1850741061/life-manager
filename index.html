@@ -2458,6 +2458,10 @@
             localStorage.setItem('todos', JSON.stringify(state.todos));
             localStorage.setItem('groups', JSON.stringify(state.groups));
             localStorage.setItem('transactions', JSON.stringify(state.transactions));
+            // 云同步
+            if (typeof syncToCloud === 'function' && USE_CLOUD && currentUser) {
+                syncToCloud();
+            }
         }
 
         function animateValue(id, start, end, duration) {
@@ -2633,15 +2637,6 @@
                 renderAll();
             }
             return true;
-        }
-
-        // 重写 save 函数，自动同步到云端
-        const originalSave = save;
-        function save() {
-            originalSave();
-            if (USE_CLOUD && currentUser) {
-                syncToCloud();
-            }
         }
 
         // 认证模式切换
