@@ -2519,9 +2519,49 @@
         let currentUser = null;
         let accessToken = null;
 
+        // 显示同步提示
+        function showSyncToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? 'var(--success-color)' : 'var(--danger-color)'};
+                color: white;
+                padding: 15px 25px;
+                border-radius: var(--radius);
+                border: 3px solid var(--border-color);
+                box-shadow: var(--shadow);
+                z-index: 10000;
+                font-weight: 700;
+                animation: slideIn 0.3s ease;
+            `;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
         // 登录时的智能同步：检查云端数据，有则下载，无则上传本地数据
         async function syncDataOnLogin() {
             try {
+                console.log('[同步] 开始检查云端数据...');
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -2531,28 +2571,42 @@
 
                 if (res.ok) {
                     const data = await res.json();
+                    console.log('[同步] 云端响应:', data);
+
                     if (data && data[0]) {
                         // 云端有数据，下载并合并
-                        console.log('从云端下载数据');
+                        console.log('[同步] 云端有数据，开始下载...');
                         state.todos = data[0].todos || [];
                         state.transactions = data[0].transactions || [];
                         state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
                         save();
                         renderAll();
+                        showSyncToast(`已从云端同步 ${state.todos.length} 个待办，${state.transactions.length} 条记录`);
                     } else {
                         // 云端无数据，上传本地数据
-                        console.log('云端无数据，上传本地数据');
-                        await syncToCloud();
+                        console.log('[同步] 云端无数据，开始上传本地数据...');
+                        const uploaded = await syncToCloud();
+                        if (uploaded) {
+                            showSyncToast(`已上传本地数据到云端 (${state.todos.length} 个待办)`);
+                        }
                     }
                 } else {
                     // 请求失败，尝试上传本地数据
-                    console.log('检查云端数据失败，上传本地数据');
-                    await syncToCloud();
+                    console.log('[同步] 检查云端数据失败:', res.status);
+                    const uploaded = await syncToCloud();
+                    if (uploaded) {
+                        showSyncToast('已上传本地数据到云端');
+                    }
                 }
             } catch (e) {
-                console.error('登录同步异常:', e);
+                console.error('[同步] 登录同步异常:', e);
                 // 出错时上传本地数据作为后备
-                await syncToCloud();
+                const uploaded = await syncToCloud();
+                if (uploaded) {
+                    showSyncToast('已上传本地数据到云端');
+                } else {
+                    showSyncToast('同步失败，请检查网络', 'error');
+                }
             }
         }
 
@@ -2636,8 +2690,21 @@
 
         // 云端同步 - 上传
         async function syncToCloud() {
-            if (!currentUser || !accessToken) return;
+            if (!currentUser || !accessToken) {
+                console.log('[同步] 未登录，跳过上传');
+                return false;
+            }
             try {
+                console.log('[同步] 开始上传数据到云端...');
+                const payload = {
+                    id: currentUser.id,
+                    todos: state.todos,
+                    transactions: state.transactions,
+                    groups: state.groups,
+                    updated_at: new Date().toISOString()
+                };
+                console.log('[同步] 上传数据:', payload);
+
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     method: 'POST',
                     headers: {
@@ -2646,17 +2713,17 @@
                         'Authorization': `Bearer ${accessToken}`,
                         'Prefer': 'resolution=ignore-duplicates'
                     },
-                    body: JSON.stringify({
-                        id: currentUser.id,
-                        todos: state.todos,
-                        transactions: state.transactions,
-                        groups: state.groups,
-                        updated_at: new Date().toISOString()
-                    })
+                    body: JSON.stringify(payload)
                 });
+
+                console.log('[同步] 上传响应状态:', res.status);
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error('[同步] 上传失败:', errorText);
+                }
                 return res.ok;
             } catch (e) {
-                console.error('同步失败:', e);
+                console.error('[同步] 上传异常:', e);
                 return false;
             }
         }
