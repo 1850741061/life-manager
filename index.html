@@ -2688,13 +2688,14 @@
         }
 
         // 检查已保存的登录状态
-        function checkAuthStatus() {
+        async function checkAuthStatus() {
             const savedUserId = localStorage.getItem('user_id');
             const savedToken = localStorage.getItem('access_token');
             if (savedUserId && savedToken) {
                 currentUser = { id: savedUserId };
                 accessToken = savedToken;
-                syncDataOnLogin();
+                await syncDataOnLogin();
+                updateCloudStatus();
             }
         }
         checkAuthStatus();
