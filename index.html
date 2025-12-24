@@ -2523,13 +2523,33 @@
         // 检测是否使用云端模式（已启用）
         const USE_CLOUD = true;
 
-        if (USE_CLOUD && window.supabase) {
-            try {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            } catch (e) {
-                console.warn('Supabase 初始化失败，使用本地模式', e);
+        // 延迟初始化 Supabase，确保 SDK 已加载
+        function initSupabase() {
+            if (USE_CLOUD && window.supabase) {
+                try {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    console.log('Supabase 初始化成功');
+                } catch (e) {
+                    console.warn('Supabase 初始化失败，使用本地模式', e);
+                }
+            } else {
+                console.log('云同步已启用，等待 SDK 加载...');
             }
         }
+
+        // 页面加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSupabase);
+        } else {
+            initSupabase();
+        }
+
+        // 如果 SDK 在页面加载后才完成，再次尝试初始化
+        window.addEventListener('load', () => {
+            if (!supabase && window.supabase) {
+                initSupabase();
+            }
+        });
 
         // 用户认证状态
         let currentUser = null;
