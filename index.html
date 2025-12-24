@@ -80,6 +80,16 @@
             background: var(--border-color);
         }
 
+        /* 浏览器环境隐藏标题栏 */
+        @media not print {
+            .custom-titlebar {
+                display: none !important;
+            }
+            body {
+                padding-top: 0 !important;
+            }
+        }
+
         .titlebar-left {
             display: flex;
             align-items: center;
@@ -1402,23 +1412,23 @@
     </div>
 
     <script>
-        // --- Electron 窗口控制 ---
-        const { ipcRenderer } = require('electron');
-
-        // 最小化
-        document.getElementById('btnMinimize').addEventListener('click', () => {
-            ipcRenderer.send('window-minimize');
-        });
-
-        // 最大化/还原
-        document.getElementById('btnMaximize').addEventListener('click', () => {
-            ipcRenderer.send('window-maximize');
-        });
-
-        // 关闭
-        document.getElementById('btnClose').addEventListener('click', () => {
-            ipcRenderer.send('window-close');
-        });
+        // --- Electron 窗口控制（仅在 Electron 环境中执行）---
+        if (typeof require !== 'undefined' && typeof window !== 'undefined' && window.process && window.process.type === 'renderer') {
+            try {
+                const { ipcRenderer } = require('electron');
+                document.getElementById('btnMinimize').addEventListener('click', () => {
+                    ipcRenderer.send('window-minimize');
+                });
+                document.getElementById('btnMaximize').addEventListener('click', () => {
+                    ipcRenderer.send('window-maximize');
+                });
+                document.getElementById('btnClose').addEventListener('click', () => {
+                    ipcRenderer.send('window-close');
+                });
+            } catch (e) {
+                console.log('Not in Electron environment');
+            }
+        }
 
         // --- 数据与状态 ---
         const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6'];
