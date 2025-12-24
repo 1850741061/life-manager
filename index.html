@@ -2514,6 +2514,43 @@
         let currentUser = null;
         let accessToken = null;
 
+        // 登录时的智能同步：检查云端数据，有则下载，无则上传本地数据
+        async function syncDataOnLogin() {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data[0]) {
+                        // 云端有数据，下载并合并
+                        console.log('从云端下载数据');
+                        state.todos = data[0].todos || [];
+                        state.transactions = data[0].transactions || [];
+                        state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
+                        save();
+                        renderAll();
+                    } else {
+                        // 云端无数据，上传本地数据
+                        console.log('云端无数据，上传本地数据');
+                        await syncToCloud();
+                    }
+                } else {
+                    // 请求失败，尝试上传本地数据
+                    console.log('检查云端数据失败，上传本地数据');
+                    await syncToCloud();
+                }
+            } catch (e) {
+                console.error('登录同步异常:', e);
+                // 出错时上传本地数据作为后备
+                await syncToCloud();
+            }
+        }
+
         // 登录
         async function signIn(email, password) {
             try {
@@ -2540,7 +2577,9 @@
                 accessToken = data.access_token;
                 localStorage.setItem('user_id', data.user.id);
                 localStorage.setItem('access_token', data.access_token);
-                await syncFromCloud();
+
+                // 先检查云端是否有数据，有则下载，无则上传本地数据
+                await syncDataOnLogin();
                 return { success: true };
             } catch (e) {
                 console.error('登录异常:', e);
@@ -2655,7 +2694,7 @@
             if (savedUserId && savedToken) {
                 currentUser = { id: savedUserId };
                 accessToken = savedToken;
-                syncFromCloud();
+                syncDataOnLogin();
             }
         }
         checkAuthStatus();
