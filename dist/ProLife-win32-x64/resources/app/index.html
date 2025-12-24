@@ -1,0 +1,2860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Life | 待办 & 记账</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#6c5ce7">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ProLife">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            /* 核心配色：波普风格 */
+            --primary-color: #383838;
+            --accent-color: #6fc2ff;
+            --header-bg: #ffde00;
+            --success-color: #4ade80;
+            --danger-color: #ff6b6b;
+            --warning-color: #fbbf24;
+            --bg-color: #fdfdfd;
+            --card-bg: #ffffff;
+            --text-main: #383838;
+            --text-secondary: #666666;
+            --border-color: #383838;
+            
+            /* 视觉特效：硬朗投影与边框 */
+            --shadow: 6px 6px 0 0 #383838;
+            --radius: 2px;
+            --transition: all 0.2s cubic-bezier(0,0,0.2,1);
+            
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body.dark-mode {
+            --primary-color: #f8f8f7;
+            --bg-color: #1a1a1a;
+            --card-bg: #2a2a2a;
+            --text-main: #f8f8f7;
+            --text-secondary: #a1a1a1;
+            --border-color: #f8f8f7;
+            --shadow: 6px 6px 0 0 #f8f8f7;
+            --header-bg: #b3b300;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height:1.5;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 自定义标题栏 --- */
+        .custom-titlebar {
+            height: 40px;
+            background: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid var(--border-color);
+            flex-shrink: 0;
+            -webkit-app-region: drag;
+            user-select: none;
+        }
+
+        body.dark-mode .custom-titlebar {
+            background: var(--border-color);
+        }
+
+        .titlebar-left {
+            display: flex;
+            align-items: center;
+            padding-left: 15px;
+            gap: 10px;
+        }
+
+        .titlebar-icon {
+            width: 20px;
+            height: 20px;
+            background: var(--accent-color);
+            border: 2px solid var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .titlebar-title {
+            color: var(--bg-color);
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        body.dark-mode .titlebar-title {
+            color: var(--bg-color);
+        }
+
+        .titlebar-controls {
+            display: flex;
+            height: 100%;
+            -webkit-app-region: no-drag;
+        }
+
+        .titlebar-btn {
+            width: 46px;
+            height: 100%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            color: var(--bg-color);
+            font-size: 0.9rem;
+        }
+
+        body.dark-mode .titlebar-btn {
+            color: var(--bg-color);
+        }
+
+        .titlebar-btn:hover {
+            background: var(--accent-color);
+        }
+
+        .titlebar-btn.close:hover {
+            background: var(--danger-color);
+        }
+
+        .titlebar-btn i {
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 100%;
+            background: var(--card-bg);
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: calc(100vh - 40px);
+        }
+
+        /* --- 头部区域 --- */
+        header {
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--border-color);
+            background: var(--header-bg);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-controls { display: flex; gap: 20px; align-items: center; }
+
+        /* --- 视图切换 Tabs --- */
+        .view-tabs {
+            display: flex;
+            background: var(--card-bg);
+            padding: 4px;
+            border-radius: var(--radius);
+            border: 3px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .view-tab {
+            border: none;
+            background: none;
+            padding: 8px 18px;
+            border-radius: var(--radius);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 700;
+            transition: var(--transition);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .view-tab.active {
+            background: var(--accent-color);
+            color: var(--text-main);
+            box-shadow: 2px 2px 0 0 rgba(0,0,0,0.2);
+        }
+
+        .view-tab:hover:not(.active) { background: var(--bg-color); }
+
+        /* --- 按钮通用样式 --- */
+        .btn-icon, .btn {
+            border: 3px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-main);
+            cursor: pointer;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-family: var(--font-family);
+            transition: var(--transition);
+        }
+
+        .btn-icon {
+            width: 40px; height: 40px;
+            border-radius: var(--radius);
+            font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .btn { padding: 10px 20px; border-radius: var(--radius); font-size: 0.9rem; }
+        
+        .btn-icon:hover, .btn:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 4px 4px 0 0 var(--border-color);
+            background: var(--accent-color);
+        }
+        
+        .btn:active { transform: translate(0, 0); box-shadow: none; }
+
+        .btn-primary {
+            background: var(--accent-color);
+            box-shadow: 4px 4px 0 0 var(--border-color);
+        }
+
+        /* --- 主布局 --- */
+        .main-layout { display: flex; flex: 1; overflow: hidden; }
+
+        /* --- 侧边栏 --- */
+        .sidebar {
+            width: 280px;
+            background: var(--card-bg);
+            border-right: 3px solid var(--border-color);
+            padding: 25px;
+            overflow-y: auto;
+            display: none;
+        }
+        .main-layout.todo-mode .sidebar { display: block; }
+
+        .sidebar-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--border-color);
+            letter-spacing: 1px;
+        }
+
+        .group-list { list-style: none; }
+
+        .group-item {
+            padding: 12px 16px;
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            cursor: pointer;
+            margin-bottom: 12px;
+            font-weight: 600;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: var(--transition);
+            background: var(--card-bg);
+            position: relative;
+        }
+
+        .group-item:hover {
+            background: var(--bg-color);
+            transform: translate(-2px, -2px);
+            box-shadow: 3px 3px 0 0 var(--border-color);
+        }
+
+        .group-item.active {
+            background: var(--accent-color);
+            box-shadow: 3px 3px 0 0 var(--border-color);
+        }
+
+        .group-name { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
+        .group-name span {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        
+        .group-color {
+            width: 16px; height: 16px;
+            border-radius: var(--radius);
+            border: 2px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .add-group-btn {
+            width: 100%;
+            padding: 12px;
+            border: 3px dashed var(--border-color);
+            background: none;
+            color: var(--text-main);
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: var(--transition);
+            margin-top: 15px;
+        }
+        .add-group-btn:hover {
+            border-style: solid;
+            background: var(--accent-color);
+            box-shadow: 3px 3px 0 0 var(--border-color);
+        }
+
+        .group-actions {
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: var(--transition);
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .group-item:hover .group-actions,
+        .group-item.active .group-actions { opacity: 1; }
+
+        .group-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: var(--radius);
+            font-size: 0.95rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+        }
+
+        .group-action-btn:hover { opacity: 1; background: var(--bg-color); }
+
+        /* --- 内容区域 --- */
+        .content {
+            flex: 1;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .content-view {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            padding: 30px;
+            overflow-y: auto;
+            background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-color: var(--bg-color);
+        }
+        .content-view.active { display: flex; }
+
+        /* --- 统计栏 --- */
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: var(--shadow);
+        }
+        
+        .stat-item { text-align: center; }
+        
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--primary-color);
+            line-height: 1;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 800;
+            margin-top: 5px;
+            letter-spacing: 1px;
+        }
+
+        /* --- 输入控件区域 --- */
+        .input-section {
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 4px 4px 0 0 var(--border-color);
+        }
+
+        /* 核心：统一的输入控件 Pop 风格 (大格子) */
+        input, select, textarea {
+            width: 100%;
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-weight: 700;
+            font-size: 1.05rem;
+            transition: var(--transition);
+            cursor: pointer;
+            padding: 18px; /* 增加内边距，让“方格”变大变方 */
+        }
+
+        /* 针对 Select 的特殊处理：完整倒V箭头 */
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            
+            /* 标准倒V箭头，stroke-width=3 保证清晰 */
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%20/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 20px; /* 尺寸适中，看清尖角 */
+            
+            padding-right: 50px; /* 为箭头留出空间 */
+            color: var(--text-main); /* 颜色定义，SVG 读取 currentColor */
+        }
+
+        input:hover, select:hover, textarea:hover {
+            background: var(--bg-color);
+            border-color: var(--accent-color);
+            box-shadow: 4px 4px 0 0 var(--border-color);
+            transform: translate(-2px, -2px);
+        }
+
+        input:focus, select:focus, textarea:focus {
+            background: var(--bg-color);
+            border-color: var(--accent-color);
+            box-shadow: 4px 4px 0 0 var(--accent-color);
+            transform: translate(-2px, -2px);
+            outline: none;
+        }
+
+        .input-group { display: flex; gap: 15px; margin-bottom: 15px; }
+
+        /* 待办特定 */
+        #todoDate { padding: 18px; font-size: 1rem; }
+        #prioritySelect { padding: 18px; font-size: 1.1rem; }
+        #groupSelect { padding: 20px; font-size: 1.1rem; margin-bottom: 15px; }
+        #editGroupSelect { padding: 18px; font-size: 1.05rem; }
+
+        /* --- 自定义下拉组件 (Pop风格) --- */
+        .custom-select {
+            position: relative;
+            width: 100%;
+        }
+
+        .custom-select-trigger {
+            width: 100%;
+            padding: 18px 45px 18px 18px;
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            /* 自定义倒V箭头 */
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%20/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 20px;
+        }
+
+        .custom-select-trigger:hover {
+            background: var(--bg-color);
+            border-color: var(--accent-color);
+            box-shadow: 4px 4px 0 0 var(--border-color);
+            transform: translate(-2px, -2px);
+        }
+
+        .custom-select.open .custom-select-trigger {
+            border-color: var(--accent-color);
+            box-shadow: 4px 4px 0 0 var(--accent-color);
+        }
+
+        .custom-select-options {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            box-shadow: 6px 6px 0 0 var(--border-color);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+
+        .custom-select.open .custom-select-options {
+            display: block;
+            animation: slideDown 0.15s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .custom-select-option {
+            padding: 15px 18px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .custom-select-option:last-child {
+            border-bottom: none;
+        }
+
+        .custom-select-option:hover {
+            background: var(--accent-color);
+            transform: translateX(-3px);
+        }
+
+        .custom-select-option.selected {
+            background: var(--bg-color);
+        }
+
+        .custom-select-option.selected::after {
+            content: '\f00c';
+            font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Free Solid';
+            font-weight: 900;
+        }
+
+        /* 优先级选项颜色 */
+        .priority-option-low { color: var(--success-color); }
+        .priority-option-medium { color: var(--warning-color); }
+        .priority-option-high { color: var(--danger-color); }
+
+        /* 隐藏原生select */
+        .native-select-hidden {
+            display: none;
+        }
+
+        /* --- 日期选择器 --- */
+        input[type="date"] {
+            position: relative;
+            z-index: 1;
+            padding: 18px;
+        }
+
+        /* 针对Webkit浏览器的日期选择器 */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            background-color: transparent;
+            color: var(--text-main);
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+            /* 移除背景色，只改变透明度 */
+        }
+
+        /* 确保日期输入框文字颜色正确 */
+        input[type="date"]::-webkit-datetime-edit {
+            display: block;
+            padding: 0;
+        }
+
+        input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+            display: block;
+        }
+
+        input[type="date"]::-webkit-datetime-edit-text {
+            color: var(--text-main);
+            padding: 0 2px;
+        }
+
+        input[type="date"]::-webkit-datetime-edit-month-field,
+        input[type="date"]::-webkit-datetime-edit-day-field,
+        input[type="date"]::-webkit-datetime-edit-year-field {
+            color: var(--text-main);
+        }
+
+        .todo-list { list-style: none; display: flex; flex-direction: column; gap: 15px; padding-bottom: 50px; }
+
+        .todo-item {
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+            transition: var(--transition);
+        }
+
+        .todo-item:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 5px 5px 0 0 var(--border-color);
+        }
+
+        .todo-item::before {
+            content: '';
+            position: absolute; left: 0; top: 10px; bottom: 10px;
+            width: 8px;
+            background: var(--group-color, var(--accent-color));
+            border-radius: 0 var(--radius) var(--radius) 0;
+            border-right: 2px solid var(--border-color);
+        }
+
+        .todo-main { display: flex; align-items: flex-start; gap: 15px; padding-left: 12px; }
+
+        .todo-text {
+            font-size: 1.1rem; font-weight: 700; word-break: break-all;
+            text-transform: uppercase;
+        }
+
+        .todo-attributes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; }
+        .attribute-badge {
+            background: var(--bg-color);
+            border: 2px solid var(--border-color);
+            padding: 4px 8px;
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        
+        .priority-high { color: var(--danger-color); border-color: var(--danger-color); }
+        .priority-medium { color: var(--warning-color); border-color: var(--warning-color); }
+        .priority-low { color: var(--success-color); border-color: var(--success-color); }
+
+        .todo-notes {
+            background: var(--bg-color);
+            border-left: 4px solid var(--group-color, var(--accent-color));
+            padding: 10px 15px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            border-top-right-radius: var(--radius);
+            border-bottom-right-radius: var(--radius);
+        }
+
+        /* 时间段样式 */
+        .todo-time-range {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-color);
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            border: 2px solid var(--border-color);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            text-transform: uppercase;
+        }
+        .todo-time-range i {
+            font-size: 0.8rem;
+        }
+
+        /* 子任务样式 */
+        .subtasks-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 2px solid var(--border-color);
+        }
+        .subtasks-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .subtasks-header span {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+        .add-subtask-btn {
+            background: none;
+            border: 2px dashed var(--border-color);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: var(--transition);
+        }
+        .add-subtask-btn:hover {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: var(--text-main);
+        }
+        .subtask-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--bg-color);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+        .subtask-item:hover {
+            border-color: var(--accent-color);
+        }
+        .subtask-item.completed .subtask-text {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+        .subtask-text {
+            flex: 1;
+            font-weight: 600;
+        }
+        .subtask-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .subtask-delete {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            opacity: 0;
+            transition: var(--transition);
+        }
+        .subtask-item:hover .subtask-delete {
+            opacity: 1;
+        }
+        .subtask-delete:hover {
+            color: var(--danger-color);
+        }
+        /* 添加子任务输入框 */
+        .add-subtask-input {
+            display: none;
+            margin-top: 8px;
+        }
+        .add-subtask-input.active {
+            display: flex;
+            gap: 8px;
+        }
+        .add-subtask-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .add-subtask-input button {
+            background: var(--accent-color);
+            border: 2px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .todo-actions {
+            display: flex; justify-content: flex-end; gap: 10px;
+            opacity: 0; transition: var(--transition);
+        }
+        .todo-item:hover .todo-actions { opacity: 1; }
+
+        /* --- 日历样式 --- */
+        .calendar-controls {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; background: var(--card-bg);
+            padding: 15px; border: 3px solid var(--border-color); border-radius: var(--radius);
+        }
+        .calendar-grid {
+            display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;
+        }
+        .calendar-day {
+            background: var(--card-bg); border: 3px solid var(--border-color);
+            border-radius: var(--radius); min-height: 100px; padding: 10px;
+            cursor: pointer; transition: var(--transition);
+        }
+        .calendar-day:hover { background: var(--accent-color); border-color: var(--text-main); transform: translate(-2px, -2px); }
+        .calendar-day.selected {
+            background: var(--accent-color);
+            border-color: var(--text-main);
+            box-shadow: 4px 4px 0 0 var(--border-color);
+            z-index: 2;
+        }
+        .day-number { font-weight: 900; font-size: 1.2rem; margin-bottom: 8px; }
+        .day-task-dot {
+            width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--border-color);
+            display: inline-block; margin-right: 4px; margin-bottom: 4px;
+        }
+        
+        .calendar-detail-view {
+            margin-top: 30px;
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 25px;
+            box-shadow: 5px 5px 0 0 var(--border-color);
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 记账样式 (优化布局与颜色) --- */
+        .finance-cards {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .finance-card {
+            padding: 25px;
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            background: var(--header-bg);
+            box-shadow: 5px 5px 0 0 var(--border-color);
+            color: var(--text-main);
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .finance-card h3 { font-size: 0.8rem; text-transform: uppercase; font-weight: 800; margin-bottom: 10px; }
+        .finance-card .amount { font-size: 2.5rem; font-weight: 900; line-height: 1; }
+        .finance-card.income { background: var(--success-color); }
+        .finance-card.expense { background: var(--danger-color); }
+
+        .finance-filter-bar {
+            display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--border-color);
+        }
+        .filter-chip {
+            border: 2px solid var(--border-color);
+            background: var(--card-bg);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .filter-chip.active {
+            background: var(--accent-color);
+            box-shadow: 2px 2px 0 0 var(--border-color);
+        }
+
+        .transaction-item {
+            background: var(--card-bg); border: 3px solid var(--border-color);
+            border-radius: var(--radius); padding: 15px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-left-width: 10px; /* 保持条纹宽度 */
+        }
+        
+        /* 列表中的分类颜色徽章 */
+        .cat-badge {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: var(--radius);
+            background: #ccc; /* Fallback */
+            display: inline-block;
+            margin-right: 8px;
+            border: 1px solid var(--text-main);
+        }
+
+        .t-amount { font-weight: 900; font-size: 1.2rem; }
+        .t-amount.income { color: var(--success-color); }
+        .t-amount.expense { color: var(--danger-color); }
+
+        /* --- 模态框 --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 1000;
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: var(--transition);
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal {
+            background: var(--card-bg); padding: 30px;
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            box-shadow: 10px 10px 0 0 var(--border-color);
+            width: 90%; max-width: 450px;
+            transform: scale(0.9); transition: var(--transition);
+        }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal h2 { text-transform: uppercase; font-weight: 800; margin-bottom: 20px; font-size: 1.5rem; }
+        
+        /* 模态框内的 Select 保持完整倒V箭头 */
+        .modal select {
+            width: 100%;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-weight: 700;
+            font-size: 1.05rem;
+            padding: 18px 50px 18px 15px;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%20/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+            color: var(--text-main);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .modal select:hover, .modal select:focus {
+            background: var(--card-bg);
+            border-color: var(--accent-color);
+            box-shadow: 2px 2px 0 0 var(--border-color);
+            transform: none;
+        }
+
+        .color-picker { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .color-option {
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            border: 3px solid var(--border-color); transition: var(--transition);
+        }
+        .color-option.selected { transform: scale(1.2); box-shadow: 3px 3px 0 0 var(--border-color); }
+
+        /* --- 复选框 Pop 风格 --- */
+        .checkbox { position: relative; width: 24px; height: 24px; cursor: pointer; margin-top: 4px; }
+        .checkbox input { opacity: 0; cursor: pointer; position: absolute; }
+        .checkmark {
+            position: absolute; top: 0; left: 0; height: 24px; width: 24px;
+            background: var(--bg-color); border: 3px solid var(--border-color); border-radius: var(--radius);
+        }
+        .checkbox input:checked ~ .checkmark { background: var(--accent-color); border-color: var(--text-main); }
+        .checkmark:after {
+            content: ""; position: absolute; display: none; left: 6px; top: 2px;
+            width: 6px; height: 12px; border: solid var(--text-main); border-width: 0 3px 3px 0; transform: rotate(45deg);
+        }
+        .checkbox input:checked ~ .checkmark:after { display: block; }
+        .todo-item.completed .todo-text { text-decoration: line-through; opacity: 0.5; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .main-layout.todo-mode { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 3px solid var(--border-color); max-height: 200px; }
+            .container { height: 100vh; border-radius: 0; border: none; }
+            body { padding: 0; }
+            .todo-actions { opacity: 1; }
+            .stats-bar { padding: 15px 10px; }
+            .stat-value { font-size: 1.5rem; }
+            
+            .group-actions { opacity: 1 !important; } 
+            
+            .header-controls { gap: 10px; }
+            .view-tabs { margin-right: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 自定义标题栏 -->
+    <div class="custom-titlebar">
+        <div class="titlebar-left">
+            <div class="titlebar-icon"><i class="fas fa-layer-group"></i></div>
+            <div class="titlebar-title">Pro Life</div>
+        </div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn" id="btnMinimize" title="最小化">
+                <i class="fas fa-minus"></i>
+            </button>
+            <button class="titlebar-btn" id="btnMaximize" title="最大化">
+                <i class="fas fa-square"></i>
+            </button>
+            <button class="titlebar-btn close" id="btnClose" title="关闭">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-layer-group"></i> Pro Life</h1>
+            <div class="header-controls">
+                <div class="view-tabs">
+                    <button class="view-tab active" data-view="todo">待办</button>
+                    <button class="view-tab" data-view="calendar">日历</button>
+                    <button class="view-tab" data-view="finance">记账</button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-icon" id="cloudSyncBtn" title="云端同步"><i class="fas fa-cloud"></i></button>
+                    <button class="btn-icon" id="importExportBtn" title="导入/导出"><i class="fas fa-exchange-alt"></i></button>
+                    <button class="btn-icon" id="themeToggle"><i class="fas fa-moon"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-layout todo-mode" id="mainLayout">
+            <!-- 侧边栏 -->
+            <div class="sidebar">
+                <div class="sidebar-title">任务分组</div>
+                <ul class="group-list" id="groupList"></ul>
+                <button class="add-group-btn" id="addGroupBtn"><i class="fas fa-plus"></i> 新建分组</button>
+            </div>
+
+            <div class="content">
+                <!-- 待办视图 -->
+                <div class="content-view active" id="todoView">
+                    <!-- 统计面板 -->
+                    <div class="stats-bar">
+                        <div class="stat-item">
+                            <div class="stat-value" id="statTotal">0</div>
+                            <div class="stat-label">总任务</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="statActive">0</div>
+                            <div class="stat-label">进行中</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="statRate">0%</div>
+                            <div class="stat-label">完成率</div>
+                        </div>
+                    </div>
+
+                    <div class="input-section">
+                        <div class="input-group">
+                            <input type="text" id="todoInput" placeholder="添加一个新的任务...">
+                            <button class="btn btn-primary" id="addBtn"><i class="fas fa-plus"></i> 添加</button>
+                        </div>
+                        <!-- 日期和优先级 -->
+                        <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                            <input type="date" id="todoDate" title="任务日期" style="flex: 1;">
+                            <!-- 自定义优先级选择器 -->
+                            <div class="custom-select" id="prioritySelectCustom" style="flex: 1;">
+                                <div class="custom-select-trigger" data-value="medium">中优先级</div>
+                                <div class="custom-select-options">
+                                    <div class="custom-select-option priority-option-low" data-value="low">低优先级</div>
+                                    <div class="custom-select-option priority-option-medium selected" data-value="medium">中优先级</div>
+                                    <div class="custom-select-option priority-option-high" data-value="high">高优先级</div>
+                                </div>
+                                <select id="prioritySelect" class="native-select-hidden">
+                                    <option value="low">低优先级</option>
+                                    <option value="medium" selected>中优先级</option>
+                                    <option value="high">高优先级</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- 时间段选择 -->
+                        <div style="display: flex; gap: 15px; margin-bottom: 10px; align-items: center;">
+                            <span style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; white-space: nowrap;">时间段</span>
+                            <input type="time" id="todoStartTime" title="开始时间" style="flex: 1;">
+                            <span style="font-weight: 700; color: var(--text-secondary);">至</span>
+                            <input type="time" id="todoEndTime" title="结束时间" style="flex: 1;">
+                        </div>
+                        <!-- 分组选择器 - 自定义下拉 -->
+                        <div class="custom-select" id="groupSelectCustom">
+                            <div class="custom-select-trigger" data-value="default">选择分组</div>
+                            <div class="custom-select-options"></div>
+                            <select id="groupSelect" class="native-select-hidden"></select>
+                        </div>
+                        <textarea id="todoNotes" placeholder="备注（可选）" style="resize: vertical; min-height: 50px; margin-top: 15px;"></textarea>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+                        <div id="todoFilterBar" style="display: flex; gap: 5px;">
+                            <button class="btn" id="btnFilterAll" onclick="setFilter('all')">全部</button>
+                            <button class="btn" id="btnFilterActive" onclick="setFilter('active')">进行中</button>
+                            <button class="btn" id="btnFilterCompleted" onclick="setFilter('completed')">已完成</button>
+                        </div>
+                        <button class="btn" style="color:var(--danger-color); border-color:var(--danger-color);" onclick="clearCompleted()">清除</button>
+                    </div>
+
+                    <ul class="todo-list" id="todoList"></ul>
+                </div>
+
+                <!-- 日历视图 -->
+                <div class="content-view" id="calendarView">
+                    <div class="calendar-controls">
+                        <button class="btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+                        <h2 id="calendarTitle" style="font-weight: 900; text-transform: uppercase;"></h2>
+                        <button class="btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                    
+                    <div id="calendarDetailPanel" class="calendar-detail-view" style="display: none;">
+                        <h3 id="calendarDetailDate" style="font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">2023-10-01</h3>
+                        <ul id="calendarDetailList" style="list-style: none; display: flex; flex-direction: column; gap: 15px;"></ul>
+                    </div>
+                </div>
+
+                <!-- 记账视图 -->
+                <div class="content-view" id="financeView">
+                    <div class="finance-cards">
+                        <div class="finance-card">
+                            <h3>当前结余</h3>
+                            <div class="amount" id="totalBalance">¥0.00</div>
+                        </div>
+                        <div class="finance-card income">
+                            <h3>总收入</h3>
+                            <div class="amount" id="totalIncome">¥0.00</div>
+                        </div>
+                        <div class="finance-card expense">
+                            <h3>总支出</h3>
+                            <div class="amount" id="totalExpense">¥0.00</div>
+                        </div>
+                    </div>
+
+                    <div class="input-section">
+                        <h3 style="margin-bottom: 15px; font-weight: 800; text-transform: uppercase;">记一笔</h3>
+                        <!-- Row 1: Type | Date -->
+                        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                            <!-- 自定义类型选择器 -->
+                            <div class="custom-select" id="transTypeCustom" style="flex: 0 0 140px;">
+                                <div class="custom-select-trigger" data-value="expense">支出</div>
+                                <div class="custom-select-options">
+                                    <div class="custom-select-option" data-value="expense">支出</div>
+                                    <div class="custom-select-option" data-value="income">收入</div>
+                                </div>
+                                <select id="transType" class="native-select-hidden"><option value="expense">支出</option><option value="income">收入</option></select>
+                            </div>
+                            <input type="date" id="transDate" style="flex: 1;">
+                        </div>
+                        <!-- Row 2: 分类/名称 (独占一行，大格子) -->
+                        <div class="custom-select" id="transCategoryCustom" style="margin-bottom: 15px;">
+                            <div class="custom-select-trigger" data-value="">选择分类</div>
+                            <div class="custom-select-options"></div>
+                            <select id="transCategory" class="native-select-hidden"></select>
+                        </div>
+                        <!-- Row 3: 金额 | 备注 -->
+                        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                            <input type="number" id="transAmount" placeholder="金额">
+                            <input type="text" id="transNote" placeholder="备注 (可选)">
+                        </div>
+                        <button class="btn btn-primary" onclick="addTransaction()" style="width: 100%; justify-content: center; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-plus"></i> 添加记录
+                        </button>
+                    </div>
+
+                    <div id="financeFilterBar" class="finance-filter-bar"></div>
+
+                    <div id="transactionList" style="display: flex; flex-direction: column;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分组模态框 -->
+    <div class="modal-overlay" id="groupModal">
+        <div class="modal">
+            <h2 id="groupModalTitle">新建分组</h2>
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">名称</label>
+                <input type="text" id="groupNameInput">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">颜色标识 (可编辑)</label>
+                <div class="color-picker" id="groupColorPicker"></div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="closeModal('groupModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveGroup()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑任务模态框 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <h2>编辑任务</h2>
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">任务内容</label>
+                <input type="text" id="editInput">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">备注</label>
+                <textarea id="editNotes" style="min-height: 80px;" placeholder="备注"></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                 <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">任务日期</label>
+                    <input type="date" id="editTodoDate">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">优先级</label>
+                    <div class="custom-select" id="editPriorityCustom">
+                        <div class="custom-select-trigger" data-value="medium">中优先级</div>
+                        <div class="custom-select-options">
+                            <div class="custom-select-option priority-option-low" data-value="low">低优先级</div>
+                            <div class="custom-select-option priority-option-medium selected" data-value="medium">中优先级</div>
+                            <div class="custom-select-option priority-option-high" data-value="high">高优先级</div>
+                        </div>
+                        <select id="editPriority" class="native-select-hidden">
+                            <option value="low">低优先级</option>
+                            <option value="medium" selected>中优先级</option>
+                            <option value="high">高优先级</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <!-- 时间段编辑 -->
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">时间段（可选）</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="time" id="editStartTime" style="flex: 1;">
+                    <span style="font-weight: 700;">至</span>
+                    <input type="time" id="editEndTime" style="flex: 1;">
+                </div>
+            </div>
+            <div style="margin-bottom: 20px;">
+                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">分组</label>
+                <div class="custom-select" id="editGroupSelectCustom">
+                    <div class="custom-select-trigger" data-value="default">选择分组</div>
+                    <div class="custom-select-options"></div>
+                    <select id="editGroupSelect" class="native-select-hidden"></select>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="closeModal('editModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveEditTask()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务详情模态框 (日历点击查看) -->
+    <div class="modal-overlay" id="taskDetailModal">
+        <div class="modal" style="max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">任务详情</h2>
+                <button class="btn" onclick="closeModal('taskDetailModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div style="background: var(--bg-color); padding: 20px; border: 3px solid var(--border-color); border-radius: var(--radius); margin-bottom: 20px;">
+                <h3 id="detailTaskTitle" style="font-size: 1.3rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;"></h3>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <span id="detailTaskDate" class="attribute-badge"></span>
+                    <span id="detailTaskTime" class="attribute-badge" style="display: none;"></span>
+                    <span id="detailTaskPriority" class="attribute-badge"></span>
+                    <span id="detailTaskGroup" class="attribute-badge"></span>
+                </div>
+
+                <div id="detailTaskNotesSection" style="display: none;">
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">备注</label>
+                    <div id="detailTaskNotes" style="background: var(--card-bg); padding: 12px; border-left: 4px solid var(--accent-color); border-radius: var(--radius);"></div>
+                </div>
+
+                <div id="detailSubtasksSection" style="margin-top: 20px; display: none;">
+                    <label style="display:block; margin-bottom:12px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
+                        <i class="fas fa-tasks"></i> 子任务 <span id="detailSubtaskCount"></span>
+                    </label>
+                    <ul id="detailSubtaskList" class="subtask-list"></ul>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="closeModal('taskDetailModal')">关闭</button>
+                <button class="btn btn-primary" id="detailEditBtn"><i class="fas fa-edit"></i> 编辑</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑记账模态框 -->
+    <div class="modal-overlay" id="transModal">
+        <div class="modal">
+            <h2>编辑记录</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">类型</label>
+                    <div class="custom-select" id="editTransTypeCustom">
+                        <div class="custom-select-trigger" data-value="expense">支出</div>
+                        <div class="custom-select-options">
+                            <div class="custom-select-option" data-value="expense">支出</div>
+                            <div class="custom-select-option" data-value="income">收入</div>
+                        </div>
+                        <select id="editTransType" class="native-select-hidden"><option value="expense">支出</option><option value="income">收入</option></select>
+                    </div>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">日期</label>
+                    <input type="date" id="editTransDate">
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">分类/名称</label>
+                <div class="custom-select" id="editTransCategoryCustom">
+                    <div class="custom-select-trigger" data-value="">选择分类</div>
+                    <div class="custom-select-options"></div>
+                    <select id="editTransCategory" class="native-select-hidden"></select>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">金额</label>
+                    <input type="number" id="editTransAmount">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">备注</label>
+                    <textarea id="editTransNote" style="min-height: 80px; resize: vertical;" placeholder="备注..."></textarea>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="closeModal('transModal')">取消</button>
+                <button class="btn" style="background:var(--danger-color); color:white;" onclick="deleteEditTransaction()">删除</button>
+                <button class="btn btn-primary" onclick="saveEditTransaction()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录/注册模态框 -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal" style="max-width: 400px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;" id="authTitle">登录账号</h2>
+                <button class="btn" onclick="closeModal('authModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">邮箱</label>
+                <input type="email" id="authEmail" placeholder="your@email.com" style="width: 100%;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">密码</label>
+                <input type="password" id="authPassword" placeholder="至少6位字符" style="width: 100%;">
+            </div>
+
+            <div id="authError" style="margin-bottom: 15px; padding: 10px; background: var(--danger-color); color: white; border-radius: var(--radius); display: none;"></div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                    <input type="checkbox" id="authRemember" style="width:18px;height:18px;">
+                    <span style="font-weight:600;">启用云端同步</span>
+                </label>
+                <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px;">
+                    <i class="fas fa-info-circle"></i> 启用后数据将存储在云端，可在多设备间同步
+                </p>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="switchAuthMode()"><span id="authSwitchText">没有账号？去注册</span></button>
+                <button class="btn btn-primary" onclick="submitAuth()" id="authSubmitBtn">登录</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Electron 窗口控制 ---
+        const { ipcRenderer } = require('electron');
+
+        // 最小化
+        document.getElementById('btnMinimize').addEventListener('click', () => {
+            ipcRenderer.send('window-minimize');
+        });
+
+        // 最大化/还原
+        document.getElementById('btnMaximize').addEventListener('click', () => {
+            ipcRenderer.send('window-maximize');
+        });
+
+        // 关闭
+        document.getElementById('btnClose').addEventListener('click', () => {
+            ipcRenderer.send('window-close');
+        });
+
+        // --- 数据与状态 ---
+        const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6'];
+        const pMap = {low:'低', medium:'中', high:'高'};
+        
+        // 预定义记账分类（带颜色）
+        const financeCats = [
+            { name: '餐饮', color: '#ff9f43' }, // Orange
+            { name: '交通', color: '#3b82f6' }, // Blue
+            { name: '购物', color: '#ec4899' }, // Pink
+            { name: '娱乐', color: '#8b5cf6' }, // Purple
+            { name: '居住', color: '#10b981' }, // Green
+            { name: '医疗', color: '#ef4444' }, // Red
+            { name: '其他', color: '#6b7280' }  // Grey
+        ];
+        
+        let state = {
+            todos: JSON.parse(localStorage.getItem('todos')) || [],
+            groups: JSON.parse(localStorage.getItem('groups')) || [{ id: 'default', name: '默认', color: '#3b82f6' }],
+            transactions: JSON.parse(localStorage.getItem('transactions')) || [],
+            currentGroupId: 'all',
+            filter: 'all',
+            financeFilter: 'all',
+            view: 'todo',
+            editingId: null,
+            editingGroupId: null,
+            editingTransId: null,
+            selectedColorIndex: 3,
+            calendarDate: new Date(),
+            selectedDate: null
+        };
+
+        // --- 初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initColorPicker();
+            initFinanceCategorySelect();
+            initCustomSelects();
+            renderAll();
+            document.getElementById('transDate').valueAsDate = new Date();
+            document.getElementById('todoDate').valueAsDate = new Date();
+            updateTodoFilterUI();
+        });
+
+        // --- 自定义下拉组件初始化 ---
+        function initCustomSelects() {
+            document.querySelectorAll('.custom-select').forEach(select => {
+                const trigger = select.querySelector('.custom-select-trigger');
+                const options = select.querySelectorAll('.custom-select-option');
+                const nativeSelect = select.querySelector('select');
+
+                // 点击触发器打开/关闭下拉
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // 关闭其他打开的下拉
+                    document.querySelectorAll('.custom-select.open').forEach(s => {
+                        if (s !== select) s.classList.remove('open');
+                    });
+                    select.classList.toggle('open');
+                });
+
+                // 点击选项
+                options.forEach(option => {
+                    option.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const value = option.dataset.value;
+                        const text = option.textContent;
+
+                        // 更新触发器文本
+                        trigger.textContent = text;
+                        trigger.dataset.value = value;
+
+                        // 更新选中状态
+                        options.forEach(opt => opt.classList.remove('selected'));
+                        option.classList.add('selected');
+
+                        // 更新原生select的值
+                        nativeSelect.value = value;
+
+                        // 关闭下拉
+                        select.classList.remove('open');
+                    });
+                });
+
+                // 点击外部关闭
+                document.addEventListener('click', (e) => {
+                    if (!select.contains(e.target)) {
+                        select.classList.remove('open');
+                    }
+                });
+            });
+        }
+
+        // 获取自定义选择器的值
+        function getCustomSelectValue(customSelectId) {
+            const select = document.getElementById(customSelectId);
+            const trigger = select.querySelector('.custom-select-trigger');
+            return trigger.dataset.value;
+        }
+
+        // 设置自定义选择器的值
+        function setCustomSelectValue(customSelectId, value) {
+            const select = document.getElementById(customSelectId);
+            const trigger = select.querySelector('.custom-select-trigger');
+            const options = select.querySelectorAll('.custom-select-option');
+            const nativeSelect = select.querySelector('select');
+
+            // 找到对应的选项
+            options.forEach(option => {
+                if (option.dataset.value === value) {
+                    trigger.textContent = option.textContent;
+                    trigger.dataset.value = value;
+                    options.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    nativeSelect.value = value;
+                }
+            });
+        }
+
+        function initFinanceCategorySelect() {
+            // 主分类选择器
+            const s = document.getElementById('transCategory');
+            const sCustom = document.getElementById('transCategoryCustom');
+            const sOptions = sCustom.querySelector('.custom-select-options');
+            const sTrigger = sCustom.querySelector('.custom-select-trigger');
+            s.innerHTML = '';
+            sOptions.innerHTML = '';
+
+            financeCats.forEach((c, index) => {
+                // 原生select
+                const opt = document.createElement('option');
+                opt.value = c.name;
+                opt.innerText = c.name;
+                s.appendChild(opt);
+
+                // 自定义选项
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = c.name;
+                optionDiv.innerText = c.name;
+                if (index === 0) optionDiv.classList.add('selected');
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sTrigger.innerText = c.name;
+                    sTrigger.dataset.value = c.name;
+                    s.value = c.name;
+                    sOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    sCustom.classList.remove('open');
+                });
+                sOptions.appendChild(optionDiv);
+            });
+
+            // 设置默认值
+            if (financeCats.length > 0) {
+                sTrigger.innerText = financeCats[0].name;
+                sTrigger.dataset.value = financeCats[0].name;
+                s.value = financeCats[0].name;
+            }
+
+            // 编辑分类选择器
+            const es = document.getElementById('editTransCategory');
+            const esCustom = document.getElementById('editTransCategoryCustom');
+            const esOptions = esCustom.querySelector('.custom-select-options');
+            const esTrigger = esCustom.querySelector('.custom-select-trigger');
+            es.innerHTML = '';
+            esOptions.innerHTML = '';
+
+            financeCats.forEach((c, index) => {
+                const opt = document.createElement('option');
+                opt.value = c.name;
+                opt.innerText = c.name;
+                es.appendChild(opt);
+
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = c.name;
+                optionDiv.innerText = c.name;
+                if (index === 0) optionDiv.classList.add('selected');
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    esTrigger.innerText = c.name;
+                    esTrigger.dataset.value = c.name;
+                    es.value = c.name;
+                    esOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    esCustom.classList.remove('open');
+                });
+                esOptions.appendChild(optionDiv);
+            });
+
+            if (financeCats.length > 0) {
+                esTrigger.innerText = financeCats[0].name;
+                esTrigger.dataset.value = financeCats[0].name;
+                es.value = financeCats[0].name;
+            }
+        }
+
+        // --- 视图切换 ---
+        document.querySelectorAll('.view-tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
+
+        function switchView(view) {
+            state.view = view;
+            document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+            document.querySelectorAll('.content-view').forEach(v => v.classList.toggle('active', v.id === view + 'View'));
+            
+            const layout = document.getElementById('mainLayout');
+            layout.classList.toggle('todo-mode', view !== 'finance');
+            
+            if(view === 'calendar') renderCalendar();
+            if(view === 'finance') renderFinance();
+        }
+
+        // --- 分组管理 ---
+        function initColorPicker() {
+            const p = document.getElementById('groupColorPicker');
+            p.innerHTML = '';
+            colors.forEach((c, i) => {
+                const div = document.createElement('div');
+                div.className = `color-option ${state.selectedColorIndex === i ? 'selected' : ''}`;
+                div.style.background = c;
+                div.onclick = () => {
+                    state.selectedColorIndex = i;
+                    initColorPicker();
+                };
+                p.appendChild(div);
+            });
+        }
+
+        document.getElementById('addGroupBtn').onclick = () => {
+            state.editingGroupId = null;
+            document.getElementById('groupModalTitle').innerText = '新建分组';
+            document.getElementById('groupNameInput').value = '';
+            state.selectedColorIndex = Math.floor(Math.random() * colors.length);
+            initColorPicker();
+            openModal('groupModal');
+        };
+
+        window.openEditGroupModal = (id) => {
+            const g = state.groups.find(x => x.id === id);
+            if(!g) return;
+            state.editingGroupId = id;
+            document.getElementById('groupModalTitle').innerText = '编辑分组';
+            document.getElementById('groupNameInput').value = g.name;
+            state.selectedColorIndex = colors.indexOf(g.color);
+            initColorPicker();
+            openModal('groupModal');
+        };
+
+        window.saveGroup = () => {
+            const name = document.getElementById('groupNameInput').value.trim();
+            if(!name) return alert('名称不能为空');
+            const color = colors[state.selectedColorIndex];
+
+            if(state.editingGroupId) {
+                state.groups = state.groups.map(g => g.id === state.editingGroupId ? {...g, name, color} : g);
+                state.todos = state.todos.map(t => t.groupId === state.editingGroupId ? {...t, groupName: name, groupColor: color} : t);
+            } else {
+                state.groups.push({ id: 'g_'+Date.now(), name, color });
+            }
+            save();
+            closeModal('groupModal');
+            renderGroups();
+            renderTodos();
+        };
+
+        window.deleteGroup = (id) => {
+            if(!confirm('删除分组将删除所有任务，确定？')) return;
+            state.groups = state.groups.filter(g => g.id !== id);
+            state.todos = state.todos.filter(t => t.groupId !== id);
+            if(state.currentGroupId === id) state.currentGroupId = 'all';
+            save();
+            renderAll();
+        };
+
+        function renderGroups() {
+            const l = document.getElementById('groupList');
+            l.innerHTML = `<li class="group-item ${state.currentGroupId==='all'?'active':''}" onclick="selectGroup('all')">
+                <div class="group-name"><i class="fas fa-th-large"></i> 全部任务</div>
+            </li>`;
+            
+            state.groups.forEach(g => {
+                const li = document.createElement('li');
+                li.className = `group-item ${state.currentGroupId===g.id?'active':''}`;
+                li.innerHTML = `
+                    <div class="group-name"><div class="group-color" style="background:${g.color}"></div> <span>${g.name}</span></div>
+                    <div class="group-actions">
+                        <i class="fas fa-pen action-icon" onclick="event.stopPropagation();openEditGroupModal('${g.id}')"></i>
+                        <i class="fas fa-trash action-icon" onclick="event.stopPropagation();deleteGroup('${g.id}')" style="color:var(--danger-color)"></i>
+                    </div>
+                `;
+                li.onclick = () => selectGroup(g.id);
+                l.appendChild(li);
+            });
+            updateGroupSelects();
+        }
+
+        window.selectGroup = (id) => {
+            state.currentGroupId = id;
+            renderGroups();
+            renderTodos();
+
+            // 联动：自动切换添加任务的分组选择器
+            if (id !== 'all') {
+                setCustomSelectValue('groupSelectCustom', id);
+            }
+        };
+
+        // --- 待办逻辑 ---
+        document.getElementById('addBtn').onclick = addTodo;
+        document.getElementById('todoInput').onkeypress = e => { if(e.key==='Enter') addTodo(); };
+
+        function addTodo() {
+            const text = document.getElementById('todoInput').value.trim();
+            if(!text) return;
+
+            const dateInput = document.getElementById('todoDate').value;
+            const dateStr = dateInput ? dateInput : new Date().toISOString().split('T')[0];
+
+            const gId = getCustomSelectValue('groupSelectCustom');
+            const group = state.groups.find(g => g.id === gId) || state.groups[0];
+
+            const startTime = document.getElementById('todoStartTime').value;
+            const endTime = document.getElementById('todoEndTime').value;
+            const priority = getCustomSelectValue('prioritySelectCustom');
+
+            state.todos.unshift({
+                id: Date.now(),
+                text, notes: document.getElementById('todoNotes').value.trim(),
+                completed: false, priority: priority,
+                groupId: gId, groupName: group.name, groupColor: group.color,
+                date: dateStr,
+                startTime: startTime || null,
+                endTime: endTime || null,
+                subtasks: [],
+                createdAt: new Date().toISOString()
+            });
+
+            document.getElementById('todoInput').value = '';
+            document.getElementById('todoNotes').value = '';
+            document.getElementById('todoDate').valueAsDate = new Date();
+            document.getElementById('todoStartTime').value = '';
+            document.getElementById('todoEndTime').value = '';
+            save();
+            renderTodos();
+        }
+
+        function renderTodos() {
+            const l = document.getElementById('todoList');
+            l.innerHTML = '';
+
+            let list = state.todos;
+            if(state.currentGroupId !== 'all') list = list.filter(t => t.groupId === state.currentGroupId);
+            if(state.filter === 'active') list = list.filter(t => !t.completed);
+            if(state.filter === 'completed') list = list.filter(t => t.completed);
+
+            list.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            list.forEach(t => {
+                const li = document.createElement('li');
+                li.className = `todo-item ${t.completed?'completed':''}`;
+                li.style.setProperty('--group-color', t.groupColor);
+
+                const pLabel = pMap[t.priority] || '中';
+                const dateDisplay = t.date ? t.date.substring(5) : '无日期';
+
+                // 构建时间段HTML
+                let timeRangeHtml = '';
+                if (t.startTime || t.endTime) {
+                    timeRangeHtml = `<div class="todo-time-range"><i class="far fa-clock"></i> ${t.startTime || '--:--'} - ${t.endTime || '--:--'}</div>`;
+                }
+
+                // 构建子任务HTML
+                let subtasksHtml = '';
+                if (t.subtasks && t.subtasks.length > 0) {
+                    const completedSubtasks = t.subtasks.filter(st => st.completed).length;
+                    subtasksHtml = `
+                        <div class="subtasks-section">
+                            <div class="subtasks-header">
+                                <span><i class="fas fa-tasks"></i> 子任务 (${completedSubtasks}/${t.subtasks.length})</span>
+                                <button class="add-subtask-btn" onclick="toggleSubtaskInput(${t.id})"><i class="fas fa-plus"></i> 添加</button>
+                            </div>
+                            <ul class="subtask-list" id="subtask-list-${t.id}">
+                                ${t.subtasks.map(st => `
+                                    <li class="subtask-item ${st.completed ? 'completed' : ''}">
+                                        <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${t.id}, ${st.id})">
+                                        <span class="subtask-text">${escapeHtml(st.text)}</span>
+                                        <button class="subtask-delete" onclick="deleteSubtask(${t.id}, ${st.id})"><i class="fas fa-times"></i></button>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            <div class="add-subtask-input" id="subtask-input-${t.id}">
+                                <input type="text" placeholder="子任务内容..." id="subtask-text-${t.id}" onkeypress="if(event.key==='Enter') addSubtask(${t.id})">
+                                <button onclick="addSubtask(${t.id})"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    subtasksHtml = `
+                        <div class="subtasks-section">
+                            <div class="subtasks-header">
+                                <span><i class="fas fa-tasks"></i> 子任务</span>
+                                <button class="add-subtask-btn" onclick="toggleSubtaskInput(${t.id})"><i class="fas fa-plus"></i> 添加</button>
+                            </div>
+                            <ul class="subtask-list" id="subtask-list-${t.id}"></ul>
+                            <div class="add-subtask-input" id="subtask-input-${t.id}">
+                                <input type="text" placeholder="子任务内容..." id="subtask-text-${t.id}" onkeypress="if(event.key==='Enter') addSubtask(${t.id})">
+                                <button onclick="addSubtask(${t.id})"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                li.innerHTML = `
+                    <div class="todo-main">
+                        <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="toggleTodo(${t.id})"><span class="checkmark"></span></label>
+                        <div class="todo-content" style="flex:1">
+                            <div class="todo-text">${t.text}</div>
+                            <div class="todo-attributes">
+                                <span class="attribute-badge" style="color:var(--text-secondary); border-color:var(--border-color); background:var(--bg-color);"><i class="far fa-calendar"></i> ${dateDisplay}</span>
+                                ${timeRangeHtml ? `<span class="attribute-badge" style="color:var(--accent-color); border-color:var(--accent-color);"><i class="far fa-clock"></i> ${t.startTime || '--'} - ${t.endTime || '--'}</span>` : ''}
+                                <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
+                                <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${t.notes ? `<div class="todo-notes">${t.notes}</div>` : ''}
+                    ${subtasksHtml}
+                    <div class="todo-actions">
+                        <i class="fas fa-pen action-icon" onclick="openEditTask(${t.id})"></i>
+                        <i class="fas fa-trash action-icon" onclick="deleteTodo(${t.id})" style="color:var(--danger-color)"></i>
+                    </div>
+                `;
+                l.appendChild(li);
+            });
+            updateStats();
+            renderGroups();
+        }
+
+        window.setFilter = (type) => {
+            state.filter = type;
+            updateTodoFilterUI();
+            renderTodos();
+        };
+        
+        function updateTodoFilterUI() {
+            const allBtn = document.getElementById('btnFilterAll');
+            const activeBtn = document.getElementById('btnFilterActive');
+            const completedBtn = document.getElementById('btnFilterCompleted');
+
+            [allBtn, activeBtn, completedBtn].forEach(btn => {
+                btn.style.background = 'transparent'; 
+                btn.style.borderColor = 'transparent';
+            });
+
+            if(state.filter === 'all') allBtn.style.background = 'var(--accent-color)';
+            else if(state.filter === 'active') activeBtn.style.background = 'var(--accent-color)';
+            else if(state.filter === 'completed') completedBtn.style.background = 'var(--accent-color)';
+        }
+
+        window.toggleTodo = (id) => {
+            state.todos = state.todos.map(t => t.id===id ? {...t, completed:!t.completed} : t);
+            save(); renderTodos();
+            if(state.view === 'calendar' && state.selectedDate) renderCalendarDetail();
+        };
+
+        window.deleteTodo = (id) => {
+            if(!confirm('删除？')) return;
+            state.todos = state.todos.filter(t => t.id !== id);
+            save(); renderTodos();
+        };
+
+        window.openEditTask = (id) => {
+            const t = state.todos.find(x => x.id === id);
+            if(!t) return;
+            state.editingId = id;
+            document.getElementById('editInput').value = t.text;
+            document.getElementById('editNotes').value = t.notes || '';
+            document.getElementById('editTodoDate').value = t.date;
+            setCustomSelectValue('editPriorityCustom', t.priority);
+            document.getElementById('editGroupSelect').value = t.groupId;
+            document.getElementById('editStartTime').value = t.startTime || '';
+            document.getElementById('editEndTime').value = t.endTime || '';
+            openModal('editModal');
+        };
+
+        window.saveEditTask = () => {
+            if(!state.editingId) return;
+            const text = document.getElementById('editInput').value.trim();
+            if(!text) return;
+            const gId = getCustomSelectValue('editGroupSelectCustom');
+            const group = state.groups.find(g => g.id === gId);
+            const priority = getCustomSelectValue('editPriorityCustom');
+
+            state.todos = state.todos.map(t => t.id===state.editingId ? {
+                ...t, text, notes: document.getElementById('editNotes').value.trim(),
+                priority: priority,
+                groupId: gId,
+                groupName: group.name, groupColor: group.color,
+                date: document.getElementById('editTodoDate').value,
+                startTime: document.getElementById('editStartTime').value || null,
+                endTime: document.getElementById('editEndTime').value || null
+            } : t);
+            save();
+            closeModal('editModal');
+            renderTodos();
+        };
+
+        window.clearCompleted = () => {
+            if(!confirm('清除已完成？')) return;
+            state.todos = state.todos.filter(t => !t.completed);
+            save(); renderTodos();
+        };
+
+        // --- 子任务相关函数 ---
+        window.toggleSubtaskInput = (todoId) => {
+            const inputDiv = document.getElementById(`subtask-input-${todoId}`);
+            inputDiv.classList.toggle('active');
+            if (inputDiv.classList.contains('active')) {
+                document.getElementById(`subtask-text-${todoId}`).focus();
+            }
+        };
+
+        window.addSubtask = (todoId) => {
+            const input = document.getElementById(`subtask-text-${todoId}`);
+            const text = input.value.trim();
+            if (!text) return;
+
+            state.todos = state.todos.map(t => {
+                if (t.id === todoId) {
+                    const subtasks = t.subtasks || [];
+                    return {
+                        ...t,
+                        subtasks: [...subtasks, { id: Date.now(), text, completed: false }]
+                    };
+                }
+                return t;
+            });
+
+            save();
+            renderTodos();
+        };
+
+        window.toggleSubtask = (todoId, subtaskId) => {
+            state.todos = state.todos.map(t => {
+                if (t.id === todoId) {
+                    return {
+                        ...t,
+                        subtasks: t.subtasks.map(st =>
+                            st.id === subtaskId ? { ...st, completed: !st.completed } : st
+                        )
+                    };
+                }
+                return t;
+            });
+            save();
+            renderTodos();
+        };
+
+        window.deleteSubtask = (todoId, subtaskId) => {
+            if (!confirm('删除此子任务？')) return;
+            state.todos = state.todos.map(t => {
+                if (t.id === todoId) {
+                    return {
+                        ...t,
+                        subtasks: t.subtasks.filter(st => st.id !== subtaskId)
+                    };
+                }
+                return t;
+            });
+            save();
+            renderTodos();
+        };
+
+        function updateStats() {
+            let list = state.todos;
+            if(state.currentGroupId !== 'all') list = list.filter(t => t.groupId === state.currentGroupId);
+            const total = list.length;
+            const completed = list.filter(t => t.completed).length;
+            const active = total - completed;
+            const rate = total === 0 ? 0 : Math.round((completed/total)*100);
+
+            animateValue("statTotal", parseInt(document.getElementById("statTotal").innerText), total, 500);
+            animateValue("statActive", parseInt(document.getElementById("statActive").innerText), active, 500);
+            document.getElementById("statRate").innerText = rate + "%";
+        }
+
+        function updateGroupSelects() {
+            // 更新主分组选择器（添加任务）
+            const groupCustom = document.getElementById('groupSelectCustom');
+            const groupNative = document.getElementById('groupSelect');
+            const groupOptions = groupCustom.querySelector('.custom-select-options');
+            const groupTrigger = groupCustom.querySelector('.custom-select-trigger');
+            const currentGroupValue = groupTrigger.dataset.value;
+
+            groupOptions.innerHTML = '';
+            groupNative.innerHTML = '';
+
+            state.groups.forEach(g => {
+                // 更新原生select
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.innerText = g.name;
+                groupNative.appendChild(opt);
+
+                // 更新自定义选项
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = g.id;
+                optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    groupTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                    groupTrigger.dataset.value = g.id;
+                    groupNative.value = g.id;
+                    groupOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    groupCustom.classList.remove('open');
+                });
+                groupOptions.appendChild(optionDiv);
+            });
+
+            // 恢复选中状态
+            if(state.groups.find(g => g.id === currentGroupValue)) {
+                setCustomSelectValue('groupSelectCustom', currentGroupValue);
+            } else if (state.groups.length > 0) {
+                setCustomSelectValue('groupSelectCustom', state.groups[0].id);
+            }
+
+            // 更新编辑模态框分组选择器
+            const editGroupCustom = document.getElementById('editGroupSelectCustom');
+            const editGroupNative = document.getElementById('editGroupSelect');
+            const editGroupOptions = editGroupCustom.querySelector('.custom-select-options');
+            const editGroupTrigger = editGroupCustom.querySelector('.custom-select-trigger');
+
+            editGroupOptions.innerHTML = '';
+            editGroupNative.innerHTML = '';
+
+            state.groups.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.innerText = g.name;
+                editGroupNative.appendChild(opt);
+
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = g.id;
+                optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    editGroupTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                    editGroupTrigger.dataset.value = g.id;
+                    editGroupNative.value = g.id;
+                    editGroupOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    editGroupCustom.classList.remove('open');
+                });
+                editGroupOptions.appendChild(optionDiv);
+            });
+
+            // 重新初始化这两个选择器的点击事件
+            initCustomSelect();
+        }
+
+        // 初始化单个自定义选择器
+        function initCustomSelect(customSelectId) {
+            const select = document.getElementById(customSelectId);
+            if (!select) return;
+
+            const trigger = select.querySelector('.custom-select-trigger');
+            const options = select.querySelectorAll('.custom-select-option');
+
+            // 移除旧的监听器（通过克隆重建）
+            const newTrigger = trigger.cloneNode(true);
+            trigger.parentNode.replaceChild(newTrigger, trigger);
+
+            // 重新获取引用
+            const updatedTrigger = select.querySelector('.custom-select-trigger');
+            const updatedOptions = select.querySelectorAll('.custom-select-option');
+
+            // 点击触发器打开/关闭下拉
+            updatedTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.custom-select.open').forEach(s => {
+                    if (s !== select) s.classList.remove('open');
+                });
+                select.classList.toggle('open');
+            });
+
+            // 点击选项
+            updatedOptions.forEach(option => {
+                const newOption = option.cloneNode(true);
+                option.parentNode.replaceChild(newOption, option);
+            });
+
+            // 重新获取选项并添加事件
+            const finalOptions = select.querySelectorAll('.custom-select-option');
+            finalOptions.forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const value = option.dataset.value;
+                    const htmlContent = option.innerHTML;
+
+                    // 更新触发器HTML
+                    updatedTrigger.innerHTML = htmlContent;
+                    updatedTrigger.dataset.value = value;
+
+                    // 更新选中状态
+                    finalOptions.forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+
+                    // 关闭下拉
+                    select.classList.remove('open');
+                });
+            });
+        }
+
+        // --- 日历 ---
+        function renderCalendar() {
+            const y = state.calendarDate.getFullYear();
+            const m = state.calendarDate.getMonth();
+            document.getElementById('calendarTitle').innerText = `${y}年 ${m+1}月`;
+            const g = document.getElementById('calendarGrid');
+            g.innerHTML = '';
+            
+            const fd = new Date(y,m,1).getDay();
+            const dim = new Date(y,m+1,0).getDate();
+            
+            const weeks = ['日','一','二','三','四','五','六'];
+            weeks.forEach(w => {
+                const d = document.createElement('div');
+                d.style.textAlign='center'; d.style.fontWeight='800'; d.style.padding='10px'; d.style.textTransform='uppercase';
+                d.innerText = w;
+                g.appendChild(d);
+            });
+            
+            for(let i=0;i<fd;i++) g.appendChild(document.createElement('div'));
+            for(let i=1;i<=dim;i++) {
+                const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const tasks = state.todos.filter(t => t.date === dStr);
+                const div = document.createElement('div');
+                
+                const isSelected = state.selectedDate === dStr;
+                div.className = `calendar-day ${isSelected ? 'selected' : ''}`;
+                div.innerHTML = `<div class="day-number">${i}</div>` + 
+                    tasks.slice(0,5).map(t => `<div class="day-task-dot" style="background:${t.groupColor}"></div>`).join('');
+                div.onclick = () => selectCalendarDay(dStr);
+                g.appendChild(div);
+            }
+        }
+
+        window.changeMonth = (d) => { 
+            state.calendarDate.setMonth(state.calendarDate.getMonth()+d); 
+            renderCalendar(); 
+            if(state.selectedDate) {
+                const sY = parseInt(state.selectedDate.split('-')[0]);
+                const sM = parseInt(state.selectedDate.split('-')[1]) - 1;
+                if(sY === state.calendarDate.getFullYear() && sM === state.calendarDate.getMonth()) {
+                    renderCalendarDetail();
+                } else {
+                    state.selectedDate = null;
+                    document.getElementById('calendarDetailPanel').style.display = 'none';
+                }
+            }
+        };
+
+        window.selectCalendarDay = (dateStr) => {
+            if(state.selectedDate === dateStr) {
+                state.selectedDate = null;
+                document.getElementById('calendarDetailPanel').style.display = 'none';
+            } else {
+                state.selectedDate = dateStr;
+                document.getElementById('calendarDetailPanel').style.display = 'block';
+                renderCalendarDetail();
+            }
+            renderCalendar();
+        };
+
+        function renderCalendarDetail() {
+            if(!state.selectedDate) return;
+            const [y, m, d] = state.selectedDate.split('-');
+            document.getElementById('calendarDetailDate').innerText = `${y}年${m}月${d}日`;
+
+            const l = document.getElementById('calendarDetailList');
+            l.innerHTML = '';
+
+            const tasks = state.todos.filter(t => t.date === state.selectedDate);
+
+            if(tasks.length === 0) {
+                l.innerHTML = `<li style="text-align:center; color:var(--text-secondary); padding:20px;">暂无任务</li>`;
+            } else {
+                tasks.forEach(t => {
+                    const li = document.createElement('li');
+                    li.className = `todo-item ${t.completed?'completed':''}`;
+                    li.style.setProperty('--group-color', t.groupColor);
+                    li.style.cursor = 'pointer';
+                    const pLabel = pMap[t.priority] || '中';
+
+                    // 构建时间显示
+                    let timeDisplay = '';
+                    if (t.startTime || t.endTime) {
+                        timeDisplay = `<span class="attribute-badge" style="color:var(--accent-color); border-color:var(--accent-color);"><i class="far fa-clock"></i> ${t.startTime || '--'} - ${t.endTime || '--'}</span>`;
+                    }
+
+                    // 子任务进度
+                    let subtaskProgress = '';
+                    if (t.subtasks && t.subtasks.length > 0) {
+                        const completed = t.subtasks.filter(st => st.completed).length;
+                        subtaskProgress = `<span class="attribute-badge" style="color:var(--text-secondary);"><i class="fas fa-tasks"></i> ${completed}/${t.subtasks.length}</span>`;
+                    }
+
+                    li.innerHTML = `
+                        <div class="todo-main">
+                            <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="event.stopPropagation(); toggleTodo(${t.id})"><span class="checkmark"></span></label>
+                            <div class="todo-content" style="flex:1">
+                                <div class="todo-text">${t.text}</div>
+                                <div class="todo-attributes">
+                                    ${timeDisplay}
+                                    <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
+                                    <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
+                                    ${subtaskProgress}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    li.onclick = (e) => {
+                        if (!e.target.classList.contains('checkbox') && !e.target.classList.contains('checkmark')) {
+                            openTaskDetailModal(t.id);
+                        }
+                    };
+                    l.appendChild(li);
+                });
+            }
+        }
+
+        // --- 任务详情模态框 ---
+        window.openTaskDetailModal = (taskId) => {
+            const t = state.todos.find(x => x.id === taskId);
+            if (!t) return;
+
+            // 设置标题
+            document.getElementById('detailTaskTitle').innerText = t.text;
+
+            // 设置属性徽章
+            document.getElementById('detailTaskDate').innerHTML = `<i class="far fa-calendar"></i> ${t.date}`;
+            document.getElementById('detailTaskDate').style.setProperty('--group-color', t.groupColor);
+
+            // 时间段
+            if (t.startTime || t.endTime) {
+                document.getElementById('detailTaskTime').style.display = 'inline-block';
+                document.getElementById('detailTaskTime').innerHTML = `<i class="far fa-clock"></i> ${t.startTime || '--'} - ${t.endTime || '--'}`;
+                document.getElementById('detailTaskTime').style.color = 'var(--accent-color)';
+                document.getElementById('detailTaskTime').style.borderColor = 'var(--accent-color)';
+            } else {
+                document.getElementById('detailTaskTime').style.display = 'none';
+            }
+
+            // 优先级
+            const pLabel = pMap[t.priority] || '中';
+            const priorityEl = document.getElementById('detailTaskPriority');
+            priorityEl.innerText = `${pLabel}优先级`;
+            priorityEl.className = `attribute-badge priority-${t.priority}`;
+
+            // 分组
+            document.getElementById('detailTaskGroup').innerText = t.groupName;
+            document.getElementById('detailTaskGroup').style.color = t.groupColor;
+            document.getElementById('detailTaskGroup').style.borderColor = t.groupColor;
+
+            // 备注
+            if (t.notes) {
+                document.getElementById('detailTaskNotesSection').style.display = 'block';
+                document.getElementById('detailTaskNotes').innerText = t.notes;
+            } else {
+                document.getElementById('detailTaskNotesSection').style.display = 'none';
+            }
+
+            // 子任务
+            if (t.subtasks && t.subtasks.length > 0) {
+                document.getElementById('detailSubtasksSection').style.display = 'block';
+                const completed = t.subtasks.filter(st => st.completed).length;
+                document.getElementById('detailSubtaskCount').innerText = `(${completed}/${t.subtasks.length})`;
+
+                const subtaskList = document.getElementById('detailSubtaskList');
+                subtaskList.innerHTML = t.subtasks.map(st => `
+                    <li class="subtask-item ${st.completed ? 'completed' : ''}">
+                        <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} disabled>
+                        <span class="subtask-text">${escapeHtml(st.text)}</span>
+                    </li>
+                `).join('');
+            } else {
+                document.getElementById('detailSubtasksSection').style.display = 'none';
+            }
+
+            // 设置编辑按钮
+            document.getElementById('detailEditBtn').onclick = () => {
+                closeModal('taskDetailModal');
+                openEditTask(t.id);
+            };
+
+            openModal('taskDetailModal');
+        };
+
+        // --- 记账 ---
+        function renderFinance() {
+            const l = document.getElementById('transactionList');
+            const filterBar = document.getElementById('financeFilterBar');
+            l.innerHTML = '';
+            filterBar.innerHTML = '';
+            
+            let inc=0, exp=0;
+            
+            const uniqueCats = [...new Set(state.transactions.map(t => t.category))];
+            
+            const chips = [{name: '全部', val: 'all'}, ...uniqueCats.map(c => ({name: c, val: c}))];
+            chips.forEach(c => {
+                const chip = document.createElement('div');
+                chip.className = `filter-chip ${state.financeFilter === c.val ? 'active' : ''}`;
+                chip.innerText = c.name;
+                chip.onclick = () => setFinanceFilter(c.val);
+                filterBar.appendChild(chip);
+            });
+
+            const listToRender = [...state.transactions]
+                .sort((a,b)=>new Date(b.date)-new Date(a.date))
+                .filter(t => state.financeFilter === 'all' || t.category === state.financeFilter);
+
+            listToRender.forEach(t => {
+                if(t.type==='income') inc+=parseFloat(t.amount); else exp+=parseFloat(t.amount);
+                
+                // 获取分类颜色对象
+                const catObj = financeCats.find(c => c.name === t.category);
+                const color = catObj ? catObj.color : '#ccc'; // 兼容旧数据
+                
+                const div = document.createElement('div');
+                div.className = `transaction-item`;
+                
+                // 动态设置左侧边框颜色
+                div.style.borderLeftColor = color;
+                
+                div.innerHTML = `
+                    <div>
+                        <div style="font-weight:800; text-transform:uppercase; display:flex; align-items:center; gap:5px;">
+                            <span class="cat-badge" style="background:${color}; border-color:${color}; color:var(--card-bg);">${t.category}</span>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-secondary);">${t.date} ${t.note?'| '+t.note:''}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="t-amount ${t.type}">${t.type==='income'?'+':'-'}${t.amount}</div>
+                        <i class="fas fa-pen action-icon" onclick="openEditTransaction(${t.id})" style="cursor:pointer; font-size:0.9rem; color:var(--text-secondary);"></i>
+                    </div>
+                `;
+                l.appendChild(div);
+            });
+
+            document.getElementById('totalIncome').innerText = '¥'+inc.toFixed(2);
+            document.getElementById('totalExpense').innerText = '¥'+exp.toFixed(2);
+            document.getElementById('totalBalance').innerText = '¥'+(inc-exp).toFixed(2);
+        }
+
+        window.addTransaction = () => {
+            const type = getCustomSelectValue('transTypeCustom');
+            const date = document.getElementById('transDate').value;
+            const cat = getCustomSelectValue('transCategoryCustom');
+            const amt = document.getElementById('transAmount').value;
+            const note = document.getElementById('transNote').value.trim();
+
+            if(!cat || !amt || !date) return alert('请填写完整');
+
+            // 获取对应颜色
+            const catObj = financeCats.find(c => c.name === cat);
+
+            state.transactions.unshift({id:Date.now(), type, date, category:cat, amount:amt, note, catColor: catObj.color});
+            save();
+            renderFinance();
+            document.getElementById('transAmount').value = '';
+            document.getElementById('transNote').value = '';
+        };
+
+        window.setFinanceFilter = (cat) => {
+            state.financeFilter = cat;
+            renderFinance();
+        };
+
+        window.openEditTransaction = (id) => {
+            const t = state.transactions.find(x => x.id === id);
+            if(!t) return;
+            state.editingTransId = id;
+            setCustomSelectValue('editTransTypeCustom', t.type);
+            document.getElementById('editTransDate').value = t.date;
+            setCustomSelectValue('editTransCategoryCustom', t.category);
+            document.getElementById('editTransAmount').value = t.amount;
+            document.getElementById('editTransNote').value = t.note || '';
+            openModal('transModal');
+        };
+
+        window.saveEditTransaction = () => {
+            if(!state.editingTransId) return;
+            const type = getCustomSelectValue('editTransTypeCustom');
+            const date = document.getElementById('editTransDate').value;
+            const category = getCustomSelectValue('editTransCategoryCustom');
+            const amount = document.getElementById('editTransAmount').value;
+            const note = document.getElementById('editTransNote').value.trim();
+
+            if(!category || !amount || !date) return alert('请填写完整');
+
+            // 更新颜色
+            const catObj = financeCats.find(c => c.name === category);
+
+            state.transactions = state.transactions.map(t => t.id === state.editingTransId ? {
+                ...t, type, date, category, amount, note, catColor: catObj.color
+            } : t);
+            
+            save();
+            closeModal('transModal');
+            state.editingTransId = null;
+            renderFinance();
+        };
+
+        window.deleteEditTransaction = () => {
+            if(!confirm('确定删除此记录？')) return;
+            state.transactions = state.transactions.filter(t => t.id !== state.editingTransId);
+            save();
+            closeModal('transModal');
+            state.editingTransId = null;
+            renderFinance();
+        };
+
+        // --- 通用 ---
+        function renderAll() {
+            renderGroups();
+            renderTodos();
+            renderCalendar();
+            renderFinance();
+        }
+
+        function save() {
+            localStorage.setItem('todos', JSON.stringify(state.todos));
+            localStorage.setItem('groups', JSON.stringify(state.groups));
+            localStorage.setItem('transactions', JSON.stringify(state.transactions));
+        }
+
+        function animateValue(id, start, end, duration) {
+            if (start === end) return;
+            const obj = document.getElementById(id);
+            const range = end - start;
+            let current = start;
+            const increment = end > start ?1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+            
+            const timer = setInterval(function() {
+                current += increment;
+                obj.innerHTML = current;
+                if (current == end) {
+                    clearInterval(timer);
+                }
+            }, Math.max(stepTime, 10)); 
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function initTheme() {
+            if(localStorage.getItem('theme')==='dark') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun"></i>';
+            }
+        }
+        document.getElementById('themeToggle').onclick = () => {
+            document.body.classList.toggle('dark-mode');
+            const isD = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isD?'dark':'light');
+            document.getElementById('themeToggle').innerHTML = isD?'<i class="fas fa-sun"></i>':'<i class="fas fa-moon"></i>';
+        };
+    </script>
+
+    <!-- Service Worker 注册 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('Service Worker 注册成功', reg))
+                    .catch((err) => console.log('Service Worker 注册失败', err));
+            });
+        }
+    </script>
+
+    <!-- 云同步配置（使用 fetch API，不依赖 SDK）-->
+    <script>
+        const SUPABASE_URL = 'https://gcrdheovyzjywwyijjli.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM';
+
+        let currentUser = null;
+        let accessToken = null;
+
+        // 登录时的智能同步：检查云端数据，有则下载，无则上传本地数据
+        async function syncDataOnLogin() {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data[0]) {
+                        // 云端有数据，下载并合并
+                        console.log('从云端下载数据');
+                        state.todos = data[0].todos || [];
+                        state.transactions = data[0].transactions || [];
+                        state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
+                        save();
+                        renderAll();
+                    } else {
+                        // 云端无数据，上传本地数据
+                        console.log('云端无数据，上传本地数据');
+                        await syncToCloud();
+                    }
+                } else {
+                    // 请求失败，尝试上传本地数据
+                    console.log('检查云端数据失败，上传本地数据');
+                    await syncToCloud();
+                }
+            } catch (e) {
+                console.error('登录同步异常:', e);
+                // 出错时上传本地数据作为后备
+                await syncToCloud();
+            }
+        }
+
+        // 登录
+        async function signIn(email, password) {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                console.log('登录响应:', data);
+
+                if (!res.ok) {
+                    return { error: data.error_description || data.error?.message || '登录失败' };
+                }
+
+                if (!data.user || !data.access_token) {
+                    return { error: '登录失败：未返回用户信息，请确认邮箱已验证' };
+                }
+
+                currentUser = data.user;
+                accessToken = data.access_token;
+                localStorage.setItem('user_id', data.user.id);
+                localStorage.setItem('access_token', data.access_token);
+
+                // 先检查云端是否有数据，有则下载，无则上传本地数据
+                await syncDataOnLogin();
+                return { success: true };
+            } catch (e) {
+                console.error('登录异常:', e);
+                return { error: '网络错误：' + e.message };
+            }
+        }
+
+        // 注册
+        async function signUp(email, password) {
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                console.log('注册响应:', data);
+                console.log('响应状态:', res.status);
+
+                if (!res.ok) {
+                    let errorMsg = data.msg || data.error_description || data.error?.message || JSON.stringify(data);
+                    return { error: '注册失败: ' + errorMsg };
+                }
+
+                // 注册成功，需要验证邮箱
+                return {
+                    success: true,
+                    needVerification: true,
+                    message: '注册成功！请检查邮箱并点击验证链接，然后返回登录。'
+                };
+            } catch (e) {
+                console.error('注册异常:', e);
+                return { error: '网络错误：' + e.message };
+            }
+        }
+
+        // 登出
+        async function signOut() {
+            currentUser = null;
+            accessToken = null;
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('access_token');
+            location.reload();
+        }
+
+        // 云端同步 - 上传
+        async function syncToCloud() {
+            if (!currentUser || !accessToken) return;
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Prefer': 'resolution=ignore-duplicates'
+                    },
+                    body: JSON.stringify({
+                        id: currentUser.id,
+                        todos: state.todos,
+                        transactions: state.transactions,
+                        groups: state.groups,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                return res.ok;
+            } catch (e) {
+                console.error('同步失败:', e);
+                return false;
+            }
+        }
+
+        // 云端同步 - 下载
+        async function syncFromCloud() {
+            if (!currentUser || !accessToken) return;
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data[0]) {
+                    state.todos = data[0].todos || [];
+                    state.transactions = data[0].transactions || [];
+                    state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
+                    save();
+                    renderAll();
+                }
+            } catch (e) {
+                console.error('下载失败:', e);
+            }
+        }
+
+        // 保存时自动同步
+        const originalSave = save;
+        function save() {
+            originalSave();
+            if (currentUser) syncToCloud();
+        }
+
+        // 检查已保存的登录状态
+        async function checkAuthStatus() {
+            const savedUserId = localStorage.getItem('user_id');
+            const savedToken = localStorage.getItem('access_token');
+            if (savedUserId && savedToken) {
+                currentUser = { id: savedUserId };
+                accessToken = savedToken;
+                await syncDataOnLogin();
+                updateCloudStatus();
+            }
+        }
+        checkAuthStatus();
+
+        // 认证模式切换
+        let isLoginMode = true;
+        function switchAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('authTitle').innerText = isLoginMode ? '登录账号' : '注册账号';
+            document.getElementById('authSwitchText').innerText = isLoginMode ? '没有账号？去注册' : '已有账号？去登录';
+            document.getElementById('authSubmitBtn').innerText = isLoginMode ? '登录' : '注册';
+            document.getElementById('authError').style.display = 'none';
+        }
+
+        // 提交认证
+        async function submitAuth() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const errorDiv = document.getElementById('authError');
+
+            if (!email || !password) {
+                errorDiv.innerText = '请填写邮箱和密码';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (password.length < 6) {
+                errorDiv.innerText = '密码至少6位字符';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            let result = isLoginMode ? await signIn(email, password) : await signUp(email, password);
+
+            if (result.error) {
+                errorDiv.innerText = result.error;
+                errorDiv.style.display = 'block';
+            } else if (result.needVerification) {
+                // 注册成功，需要验证邮箱
+                alert(result.message || '注册成功！请检查邮箱并点击验证链接，然后返回登录。');
+                switchAuthMode(); // 切换到登录模式
+            } else {
+                closeModal('authModal');
+                updateCloudStatus();
+            }
+        }
+
+        // 打开登录窗口
+        function openAuthModal() {
+            switchAuthMode();
+            document.getElementById('authEmail').value = '';
+            document.getElementById('authPassword').value = '';
+            document.getElementById('authError').style.display = 'none';
+            openModal('authModal');
+        }
+
+        // 更新云同步状态
+        function updateCloudStatus() {
+            const cloudBtn = document.getElementById('cloudSyncBtn');
+            if (currentUser) {
+                cloudBtn.style.color = 'var(--success-color)';
+                cloudBtn.title = '已登录云端同步';
+            } else {
+                cloudBtn.style.color = '';
+                cloudBtn.title = '点击登录开启云同步';
+            }
+        }
+
+        // 云同步按钮点击
+        document.getElementById('cloudSyncBtn').onclick = () => {
+            if (currentUser) {
+                if (confirm('当前已登录，是否退出？')) signOut();
+            } else {
+                openAuthModal();
+            }
+        };
+
+        // 导入/导出功能
+        document.getElementById('importExportBtn').onclick = () => {
+            const choice = confirm('点击"确定"导出数据，点击"取消"导入数据');
+            if (choice) {
+                exportData();
+            } else {
+                importData();
+            }
+        };
+
+        // 导出数据
+        function exportData() {
+            const data = {
+                todos: state.todos,
+                transactions: state.transactions,
+                groups: state.groups,
+                exportDate: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prolife-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 导入数据
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+
+                        // 验证数据格式
+                        if (data.todos && data.transactions && data.groups) {
+                            if (confirm('导入将覆盖现有数据，是否继续？')) {
+                                state.todos = data.todos;
+                                state.transactions = data.transactions;
+                                state.groups = data.groups;
+                                save();
+                                renderAll();
+                                alert('数据导入成功！');
+                            }
+                        } else {
+                            alert('文件格式不正确');
+                        }
+                    } catch (err) {
+                        alert('文件解析失败：' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // 页面加载时检查登录状态
+        window.addEventListener('load', () => {
+            const userId = localStorage.getItem('user_id');
+            if (userId && USE_CLOUD && supabase) {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    if (session) {
+                        currentUser = session.user;
+                        updateCloudStatus();
+                        syncFromCloud();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
