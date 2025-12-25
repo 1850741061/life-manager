@@ -1290,8 +1290,8 @@
                     <!-- 视图切换 -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <div class="view-tabs" style="padding: 3px;">
-                            <button class="view-tab active" id="financeViewList" onclick="setFinanceViewMode('list')">列表</button>
-                            <button class="view-tab" id="financeViewMonth" onclick="setFinanceViewMode('month')">月份</button>
+                            <button class="view-tab active" id="financeViewList" onclick="setFinanceViewMode('list', event)">列表</button>
+                            <button class="view-tab" id="financeViewMonth" onclick="setFinanceViewMode('month', event)">月份</button>
                         </div>
                     </div>
 
@@ -1495,6 +1495,44 @@
                 <button class="btn" onclick="closeModal('transModal')">取消</button>
                 <button class="btn" style="background:var(--danger-color); color:white;" onclick="deleteEditTransaction()">删除</button>
                 <button class="btn btn-primary" onclick="saveEditTransaction()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 月份详情模态框 -->
+    <div class="modal-overlay" id="monthDetailModal">
+        <div class="modal" style="max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;" id="monthDetailTitle">月份详情</h2>
+                <button class="btn" onclick="closeModal('monthDetailModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- 月度统计卡片 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="finance-card" style="padding: 15px;">
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">结余</div>
+                    <div class="amount" id="monthDetailBalance" style="font-size: 1.2rem;">¥0.00</div>
+                </div>
+                <div class="finance-card income" style="padding: 15px;">
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">收入</div>
+                    <div class="amount" id="monthDetailIncome" style="font-size: 1.2rem;">¥0.00</div>
+                </div>
+                <div class="finance-card expense" style="padding: 15px;">
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">支出</div>
+                    <div class="amount" id="monthDetailExpense" style="font-size: 1.2rem;">¥0.00</div>
+                </div>
+            </div>
+
+            <!-- 分类统计 -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">分类统计</h3>
+                <div id="monthCategoryStats" style="display: grid; gap: 10px;"></div>
+            </div>
+
+            <!-- 交易列表 -->
+            <div>
+                <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">交易记录</h3>
+                <div id="monthDetailTransactions" style="max-height: 300px; overflow-y: auto;"></div>
             </div>
         </div>
     </div>
@@ -1764,7 +1802,7 @@
         }
 
         // --- 视图切换 ---
-        document.querySelectorAll('.view-tab').forEach(t => t.onclick = () => switchView(t.dataset.view));
+        document.querySelectorAll('.view-tab[data-view]').forEach(t => t.onclick = () => switchView(t.dataset.view));
 
         function switchView(view) {
             state.view = view;
@@ -2543,14 +2581,19 @@
             // 根据视图模式切换显示
             const listContainer = document.getElementById('transactionList');
             const monthContainer = document.getElementById('transactionMonthList');
+            const financeCards = document.querySelector('.finance-cards');
 
             if (state.financeViewMode === 'month') {
                 listContainer.style.display = 'none';
                 monthContainer.style.display = 'flex';
+                // 月份视图下隐藏统计卡片
+                financeCards.style.display = 'none';
                 renderFinanceByMonth();
             } else {
                 listContainer.style.display = 'flex';
                 monthContainer.style.display = 'none';
+                // 列表视图下显示统计卡片
+                financeCards.style.display = 'flex';
                 renderFinanceList();
             }
 
@@ -2559,7 +2602,7 @@
             document.getElementById('financeViewMonth').classList.toggle('active', state.financeViewMode === 'month');
         }
 
-        // 列表视图渲染
+        // 列表视图渲染 - 只显示当前月份
         function renderFinanceList() {
             const l = document.getElementById('transactionList');
             const filterBar = document.getElementById('financeFilterBar');
@@ -2567,6 +2610,10 @@
             filterBar.innerHTML = '';
 
             let inc=0, exp=0;
+
+            // 获取当前月份 (YYYY-MM)
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
             const uniqueCats = [...new Set(state.transactions.map(t => t.category))];
 
@@ -2579,9 +2626,13 @@
                 filterBar.appendChild(chip);
             });
 
+            // 只显示当前月份的交易
             const listToRender = [...state.transactions]
                 .sort((a,b)=>new Date(b.date)-new Date(a.date))
-                .filter(t => state.financeFilter === 'all' || t.category === state.financeFilter);
+                .filter(t => {
+                    const tMonth = t.date.substring(0, 7); // YYYY-MM
+                    return tMonth === currentMonth && (state.financeFilter === 'all' || t.category === state.financeFilter);
+                });
 
             listToRender.forEach(t => {
                 if(t.type==='income') inc+=parseFloat(t.amount); else exp+=parseFloat(t.amount);
@@ -2659,7 +2710,7 @@
                 // 月份头部
                 const [year, month] = monthKey.split('-');
                 monthGroup.innerHTML = `
-                    <div class="month-header">
+                    <div class="month-header" onclick="openMonthDetail('${monthKey}', ${monthInc}, ${monthExp})" style="cursor: pointer;">
                         <div class="month-title">
                             <i class="fas fa-calendar-alt"></i>
                             ${year}年 ${parseInt(month)}月
@@ -2715,9 +2766,101 @@
         }
 
         // 切换记账视图模式
-        window.setFinanceViewMode = (mode) => {
+        window.setFinanceViewMode = (mode, event) => {
+            if (event) {
+                event.stopPropagation();
+            }
             state.financeViewMode = mode;
+            // 确保主视图保持在 finance，防止侧边栏出现
+            if (state.view !== 'finance') {
+                state.view = 'finance';
+                const layout = document.getElementById('mainLayout');
+                layout.classList.remove('todo-mode');
+            }
             renderFinance();
+        };
+
+        // 打开月份详情弹窗
+        window.openMonthDetail = (monthKey, monthInc, monthExp) => {
+            const [year, month] = monthKey.split('-');
+
+            // 设置标题
+            document.getElementById('monthDetailTitle').innerText = `${year}年 ${parseInt(month)}月 详情`;
+
+            // 设置统计数据
+            document.getElementById('monthDetailIncome').innerText = '¥' + monthInc.toFixed(2);
+            document.getElementById('monthDetailExpense').innerText = '¥' + monthExp.toFixed(2);
+            document.getElementById('monthDetailBalance').innerText = '¥' + (monthInc - monthExp).toFixed(2);
+
+            // 获取该月的所有交易
+            const monthTransactions = state.transactions.filter(t => t.date.substring(0, 7) === monthKey);
+
+            // 按分类统计
+            const catStats = {};
+            monthTransactions.forEach(t => {
+                if (!catStats[t.category]) {
+                    catStats[t.category] = { income: 0, expense: 0, color: t.catColor || '#ccc' };
+                }
+                if (t.type === 'income') {
+                    catStats[t.category].income += parseFloat(t.amount);
+                } else {
+                    catStats[t.category].expense += parseFloat(t.amount);
+                }
+            });
+
+            // 渲染分类统计
+            const catStatsContainer = document.getElementById('monthCategoryStats');
+            catStatsContainer.innerHTML = '';
+
+            Object.entries(catStats).forEach(([cat, stats]) => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: var(--radius);';
+
+                const catObj = financeCats.find(c => c.name === cat);
+                const color = catObj ? catObj.color : stats.color;
+
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="cat-badge" style="background: ${color}; border-color: ${color}; color: var(--card-bg);">${cat}</span>
+                    </div>
+                    <div style="display: flex; gap: 15px; font-size: 0.85rem;">
+                        ${stats.income > 0 ? `<span style="color: var(--success-color);">收入 ¥${stats.income.toFixed(2)}</span>` : ''}
+                        ${stats.expense > 0 ? `<span style="color: var(--danger-color);">支出 ¥${stats.expense.toFixed(2)}</span>` : ''}
+                    </div>
+                `;
+                catStatsContainer.appendChild(div);
+            });
+
+            // 渲染交易列表
+            const transContainer = document.getElementById('monthDetailTransactions');
+            transContainer.innerHTML = '';
+
+            monthTransactions
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .forEach(t => {
+                    const catObj = financeCats.find(c => c.name === t.category);
+                    const color = catObj ? catObj.color : '#ccc';
+
+                    const div = document.createElement('div');
+                    div.className = 'transaction-item';
+                    div.style.borderLeftColor = color;
+                    div.style.cssText += ' margin-bottom: 10px;';
+
+                    div.innerHTML = `
+                        <div>
+                            <div style="font-weight:800; text-transform:uppercase; display:flex; align-items:center; gap:5px;">
+                                <span class="cat-badge" style="background:${color}; border-color:${color}; color:var(--card-bg);">${t.category}</span>
+                            </div>
+                            <div style="font-size:0.8rem; color:var(--text-secondary);">${t.date} ${t.note ? '| ' + t.note : ''}</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="t-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${t.amount}</div>
+                        </div>
+                    `;
+                    transContainer.appendChild(div);
+                });
+
+            openModal('monthDetailModal');
         };
 
         window.addTransaction = () => {
