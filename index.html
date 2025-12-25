@@ -1121,6 +1121,7 @@
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-icon" id="cloudSyncBtn" title="云端同步"><i class="fas fa-cloud"></i></button>
+                    <button class="btn-icon" id="refreshBtn" title="刷新数据"><i class="fas fa-sync-alt"></i></button>
                     <button class="btn-icon" id="importExportBtn" title="导入/导出"><i class="fas fa-exchange-alt"></i></button>
                     <button class="btn-icon" id="themeToggle"><i class="fas fa-moon"></i></button>
                 </div>
@@ -3024,27 +3025,57 @@
             }
         }
 
-        // 云端同步 - 下载
+        // 云端同步 - 下载并合并
         async function syncFromCloud() {
-            if (!currentUser || !accessToken) return;
+            if (!currentUser || !accessToken) {
+                showSyncToast('未登录，无法刷新', 'error');
+                return;
+            }
+
             try {
+                console.log('[刷新] 从云端下载数据...');
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${accessToken}`
                     }
                 });
-                if (!res.ok) return;
+
+                if (!res.ok) {
+                    console.error('[刷新] 下载失败:', res.status);
+                    showSyncToast('刷新失败', 'error');
+                    return;
+                }
+
                 const data = await res.json();
                 if (data && data[0]) {
-                    state.todos = data[0].todos || [];
-                    state.transactions = data[0].transactions || [];
-                    state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
-                    save();
+                    const cloudTodos = data[0].todos || [];
+                    const cloudTransactions = data[0].transactions || [];
+                    const cloudGroups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
+
+                    // 合并数据（保留最新的）
+                    const newTodos = mergeArrays(state.todos, cloudTodos);
+                    const newTransactions = mergeArrays(state.transactions, cloudTransactions);
+                    const newGroups = mergeArrays(state.groups, cloudGroups);
+
+                    state.todos = newTodos;
+                    state.transactions = newTransactions;
+                    state.groups = newGroups;
+
+                    // 更新本地存储
+                    localStorage.setItem('todos', JSON.stringify(state.todos));
+                    localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                    localStorage.setItem('groups', JSON.stringify(state.groups));
+
                     renderAll();
+                    showSyncToast('刷新成功');
+                    console.log('[刷新] 数据已更新');
+                } else {
+                    showSyncToast('云端无数据', 'error');
                 }
             } catch (e) {
-                console.error('下载失败:', e);
+                console.error('[刷新] 下载异常:', e);
+                showSyncToast('刷新失败', 'error');
             }
         }
 
@@ -3314,6 +3345,15 @@
             } else {
                 openAuthModal();
             }
+        };
+
+        // 刷新按钮点击
+        document.getElementById('refreshBtn').onclick = () => {
+            if (!currentUser) {
+                showSyncToast('请先登录', 'error');
+                return;
+            }
+            syncFromCloud();
         };
 
         // 导入/导出功能
