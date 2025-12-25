@@ -37,3 +37,7 @@ builder-debug.yml
 
 # Package lock files (optional)
 # package-lock.json
+
+# Config files with project IDs
+supabase/config.toml
+vercel.json
