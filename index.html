@@ -2917,7 +2917,7 @@
             }
         }
 
-        // 云端同步 - 上传
+        // 云端同步 - 上传（使用 PATCH 确保数据更新）
         async function syncToCloud() {
             if (!currentUser || !accessToken) {
                 console.log('[同步] 未登录，跳过上传');
@@ -2938,16 +2938,32 @@
                     updated_at: new Date().toISOString()
                 };
 
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
-                    method: 'POST',
+                // 先尝试更新（PATCH）
+                let res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${accessToken}`,
-                        'Prefer': 'resolution=ignore-duplicates'
+                        'Prefer': 'return=representation'
                     },
                     body: JSON.stringify(payload)
                 });
+
+                // 如果没有数据可更新（404），则创建新数据（POST）
+                if (res.status === 404) {
+                    console.log('[同步] 数据不存在，创建新数据...');
+                    res = await fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                }
 
                 console.log('[同步] 上传响应状态:', res.status);
 
@@ -2957,8 +2973,14 @@
                     return false;
                 }
 
-                // 状态 201/204 可能没有响应体，不需要解析 JSON
-                console.log('[同步] 上传成功！');
+                // 尝试解析响应，获取返回的数据
+                try {
+                    const responseData = await res.json();
+                    console.log('[同步] 上传成功，云端数据:', responseData);
+                } catch (e) {
+                    console.log('[同步] 上传成功（无响应体）');
+                }
+
                 return true;
             } catch (e) {
                 console.error('[同步] 上传异常:', e);
