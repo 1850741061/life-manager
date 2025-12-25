@@ -3023,6 +3023,17 @@
                 return;
             }
 
+            // 如果正在上传，等待上传完成
+            if (isUploading) {
+                console.log('[刷新] 等待上传完成...');
+                showSyncToast('等待上传完成...', 'error');
+                // 等待最多 5 秒
+                for (let i = 0; i < 50; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (!isUploading) break;
+                }
+            }
+
             try {
                 console.log('[刷新] 从云端下载数据...');
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
