@@ -2676,9 +2676,20 @@
         let currentUser = null;
         let accessToken = null;
         let realtimeChannel = null;
+        let supabaseClient = null;
 
-        // 初始化 Supabase 客户端
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // 初始化 Supabase 客户端（带错误处理）
+        try {
+            if (typeof supabase !== 'undefined' && supabase.createClient) {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('[Supabase] 客户端初始化成功');
+            } else {
+                console.warn('[Supabase] SDK 未加载，Realtime 功能将不可用');
+            }
+        } catch (e) {
+            console.error('[Supabase] 客户端初始化失败:', e);
+            console.warn('[Supabase] 将继续使用基础同步功能');
+        }
 
         // 显示同步提示
         function showSyncToast(message, type = 'success') {
@@ -3037,6 +3048,12 @@
         // ========== Realtime 实时同步 ==========
         function subscribeToRealtime() {
             try {
+                // 检查 Supabase 客户端是否可用
+                if (!supabaseClient) {
+                    console.log('[Realtime] Supabase 客户端未初始化，跳过订阅');
+                    return;
+                }
+
                 // 先清理旧的订阅
                 unsubscribeToRealtime();
 
@@ -3134,7 +3151,7 @@
         }
 
         function unsubscribeToRealtime() {
-            if (realtimeChannel) {
+            if (realtimeChannel && supabaseClient) {
                 try {
                     console.log('[Realtime] 取消订阅');
                     supabaseClient.removeChannel(realtimeChannel);
