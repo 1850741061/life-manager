@@ -3151,13 +3151,6 @@
             }
         }
 
-        // 重写 baseSave 和 save 函数，优化性能
-        function baseSave() {
-            localStorage.setItem('todos', JSON.stringify(state.todos));
-            localStorage.setItem('groups', JSON.stringify(state.groups));
-            localStorage.setItem('transactions', JSON.stringify(state.transactions));
-        }
-
         function save() {
             // 更新 updatedAt 时间戳
             const now = new Date().toISOString();
