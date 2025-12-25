@@ -2761,7 +2761,7 @@
             return Array.from(merged.values());
         }
 
-        // 登录时的智能同步：合并云端和本地数据
+        // 登录时的同步：直接使用云端数据覆盖本地
         async function syncDataOnLogin() {
             try {
                 console.log('[同步] 开始检查云端数据...');
@@ -2784,30 +2784,21 @@
                     console.log('[同步] 云端响应:', data);
 
                     if (data && data[0]) {
-                        // 云端有数据，合并本地和云端数据
-                        console.log('[同步] 云端有数据，开始合并...');
+                        // 云端有数据，直接覆盖本地
+                        console.log('[同步] 云端有数据，直接使用云端数据...');
                         console.log('[同步] 云端数据:', {
                             todos: data[0].todos?.length || 0,
                             transactions: data[0].transactions?.length || 0,
                             groups: data[0].groups?.length || 0
                         });
 
-                        const cloudTodos = data[0].todos || [];
-                        const cloudTransactions = data[0].transactions || [];
-                        const cloudGroups = data[0].groups || [];
+                        // 直接使用云端数据
+                        state.todos = data[0].todos || [];
+                        state.transactions = data[0].transactions || [];
+                        state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
 
-                        // 合并数据
-                        state.todos = mergeArrays(state.todos, cloudTodos);
-                        state.transactions = mergeArrays(state.transactions, cloudTransactions);
-                        state.groups = mergeArrays(state.groups, cloudGroups);
-
-                        // 直接保存到 localStorage，避免触发 syncToCloud
-                        localStorage.setItem('todos', JSON.stringify(state.todos));
-                        localStorage.setItem('transactions', JSON.stringify(state.transactions));
-                        localStorage.setItem('groups', JSON.stringify(state.groups));
-
-                        // 上传合并后的数据到云端
-                        await syncToCloud();
+                        // 保存到本地
+                        save();
                         renderAll();
 
                         showSyncToast(`已合并数据: ${state.todos.length} 个待办，${state.transactions.length} 条记录`);
