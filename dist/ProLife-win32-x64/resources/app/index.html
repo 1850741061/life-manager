@@ -14,8 +14,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             /* 核心配色：波普风格 */
@@ -78,6 +76,30 @@
 
         body.dark-mode .custom-titlebar {
             background: var(--border-color);
+        }
+
+        /* 浏览器环境隐藏标题栏（通过 JS 添加 .browser-env 类） */
+        body.browser-env .custom-titlebar {
+            display: none !important;
+        }
+
+        /* Electron 环境显示标题栏并调整容器高度 */
+        body.electron-env .custom-titlebar {
+            display: flex !important;
+        }
+
+        body.electron-env .container {
+            height: calc(100vh - 40px) !important;
+        }
+
+        /* 浏览器环境容器全高 */
+        body.browser-env .container {
+            height: 100vh !important;
+        }
+
+        /* 默认容器样式（兼容无 JS 类的情况） */
+        .container {
+            height: 100vh;
         }
 
         .titlebar-left {
@@ -999,20 +1021,72 @@
         .checkbox input:checked ~ .checkmark:after { display: block; }
         .todo-item.completed .todo-text { text-decoration: line-through; opacity: 0.5; }
 
-        /* 响应式 */
+        /* 响应式 - 移动端适配 */
         @media (max-width: 768px) {
+            /* 容器和布局 */
             .main-layout.todo-mode { flex-direction: column; }
             .sidebar { width: 100%; border-right: none; border-bottom: 3px solid var(--border-color); max-height: 200px; }
             .container { height: 100vh; border-radius: 0; border: none; }
             body { padding: 0; }
             .todo-actions { opacity: 1; }
-            .stats-bar { padding: 15px 10px; }
-            .stat-value { font-size: 1.5rem; }
-            
-            .group-actions { opacity: 1 !important; } 
-            
-            .header-controls { gap: 10px; }
-            .view-tabs { margin-right: 0; }
+
+            /* 头部区域 */
+            header { padding: 10px 15px; flex-wrap: wrap; gap: 10px; }
+            h1 { font-size: 1.1rem; gap: 8px; }
+            .header-controls { gap: 8px; flex-wrap: wrap; justify-content: center; }
+            .view-tabs { padding: 3px; }
+            .view-tab { padding: 6px 12px; font-size: 0.8rem; }
+
+            /* 统计栏 */
+            .stats-bar { padding: 12px 8px; flex-wrap: wrap; gap: 10px; }
+            .stat-item { min-width: 30%; }
+            .stat-value { font-size: 1.4rem; }
+            .stat-label { font-size: 0.7rem; }
+
+            /* 内容区域 */
+            .content-view { padding: 15px 12px; }
+            .input-section { padding: 12px; margin-bottom: 15px; }
+            input, select, textarea { padding: 12px; font-size: 0.95rem; }
+            .custom-select-trigger { padding: 12px 40px 12px 12px; font-size: 0.95rem; }
+
+            /* 待办项 */
+            .todo-item { padding: 10px; }
+            .attribute-badge { font-size: 0.7rem; padding: 3px 6px; }
+
+            /* 分组 */
+            .group-item { padding: 10px 12px; margin-bottom: 8px; }
+            .group-actions { opacity: 1 !important; }
+
+            /* 按钮 */
+            .btn { padding: 8px 14px; font-size: 0.8rem; }
+            .btn-icon { width: 36px; height: 36px; font-size: 1rem; }
+
+            /* 模态框 */
+            .modal { max-width: 95%; margin: 20px 10px; max-height: 90vh; overflow-y: auto; }
+            .modal h2 { font-size: 1.2rem; }
+
+            /* 日历视图 */
+            .calendar-header { flex-wrap: wrap; }
+            .calendar-day { min-height: 60px; font-size: 0.8rem; }
+            .calendar-day-number { font-size: 0.9rem; }
+
+            /* 记账视图 */
+            .transaction-item { padding: 10px; }
+            .t-amount { font-size: 0.9rem; }
+            .filter-chip { padding: 6px 12px; font-size: 0.8rem; }
+        }
+
+        /* 超小屏幕适配 (<= 480px) */
+        @media (max-width: 480px) {
+            header { padding: 8px 10px; }
+            h1 { font-size: 0.9rem; }
+            h1 i { display: none; } /* 隐藏图标节省空间 */
+            .view-tab { padding: 5px 10px; font-size: 0.75rem; }
+            .btn-icon { width: 32px; height: 32px; }
+            .stats-bar { padding: 10px 5px; }
+            .stat-value { font-size: 1.2rem; }
+            .content-view { padding: 12px 8px; }
+            .modal { margin: 10px 5px; }
         }
     </style>
 </head>
@@ -1402,23 +1476,33 @@
     </div>
 
     <script>
-        // --- Electron 窗口控制 ---
-        const { ipcRenderer } = require('electron');
+        // --- Electron 窗口控制（仅在 Electron 环境中执行）---
+        // --- 环境检测与标题栏控制 ---
+        const isElectron = (function() {
+            try {
+                return typeof require !== 'undefined' && typeof window !== 'undefined' && window.process && window.process.type === 'renderer';
+            } catch (e) {
+                return false;
+            }
+        })();
 
-        // 最小化
-        document.getElementById('btnMinimize').addEventListener('click', () => {
-            ipcRenderer.send('window-minimize');
-        });
-
-        // 最大化/还原
-        document.getElementById('btnMaximize').addEventListener('click', () => {
-            ipcRenderer.send('window-maximize');
-        });
-
-        // 关闭
-        document.getElementById('btnClose').addEventListener('click', () => {
-            ipcRenderer.send('window-close');
-        });
+        // 根据环境添加相应的类
+        if (isElectron) {
+            document.body.classList.add('electron-env');
+            // 绑定窗口控制按钮
+            const { ipcRenderer } = require('electron');
+            document.getElementById('btnMinimize').addEventListener('click', () => {
+                ipcRenderer.send('window-minimize');
+            });
+            document.getElementById('btnMaximize').addEventListener('click', () => {
+                ipcRenderer.send('window-maximize');
+            });
+            document.getElementById('btnClose').addEventListener('click', () => {
+                ipcRenderer.send('window-close');
+            });
+        } else {
+            document.body.classList.add('browser-env');
+        }
 
         // --- 数据与状态 ---
         const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6'];
@@ -1624,11 +1708,21 @@
             state.view = view;
             document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
             document.querySelectorAll('.content-view').forEach(v => v.classList.toggle('active', v.id === view + 'View'));
-            
+
             const layout = document.getElementById('mainLayout');
             layout.classList.toggle('todo-mode', view !== 'finance');
-            
-            if(view === 'calendar') renderCalendar();
+
+            if(view === 'calendar') {
+                // 自动选择今天，并设置日历显示月份为当前月
+                const today = new Date();
+                state.calendarDate = today;  // 设置日历显示的月份
+                const dateStr = today.toISOString().split('T')[0];
+                state.selectedDate = dateStr;
+                renderCalendar();
+                // 确保详情面板显示
+                document.getElementById('calendarDetailPanel').style.display = 'block';
+                renderCalendarDetail();
+            }
             if(view === 'finance') renderFinance();
         }
 
@@ -1834,7 +1928,7 @@
 
                 li.innerHTML = `
                     <div class="todo-main">
-                        <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="toggleTodo(${t.id})"><span class="checkmark"></span></label>
+                        <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="event.stopPropagation(); toggleTodo(${t.id})"><span class="checkmark"></span></label>
                         <div class="todo-content" style="flex:1">
                             <div class="todo-text">${t.text}</div>
                             <div class="todo-attributes">
@@ -1880,8 +1974,31 @@
         }
 
         window.toggleTodo = (id) => {
-            state.todos = state.todos.map(t => t.id===id ? {...t, completed:!t.completed} : t);
-            save(); renderTodos();
+            const task = state.todos.find(t => t.id === id);
+            if (!task) return;
+
+            // 检查子任务状态
+            const hasIncompleteSubtasks = task.subtasks && task.subtasks.length > 0 &&
+                !task.subtasks.every(st => st.completed);
+
+            // 在日历页面点击含有未完成子任务的主任务，标记为完成并弹出详情页
+            const isInCalendarView = state.view === 'calendar' && state.selectedDate;
+
+            if (!task.completed && hasIncompleteSubtasks && isInCalendarView) {
+                // 先标记为完成
+                state.todos = state.todos.map(t => t.id === id ? {...t, completed: true} : t);
+                save();
+                renderTodos();
+                if(state.selectedDate) renderCalendarDetail();
+                // 然后弹出详情页
+                setTimeout(() => openTaskDetailModal(id), 100);
+                return;
+            }
+
+            // 其他情况正常切换完成状态
+            state.todos = state.todos.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+            save();
+            renderTodos();
             if(state.view === 'calendar' && state.selectedDate) renderCalendarDetail();
         };
 
@@ -1965,17 +2082,39 @@
         window.toggleSubtask = (todoId, subtaskId) => {
             state.todos = state.todos.map(t => {
                 if (t.id === todoId) {
+                    const updatedSubtasks = t.subtasks.map(st =>
+                        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+                    );
+
                     return {
                         ...t,
-                        subtasks: t.subtasks.map(st =>
-                            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-                        )
+                        subtasks: updatedSubtasks
+                        // 不再自动标记主任务为完成，主任务完成状态独立管理
                     };
                 }
                 return t;
             });
             save();
             renderTodos();
+
+            // 如果详情页打开着，更新详情页中的计数和子任务列表
+            const modal = document.getElementById('taskDetailModal');
+            if (modal.classList.contains('active')) {
+                const task = state.todos.find(t => t.id === todoId);
+                if (task && task.subtasks && task.subtasks.length > 0) {
+                    const completed = task.subtasks.filter(st => st.completed).length;
+                    document.getElementById('detailSubtaskCount').innerText = `(${completed}/${task.subtasks.length})`;
+
+                    // 更新子任务列表的显示
+                    const subtaskList = document.getElementById('detailSubtaskList');
+                    subtaskList.innerHTML = task.subtasks.map(st => `
+                        <li class="subtask-item ${st.completed ? 'completed' : ''}">
+                            <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${task.id}, ${st.id});">
+                            <span class="subtask-text">${escapeHtml(st.text)}</span>
+                        </li>
+                    `).join('');
+                }
+            }
         };
 
         window.deleteSubtask = (todoId, subtaskId) => {
@@ -2245,7 +2384,12 @@
                         </div>
                     `;
                     li.onclick = (e) => {
-                        if (!e.target.classList.contains('checkbox') && !e.target.classList.contains('checkmark')) {
+                        // 只有点击非 checkbox 区域才打开详情页
+                        const clickedCheckbox = e.target.tagName === 'INPUT' && e.target.type === 'checkbox';
+                        const clickedCheckmark = e.target.classList.contains('checkmark');
+                        const clickedLabel = e.target.tagName === 'LABEL' && e.target.classList.contains('checkbox');
+
+                        if (!clickedCheckbox && !clickedCheckmark && !clickedLabel) {
                             openTaskDetailModal(t.id);
                         }
                     };
@@ -2304,7 +2448,7 @@
                 const subtaskList = document.getElementById('detailSubtaskList');
                 subtaskList.innerHTML = t.subtasks.map(st => `
                     <li class="subtask-item ${st.completed ? 'completed' : ''}">
-                        <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} disabled>
+                        <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${t.id}, ${st.id});">
                         <span class="subtask-text">${escapeHtml(st.text)}</span>
                     </li>
                 `).join('');
@@ -2319,6 +2463,17 @@
             };
 
             openModal('taskDetailModal');
+        };
+
+        // 检查是否所有子任务都完成了，如果是则关闭详情页
+        window.closeIfNeeded = (taskId) => {
+            const task = state.todos.find(t => t.id === taskId);
+            if (!task || !task.subtasks || task.subtasks.length === 0) return;
+
+            const allCompleted = task.subtasks.every(st => st.completed);
+            if (allCompleted) {
+                closeModal('taskDetailModal');
+            }
         };
 
         // --- 记账 ---
@@ -2461,11 +2616,6 @@
             localStorage.setItem('transactions', JSON.stringify(state.transactions));
         }
 
-        // save 函数 - 将在后面被包装成带云同步的版本
-        function save() {
-            baseSave();
-        }
-
         function animateValue(id, start, end, duration) {
             if (start === end) return;
             const obj = document.getElementById(id);
@@ -2518,12 +2668,17 @@
     </script>
 
     <!-- 云同步配置（使用 fetch API，不依赖 SDK）-->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://gcrdheovyzjywwyijjli.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM';
 
         let currentUser = null;
         let accessToken = null;
+        let realtimeChannel = null;
+
+        // 初始化 Supabase 客户端
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 显示同步提示
         function showSyncToast(message, type = 'success') {
@@ -2564,13 +2719,33 @@
         `;
         document.head.appendChild(style);
 
-        // 合并两个数组，使用 ID 去重（保留最新的）
+        // 智能合并：基于 updatedAt 时间戳保留最新数据
         function mergeArrays(local, remote) {
             const merged = new Map();
-            // 先添加本地数据
+
+            // 先添加所有本地数据
             local.forEach(item => merged.set(item.id, item));
-            // 远程数据覆盖（更新）
-            remote.forEach(item => merged.set(item.id, item));
+
+            // 处理远程数据
+            remote.forEach(remoteItem => {
+                const localItem = merged.get(remoteItem.id);
+
+                if (!localItem) {
+                    // 本地没有这个数据，直接添加
+                    merged.set(remoteItem.id, remoteItem);
+                } else {
+                    // 本地和远程都有，比较 updatedAt（如果有）
+                    const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0);
+                    const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0);
+
+                    // 保留最新的数据
+                    if (remoteTime > localTime) {
+                        merged.set(remoteItem.id, remoteItem);
+                    }
+                    // 否则保留本地数据
+                }
+            });
+
             return Array.from(merged.values());
         }
 
@@ -2685,6 +2860,10 @@
 
                 // 先检查云端是否有数据，有则下载，无则上传本地数据
                 await syncDataOnLogin();
+
+                // 启动 Realtime 实时同步
+                subscribeToRealtime();
+
                 return { success: true };
             } catch (e) {
                 console.error('登录异常:', e);
@@ -2727,14 +2906,30 @@
 
         // 登出
         async function signOut() {
-            currentUser = null;
-            accessToken = null;
-            localStorage.removeItem('user_id');
-            localStorage.removeItem('access_token');
-            location.reload();
+            try {
+                // 取消 Realtime 订阅
+                unsubscribeToRealtime();
+
+                // 清理本地状态
+                currentUser = null;
+                accessToken = null;
+
+                // 清理 localStorage
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('access_token');
+
+                console.log('[登出] 已清理登录状态');
+
+                // 刷新页面
+                setTimeout(() => location.reload(), 100);
+            } catch (e) {
+                console.error('[登出] 错误:', e);
+                // 即使出错也尝试刷新
+                location.reload();
+            }
         }
 
-        // 云端同步 - 上传
+        // 云端同步 - 上传（使用 PATCH 确保数据更新）
         async function syncToCloud() {
             if (!currentUser || !accessToken) {
                 console.log('[同步] 未登录，跳过上传');
@@ -2742,6 +2937,11 @@
             }
             try {
                 console.log('[同步] 开始上传数据到云端...');
+                console.log('[同步] 当前用户ID:', currentUser.id);
+                console.log('[同步] 待办数量:', state.todos.length);
+                console.log('[同步] 记账数量:', state.transactions.length);
+                console.log('[同步] 分组数量:', state.groups.length);
+
                 const payload = {
                     id: currentUser.id,
                     todos: state.todos,
@@ -2749,25 +2949,51 @@
                     groups: state.groups,
                     updated_at: new Date().toISOString()
                 };
-                console.log('[同步] 上传数据:', payload);
 
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
-                    method: 'POST',
+                // 先尝试更新（PATCH）
+                let res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                    method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${accessToken}`,
-                        'Prefer': 'resolution=ignore-duplicates'
+                        'Prefer': 'return=representation'
                     },
                     body: JSON.stringify(payload)
                 });
 
+                // 如果没有数据可更新（404），则创建新数据（POST）
+                if (res.status === 404) {
+                    console.log('[同步] 数据不存在，创建新数据...');
+                    res = await fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                }
+
                 console.log('[同步] 上传响应状态:', res.status);
+
                 if (!res.ok) {
                     const errorText = await res.text();
-                    console.error('[同步] 上传失败:', errorText);
+                    console.error('[同步] 上传失败响应:', errorText);
+                    return false;
                 }
-                return res.ok;
+
+                // 尝试解析响应，获取返回的数据
+                try {
+                    const responseData = await res.json();
+                    console.log('[同步] 上传成功，云端数据:', responseData);
+                } catch (e) {
+                    console.log('[同步] 上传成功（无响应体）');
+                }
+
+                return true;
             } catch (e) {
                 console.error('[同步] 上传异常:', e);
                 return false;
@@ -2799,26 +3025,185 @@
         }
 
         // 保存时自动同步 - 添加防抖，减少同步频率
-        // 保存原始 save 函数的引用（在重定义之前）
-        const originalSaveFunc = save;
+        // 保存原始 baseSave 函数的引用（在重定义之前）
+        const originalBaseSave = baseSave;
         let syncTimer = null;
-        const SYNC_DELAY = 2000; // 2秒防抖，停止操作2秒后才同步
+        const SYNC_DELAY = 10000; // 10秒防抖，停止操作10秒后才同步（减少频繁同步）
 
-        // 重写 save 函数，添加云同步
+        // ========== Realtime 实时同步 ==========
+        let realtimeChannel = null;
+
+        function subscribeToRealtime() {
+            // 先清理旧的订阅
+            unsubscribeToRealtime();
+
+            if (!currentUser || !accessToken) {
+                console.log('[Realtime] 未登录，跳过订阅');
+                return;
+            }
+
+            console.log('[Realtime] 正在订阅数据变化...');
+
+            // 订阅 user_data 表的变化
+            realtimeChannel = supabase
+                .channel('public:user_data')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*', // 监听所有事件（INSERT, UPDATE, DELETE）
+                        schema: 'public',
+                        table: 'user_data',
+                        filter: `id=eq.${currentUser.id}` // 只监听当前用户的数据
+                    },
+                    (payload) => {
+                        console.log('[Realtime] 收到数据变化:', payload);
+
+                        // 处理不同类型的事件
+                        if (payload.eventType === 'UPDATE' && payload.new) {
+                            const cloudTodos = payload.new.todos || [];
+                            const cloudTransactions = payload.new.transactions || [];
+                            const cloudGroups = payload.new.groups || [];
+
+                            // 比较是否有变化
+                            const oldTodosJson = JSON.stringify(state.todos);
+                            const newTodos = mergeArrays(state.todos, cloudTodos);
+                            const newTransactions = mergeArrays(state.transactions, cloudTransactions);
+                            const newGroups = mergeArrays(state.groups, cloudGroups);
+
+                            // 如果数据有变化，更新本地
+                            if (oldTodosJson !== JSON.stringify(newTodos)) {
+                                console.log('[Realtime] 检测到云端数据变化，更新本地...');
+                                state.todos = newTodos;
+                                state.transactions = newTransactions;
+                                state.groups = newGroups;
+
+                                // 更新本地存储
+                                localStorage.setItem('todos', JSON.stringify(state.todos));
+                                localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                                localStorage.setItem('groups', JSON.stringify(state.groups));
+
+                                // 更新 UI
+                                renderAll();
+                                showSyncToast('数据已同步');
+                            }
+                        } else if (payload.eventType === 'INSERT' && payload.new) {
+                            // 新数据插入，更新本地
+                            const cloudTodos = payload.new.todos || [];
+                            const cloudTransactions = payload.new.transactions || [];
+                            const cloudGroups = payload.new.groups || [];
+
+                            console.log('[Realtime] 检测到新数据，更新本地...');
+                            state.todos = mergeArrays(state.todos, cloudTodos);
+                            state.transactions = mergeArrays(state.transactions, cloudTransactions);
+                            state.groups = mergeArrays(state.groups, cloudGroups);
+
+                            // 更新本地存储
+                            localStorage.setItem('todos', JSON.stringify(state.todos));
+                            localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                            localStorage.setItem('groups', JSON.stringify(state.groups));
+
+                            // 更新 UI
+                            renderAll();
+                            showSyncToast('数据已同步');
+                        } else if (payload.eventType === 'DELETE') {
+                            console.warn('[Realtime] 数据被删除（不太可能发生）');
+                        }
+                    }
+                )
+                .subscribe((status, err) => {
+                    if (err) {
+                        console.error('[Realtime] 订阅错误:', err);
+                    } else {
+                        console.log('[Realtime] 订阅状态:', status);
+                        if (status === 'SUBSCRIBED') {
+                            console.log('[Realtime] ✓ 订阅成功，将实时接收数据变化');
+                        } else if (status === 'CLOSED') {
+                            console.log('[Realtime] 订阅已关闭');
+                        } else if (status === 'CHANNEL_ERROR') {
+                            console.error('[Realtime] 订阅出错，5秒后重试...');
+                            setTimeout(() => subscribeToRealtime(), 5000);
+                        }
+                    }
+                });
+        }
+
+        function unsubscribeToRealtime() {
+            if (realtimeChannel) {
+                console.log('[Realtime] 取消订阅');
+                supabase.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
+        }
+
+        // 重写 baseSave 和 save 函数，优化性能
+        function baseSave() {
+            localStorage.setItem('todos', JSON.stringify(state.todos));
+            localStorage.setItem('groups', JSON.stringify(state.groups));
+            localStorage.setItem('transactions', JSON.stringify(state.transactions));
+        }
+
         function save() {
-            // 先调用原始保存函数
-            originalSaveFunc();
-            // 云同步（带防抖）
+            // 更新 updatedAt 时间戳
+            const now = new Date().toISOString();
+            state.todos.forEach(t => t.updatedAt = now);
+            state.groups.forEach(g => g.updatedAt = now);
+            state.transactions.forEach(t => t.updatedAt = now);
+
+            // 立即保存到本地
+            baseSave();
+
+            // 云同步（带防抖，只在已登录时触发）
             if (currentUser) {
+                // 清除之前的定时器
                 if (syncTimer) clearTimeout(syncTimer);
-                syncTimer = setTimeout(() => {
-                    console.log('[自动同步] 开始上传...');
-                    syncToCloud();
+                // 设置新的定时器
+                syncTimer = setTimeout(async () => {
+                    console.log('[自动同步] 双向同步开始...');
+
+                    try {
+                        // 1. 先从云端下载最新数据
+                        const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${accessToken}`
+                            }
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data[0]) {
+                                // 2. 合并云端数据到本地（保留最新的）
+                                const cloudTodos = data[0].todos || [];
+                                const cloudTransactions = data[0].transactions || [];
+                                const cloudGroups = data[0].groups || [];
+
+                                state.todos = mergeArrays(state.todos, cloudTodos);
+                                state.transactions = mergeArrays(state.transactions, cloudTransactions);
+                                state.groups = mergeArrays(state.groups, cloudGroups);
+
+                                // 更新本地存储
+                                localStorage.setItem('todos', JSON.stringify(state.todos));
+                                localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                                localStorage.setItem('groups', JSON.stringify(state.groups));
+
+                                renderAll();
+
+                                // 3. 上传合并后的最新数据到云端
+                                await syncToCloud();
+                                console.log('[自动同步] 双向同步完成');
+                            }
+                        } else {
+                            // 云端无数据，直接上传本地数据
+                            await syncToCloud();
+                        }
+                    } catch (e) {
+                        console.error('[自动同步] 失败:', e);
+                    }
                 }, SYNC_DELAY);
             }
         }
 
-        // 窗口关闭前立即同步
+        // 页面卸载前立即同步
         window.addEventListener('beforeunload', () => {
             if (syncTimer) {
                 clearTimeout(syncTimer);
@@ -2826,15 +3211,27 @@
             }
         });
 
-        // 检查已保存的登录状态
+        // 检查已保存的登录状态（静默失败，不阻塞应用）
         async function checkAuthStatus() {
-            const savedUserId = localStorage.getItem('user_id');
-            const savedToken = localStorage.getItem('access_token');
-            if (savedUserId && savedToken) {
-                currentUser = { id: savedUserId };
-                accessToken = savedToken;
-                await syncDataOnLogin();
-                updateCloudStatus();
+            try {
+                const savedUserId = localStorage.getItem('user_id');
+                const savedToken = localStorage.getItem('access_token');
+                if (savedUserId && savedToken) {
+                    currentUser = { id: savedUserId };
+                    accessToken = savedToken;
+                    // 尝试同步，但不阻塞应用启动
+                    await syncDataOnLogin().catch(e => {
+                        console.warn('[检查登录状态] 同步失败，但不影响应用使用:', e);
+                    });
+                    // 启动 Realtime 实时同步
+                    subscribeToRealtime();
+                    updateCloudStatus();
+                }
+            } catch (e) {
+                console.error('[检查登录状态] 错误:', e);
+                // 确保应用能正常使用
+                currentUser = null;
+                accessToken = null;
             }
         }
         checkAuthStatus();
@@ -2884,10 +3281,20 @@
 
         // 打开登录窗口
         function openAuthModal() {
+            console.log('[登录] 打开登录窗口');
             switchAuthMode();
             document.getElementById('authEmail').value = '';
             document.getElementById('authPassword').value = '';
             document.getElementById('authError').style.display = 'none';
+
+            // 确保输入框可以被点击
+            const emailInput = document.getElementById('authEmail');
+            const passwordInput = document.getElementById('authPassword');
+            console.log('[登录] 邮箱输入框:', emailInput);
+            console.log('[登录] 密码输入框:', passwordInput);
+            console.log('[登录] 邮箱输入框可聚焦:', !emailInput.disabled);
+            console.log('[登录] 邮箱输入框 pointer-events:', getComputedStyle(emailInput).pointerEvents);
+
             openModal('authModal');
         }
 
@@ -2975,20 +3382,6 @@
             };
             input.click();
         }
-
-        // 页面加载时检查登录状态
-        window.addEventListener('load', () => {
-            const userId = localStorage.getItem('user_id');
-            if (userId && USE_CLOUD && supabase) {
-                supabase.auth.getSession().then(({ data: { session } }) => {
-                    if (session) {
-                        currentUser = session.user;
-                        updateCloudStatus();
-                        syncFromCloud();
-                    }
-                });
-            }
-        });
     </script>
 </body>
 </html>

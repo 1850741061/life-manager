@@ -2668,12 +2668,17 @@
     </script>
 
     <!-- 云同步配置（使用 fetch API，不依赖 SDK）-->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const SUPABASE_URL = 'https://gcrdheovyzjywwyijjli.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM';
 
         let currentUser = null;
         let accessToken = null;
+        let realtimeChannel = null;
+
+        // 初始化 Supabase 客户端
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 显示同步提示
         function showSyncToast(message, type = 'success') {
@@ -2856,8 +2861,8 @@
                 // 先检查云端是否有数据，有则下载，无则上传本地数据
                 await syncDataOnLogin();
 
-                // 启动定期轮询云端数据
-                startPolling();
+                // 启动 Realtime 实时同步
+                subscribeToRealtime();
 
                 return { success: true };
             } catch (e) {
@@ -2902,6 +2907,9 @@
         // 登出
         async function signOut() {
             try {
+                // 取消 Realtime 订阅
+                unsubscribeToRealtime();
+
                 // 清理本地状态
                 currentUser = null;
                 accessToken = null;
@@ -3022,44 +3030,49 @@
         let syncTimer = null;
         const SYNC_DELAY = 10000; // 10秒防抖，停止操作10秒后才同步（减少频繁同步）
 
-        // 定期检查云端数据（30秒一次）
-        let pollTimer = null;
-        function startPolling() {
-            if (pollTimer) clearInterval(pollTimer);
-            if (!currentUser || !accessToken) return;
+        // ========== Realtime 实时同步 ==========
+        let realtimeChannel = null;
 
-            pollTimer = setInterval(async () => {
-                if (!currentUser || !accessToken) {
-                    clearInterval(pollTimer);
-                    return;
-                }
+        function subscribeToRealtime() {
+            // 先清理旧的订阅
+            unsubscribeToRealtime();
 
-                try {
-                    // 下载云端数据并合并
-                    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
-                        headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${accessToken}`
-                        }
-                    });
+            if (!currentUser || !accessToken) {
+                console.log('[Realtime] 未登录，跳过订阅');
+                return;
+            }
 
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data && data[0]) {
-                            const cloudTodos = data[0].todos || [];
-                            const cloudTransactions = data[0].transactions || [];
-                            const cloudGroups = data[0].groups || [];
+            console.log('[Realtime] 正在订阅数据变化...');
+
+            // 订阅 user_data 表的变化
+            realtimeChannel = supabase
+                .channel('public:user_data')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*', // 监听所有事件（INSERT, UPDATE, DELETE）
+                        schema: 'public',
+                        table: 'user_data',
+                        filter: `id=eq.${currentUser.id}` // 只监听当前用户的数据
+                    },
+                    (payload) => {
+                        console.log('[Realtime] 收到数据变化:', payload);
+
+                        // 处理不同类型的事件
+                        if (payload.eventType === 'UPDATE' && payload.new) {
+                            const cloudTodos = payload.new.todos || [];
+                            const cloudTransactions = payload.new.transactions || [];
+                            const cloudGroups = payload.new.groups || [];
 
                             // 比较是否有变化
-                            const oldTodoCount = state.todos.length;
+                            const oldTodosJson = JSON.stringify(state.todos);
                             const newTodos = mergeArrays(state.todos, cloudTodos);
                             const newTransactions = mergeArrays(state.transactions, cloudTransactions);
                             const newGroups = mergeArrays(state.groups, cloudGroups);
 
                             // 如果数据有变化，更新本地
-                            if (newTodos.length !== oldTodoCount ||
-                                JSON.stringify(state.todos) !== JSON.stringify(newTodos)) {
-                                console.log('[轮询] 检测到云端数据变化，更新本地...');
+                            if (oldTodosJson !== JSON.stringify(newTodos)) {
+                                console.log('[Realtime] 检测到云端数据变化，更新本地...');
                                 state.todos = newTodos;
                                 state.transactions = newTransactions;
                                 state.groups = newGroups;
@@ -3069,16 +3082,57 @@
                                 localStorage.setItem('transactions', JSON.stringify(state.transactions));
                                 localStorage.setItem('groups', JSON.stringify(state.groups));
 
+                                // 更新 UI
                                 renderAll();
+                                showSyncToast('数据已同步');
                             }
+                        } else if (payload.eventType === 'INSERT' && payload.new) {
+                            // 新数据插入，更新本地
+                            const cloudTodos = payload.new.todos || [];
+                            const cloudTransactions = payload.new.transactions || [];
+                            const cloudGroups = payload.new.groups || [];
+
+                            console.log('[Realtime] 检测到新数据，更新本地...');
+                            state.todos = mergeArrays(state.todos, cloudTodos);
+                            state.transactions = mergeArrays(state.transactions, cloudTransactions);
+                            state.groups = mergeArrays(state.groups, cloudGroups);
+
+                            // 更新本地存储
+                            localStorage.setItem('todos', JSON.stringify(state.todos));
+                            localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                            localStorage.setItem('groups', JSON.stringify(state.groups));
+
+                            // 更新 UI
+                            renderAll();
+                            showSyncToast('数据已同步');
+                        } else if (payload.eventType === 'DELETE') {
+                            console.warn('[Realtime] 数据被删除（不太可能发生）');
                         }
                     }
-                } catch (e) {
-                    console.error('[轮询] 检查云端数据失败:', e);
-                }
-            }, 30000); // 30秒检查一次
+                )
+                .subscribe((status, err) => {
+                    if (err) {
+                        console.error('[Realtime] 订阅错误:', err);
+                    } else {
+                        console.log('[Realtime] 订阅状态:', status);
+                        if (status === 'SUBSCRIBED') {
+                            console.log('[Realtime] ✓ 订阅成功，将实时接收数据变化');
+                        } else if (status === 'CLOSED') {
+                            console.log('[Realtime] 订阅已关闭');
+                        } else if (status === 'CHANNEL_ERROR') {
+                            console.error('[Realtime] 订阅出错，5秒后重试...');
+                            setTimeout(() => subscribeToRealtime(), 5000);
+                        }
+                    }
+                });
+        }
 
-            console.log('[轮询] 已启动自动检查云端数据');
+        function unsubscribeToRealtime() {
+            if (realtimeChannel) {
+                console.log('[Realtime] 取消订阅');
+                supabase.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
         }
 
         // 重写 baseSave 和 save 函数，优化性能
@@ -3169,8 +3223,8 @@
                     await syncDataOnLogin().catch(e => {
                         console.warn('[检查登录状态] 同步失败，但不影响应用使用:', e);
                     });
-                    // 启动定期轮询
-                    startPolling();
+                    // 启动 Realtime 实时同步
+                    subscribeToRealtime();
                     updateCloudStatus();
                 }
             } catch (e) {
