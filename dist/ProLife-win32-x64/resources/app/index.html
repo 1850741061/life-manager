@@ -2678,7 +2678,7 @@
         let realtimeChannel = null;
 
         // 初始化 Supabase 客户端
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 显示同步提示
         function showSyncToast(message, type = 'success') {
@@ -3043,7 +3043,7 @@
             console.log('[Realtime] 正在订阅数据变化...');
 
             // 订阅 user_data 表的变化
-            realtimeChannel = supabase
+            realtimeChannel = supabaseClient
                 .channel('public:user_data')
                 .on(
                     'postgres_changes',
@@ -3128,7 +3128,7 @@
         function unsubscribeToRealtime() {
             if (realtimeChannel) {
                 console.log('[Realtime] 取消订阅');
-                supabase.removeChannel(realtimeChannel);
+                supabaseClient.removeChannel(realtimeChannel);
                 realtimeChannel = null;
             }
         }
