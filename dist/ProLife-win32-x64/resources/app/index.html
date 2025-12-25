@@ -3025,7 +3025,7 @@
             }
         }
 
-        // 云端同步 - 下载并合并
+        // 云端同步 - 下载（直接覆盖，用于手动刷新）
         async function syncFromCloud() {
             if (!currentUser || !accessToken) {
                 showSyncToast('未登录，无法刷新', 'error');
@@ -3049,18 +3049,10 @@
 
                 const data = await res.json();
                 if (data && data[0]) {
-                    const cloudTodos = data[0].todos || [];
-                    const cloudTransactions = data[0].transactions || [];
-                    const cloudGroups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
-
-                    // 合并数据（保留最新的）
-                    const newTodos = mergeArrays(state.todos, cloudTodos);
-                    const newTransactions = mergeArrays(state.transactions, cloudTransactions);
-                    const newGroups = mergeArrays(state.groups, cloudGroups);
-
-                    state.todos = newTodos;
-                    state.transactions = newTransactions;
-                    state.groups = newGroups;
+                    // 直接用云端数据覆盖本地（不合并）
+                    state.todos = data[0].todos || [];
+                    state.transactions = data[0].transactions || [];
+                    state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
 
                     // 更新本地存储
                     localStorage.setItem('todos', JSON.stringify(state.todos));
@@ -3132,16 +3124,13 @@
 
                             // 比较是否有变化
                             const oldTodosJson = JSON.stringify(state.todos);
-                            const newTodos = mergeArrays(state.todos, cloudTodos);
-                            const newTransactions = mergeArrays(state.transactions, cloudTransactions);
-                            const newGroups = mergeArrays(state.groups, cloudGroups);
 
-                            // 如果数据有变化，更新本地
-                            if (oldTodosJson !== JSON.stringify(newTodos)) {
+                            // 如果数据有变化，直接覆盖本地（不合并）
+                            if (oldTodosJson !== JSON.stringify(cloudTodos)) {
                                 console.log('[Realtime] 检测到云端数据变化，更新本地...');
-                                state.todos = newTodos;
-                                state.transactions = newTransactions;
-                                state.groups = newGroups;
+                                state.todos = cloudTodos;
+                                state.transactions = cloudTransactions;
+                                state.groups = cloudGroups;
 
                                 // 更新本地存储
                                 localStorage.setItem('todos', JSON.stringify(state.todos));
@@ -3153,15 +3142,15 @@
                                 showSyncToast('数据已同步');
                             }
                         } else if (payload.eventType === 'INSERT' && payload.new) {
-                            // 新数据插入，更新本地
+                            // 新数据插入，直接覆盖本地
                             const cloudTodos = payload.new.todos || [];
                             const cloudTransactions = payload.new.transactions || [];
                             const cloudGroups = payload.new.groups || [];
 
                             console.log('[Realtime] 检测到新数据，更新本地...');
-                            state.todos = mergeArrays(state.todos, cloudTodos);
-                            state.transactions = mergeArrays(state.transactions, cloudTransactions);
-                            state.groups = mergeArrays(state.groups, cloudGroups);
+                            state.todos = cloudTodos;
+                            state.transactions = cloudTransactions;
+                            state.groups = cloudGroups;
 
                             // 更新本地存储
                             localStorage.setItem('todos', JSON.stringify(state.todos));
