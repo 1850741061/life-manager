@@ -3065,33 +3065,61 @@
 
                 console.log('[Realtime] 正在订阅数据变化...');
 
-                // 订阅 user_data 表的变化
-                realtimeChannel = supabaseClient
-                .channel('user_data_changes')
+                // 订阅 user_data 表的变化（使用最早工作的配置）
+                realtimeChannel = supabase
+                .channel('public:user_data')
                 .on(
                     'postgres_changes',
                     {
-                        event: 'UPDATE',
+                        event: '*', // 监听所有事件
                         schema: 'public',
                         table: 'user_data',
                         filter: `id=eq.${currentUser.id}`
                     },
                     (payload) => {
-                        console.log('[Realtime] 收到 UPDATE 通知:', payload);
-                        handleRealtimeData(payload.new);
-                    }
-                )
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'INSERT',
-                        schema: 'public',
-                        table: 'user_data',
-                        filter: `id=eq.${currentUser.id}`
-                    },
-                    (payload) => {
-                        console.log('[Realtime] 收到 INSERT 通知:', payload);
-                        handleRealtimeData(payload.new);
+                        console.log('[Realtime] 收到数据变化:', payload);
+
+                        // 处理不同类型的事件
+                        if (payload.eventType === 'UPDATE' && payload.new) {
+                            const cloudTodos = payload.new.todos || [];
+                            const cloudTransactions = payload.new.transactions || [];
+                            const cloudGroups = payload.new.groups || [];
+
+                            // 比较是否有变化
+                            const oldTodosJson = JSON.stringify(state.todos);
+
+                            // 如果数据有变化，更新本地
+                            if (oldTodosJson !== JSON.stringify(cloudTodos)) {
+                                console.log('[Realtime] 检测到云端数据变化，更新本地...');
+                                state.todos = cloudTodos;
+                                state.transactions = cloudTransactions;
+                                state.groups = cloudGroups;
+
+                                // 更新本地存储
+                                baseSave();
+
+                                // 更新 UI
+                                renderAll();
+                                showSyncToast('数据已同步');
+                            }
+                        } else if (payload.eventType === 'INSERT' && payload.new) {
+                            // 新数据插入，更新本地
+                            const cloudTodos = payload.new.todos || [];
+                            const cloudTransactions = payload.new.transactions || [];
+                            const cloudGroups = payload.new.groups || [];
+
+                            console.log('[Realtime] 检测到新数据，更新本地...');
+                            state.todos = cloudTodos;
+                            state.transactions = cloudTransactions;
+                            state.groups = cloudGroups;
+
+                            // 更新本地存储
+                            baseSave();
+
+                            // 更新 UI
+                            renderAll();
+                            showSyncToast('数据已同步');
+                        }
                     }
                 )
                 .subscribe((status, err) => {
@@ -3101,11 +3129,6 @@
                         console.log('[Realtime] 订阅状态:', status);
                         if (status === 'SUBSCRIBED') {
                             console.log('[Realtime] ✓ 订阅成功，将实时接收数据变化');
-                        } else if (status === 'CLOSED') {
-                            console.log('[Realtime] 订阅已关闭');
-                        } else if (status === 'CHANNEL_ERROR') {
-                            console.error('[Realtime] 订阅出错，5秒后重试...');
-                            setTimeout(() => subscribeToRealtime(), 5000);
                         }
                     }
                 });
@@ -3114,33 +3137,11 @@
             }
         }
 
-        // 处理 Realtime 数据更新
-        function handleRealtimeData(cloudData) {
-            if (!cloudData) return;
-
-            const cloudTodos = cloudData.todos || [];
-            const cloudTransactions = cloudData.transactions || [];
-            const cloudGroups = cloudData.groups || [];
-
-            // 直接用云端数据覆盖本地（以云端为准）
-            console.log('[Realtime] 检测到云端数据变化，更新本地...');
-            state.todos = cloudTodos;
-            state.transactions = cloudTransactions;
-            state.groups = cloudGroups;
-
-            // 更新本地存储
-            baseSave();
-
-            // 更新 UI
-            renderAll();
-            showSyncToast('数据已同步');
-        }
-
         function unsubscribeToRealtime() {
-            if (realtimeChannel && supabaseClient) {
+            if (realtimeChannel) {
                 try {
                     console.log('[Realtime] 取消订阅');
-                    supabaseClient.removeChannel(realtimeChannel);
+                    supabase.removeChannel(realtimeChannel);
                 } catch (e) {
                     console.warn('[Realtime] 取消订阅失败（非致命）:', e);
                 }
