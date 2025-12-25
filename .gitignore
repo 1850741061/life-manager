@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.exe
+*.dll
+*.pak
+*.dat
+*.bin
+*.jsonc
+
+# Temporary files
+nul
+*.log
+*.tmp
+
+# Screenshots
+截图/
+see.png
+*.png
+*.jpg
+*.jpeg
+
+# IDE and Editor
+.claude/
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+pre/
+builder-debug.yml
+
+# Package lock files (optional)
+# package-lock.json

@@ -13,10 +13,7 @@
 ## Supabase 配置
 - **项目 ID**: gcrdheovyzjywwyijjli
 - **URL**: https://gcrdheovyzjywwyijjli.supabase.co
-- **API Key (anon public)**:
-  ```
-  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM
-  ```
+- **API Key**: 请参考 Supabase 项目设置获取
 
 ### 数据库表结构
 ```sql
