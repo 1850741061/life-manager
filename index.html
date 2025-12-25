@@ -2616,11 +2616,6 @@
             localStorage.setItem('transactions', JSON.stringify(state.transactions));
         }
 
-        // save 函数 - 将在后面被包装成带云同步的版本
-        function save() {
-            baseSave();
-        }
-
         function animateValue(id, start, end, duration) {
             if (start === end) return;
             const obj = document.getElementById(id);
@@ -2719,13 +2714,33 @@
         `;
         document.head.appendChild(style);
 
-        // 合并两个数组，使用 ID 去重（保留最新的）
+        // 智能合并：基于 updatedAt 时间戳保留最新数据
         function mergeArrays(local, remote) {
             const merged = new Map();
-            // 先添加本地数据
+
+            // 先添加所有本地数据
             local.forEach(item => merged.set(item.id, item));
-            // 远程数据覆盖（更新）
-            remote.forEach(item => merged.set(item.id, item));
+
+            // 处理远程数据
+            remote.forEach(remoteItem => {
+                const localItem = merged.get(remoteItem.id);
+
+                if (!localItem) {
+                    // 本地没有这个数据，直接添加
+                    merged.set(remoteItem.id, remoteItem);
+                } else {
+                    // 本地和远程都有，比较 updatedAt（如果有）
+                    const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0);
+                    const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0);
+
+                    // 保留最新的数据
+                    if (remoteTime > localTime) {
+                        merged.set(remoteItem.id, remoteItem);
+                    }
+                    // 否则保留本地数据
+                }
+            });
+
             return Array.from(merged.values());
         }
 
@@ -2967,16 +2982,62 @@
         }
 
         function save() {
+            // 更新 updatedAt 时间戳
+            const now = new Date().toISOString();
+            state.todos.forEach(t => t.updatedAt = now);
+            state.groups.forEach(g => g.updatedAt = now);
+            state.transactions.forEach(t => t.updatedAt = now);
+
             // 立即保存到本地
             baseSave();
+
             // 云同步（带防抖，只在已登录时触发）
             if (currentUser) {
                 // 清除之前的定时器
                 if (syncTimer) clearTimeout(syncTimer);
                 // 设置新的定时器
-                syncTimer = setTimeout(() => {
-                    console.log('[自动同步] 开始上传...');
-                    syncToCloud().catch(e => console.error('[同步] 失败:', e));
+                syncTimer = setTimeout(async () => {
+                    console.log('[自动同步] 双向同步开始...');
+
+                    try {
+                        // 1. 先从云端下载最新数据
+                        const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${accessToken}`
+                            }
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data[0]) {
+                                // 2. 合并云端数据到本地（保留最新的）
+                                const cloudTodos = data[0].todos || [];
+                                const cloudTransactions = data[0].transactions || [];
+                                const cloudGroups = data[0].groups || [];
+
+                                state.todos = mergeArrays(state.todos, cloudTodos);
+                                state.transactions = mergeArrays(state.transactions, cloudTransactions);
+                                state.groups = mergeArrays(state.groups, cloudGroups);
+
+                                // 更新本地存储
+                                localStorage.setItem('todos', JSON.stringify(state.todos));
+                                localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                                localStorage.setItem('groups', JSON.stringify(state.groups));
+
+                                renderAll();
+
+                                // 3. 上传合并后的最新数据到云端
+                                await syncToCloud();
+                                console.log('[自动同步] 双向同步完成');
+                            }
+                        } else {
+                            // 云端无数据，直接上传本地数据
+                            await syncToCloud();
+                        }
+                    } catch (e) {
+                        console.error('[自动同步] 失败:', e);
+                    }
                 }, SYNC_DELAY);
             }
         }
