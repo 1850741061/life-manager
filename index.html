@@ -2950,6 +2950,10 @@
                 console.log('[同步] 未登录，跳过上传');
                 return false;
             }
+
+            // 设置上传标志，避免 Realtime 回调处理自己的通知
+            isUploading = true;
+
             try {
                 console.log('[同步] 开始上传数据到云端...');
                 console.log('[同步] 当前用户ID:', currentUser.id);
@@ -3012,6 +3016,11 @@
             } catch (e) {
                 console.error('[同步] 上传异常:', e);
                 return false;
+            } finally {
+                // 延迟清除标志，给 Realtime 通知一些时间到达
+                setTimeout(() => {
+                    isUploading = false;
+                }, 2000);
             }
         }
 
@@ -3039,11 +3048,11 @@
             }
         }
 
-        // 保存时自动同步 - 添加防抖，减少同步频率
+        // 保存时自动同步 - 无防抖，立即上传
         // 保存原始 baseSave 函数的引用（在重定义之前）
         const originalBaseSave = baseSave;
-        let syncTimer = null;
-        const SYNC_DELAY = 10000; // 10秒防抖，停止操作10秒后才同步（减少频繁同步）
+        // 跟踪是否正在上传，避免处理自己的 Realtime 回调
+        let isUploading = false;
 
         // ========== Realtime 实时同步 ==========
         function subscribeToRealtime() {
@@ -3077,6 +3086,12 @@
                     },
                     (payload) => {
                         console.log('[Realtime] 收到数据变化:', payload);
+
+                        // 如果是自己正在上传，忽略这个通知（避免回滚）
+                        if (isUploading) {
+                            console.log('[Realtime] 忽略自己上传的通知');
+                            return;
+                        }
 
                         // 处理不同类型的事件
                         if (payload.eventType === 'UPDATE' && payload.new) {
@@ -3179,61 +3194,16 @@
             // 立即保存到本地
             baseSave();
 
-            // 云同步（带防抖，只在已登录时触发）
+            // 云同步（立即上传，无防抖）
             if (currentUser) {
-                // 清除之前的定时器
-                if (syncTimer) clearTimeout(syncTimer);
-                // 设置新的定时器
-                syncTimer = setTimeout(async () => {
-                    console.log('[自动同步] 双向同步开始...');
-
-                    try {
-                        // 1. 先从云端下载最新数据
-                        const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${accessToken}`
-                            }
-                        });
-
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && data[0]) {
-                                // 2. 合并云端数据到本地（保留最新的）
-                                const cloudTodos = data[0].todos || [];
-                                const cloudTransactions = data[0].transactions || [];
-                                const cloudGroups = data[0].groups || [];
-
-                                state.todos = mergeArrays(state.todos, cloudTodos);
-                                state.transactions = mergeArrays(state.transactions, cloudTransactions);
-                                state.groups = mergeArrays(state.groups, cloudGroups);
-
-                                // 更新本地存储
-                                localStorage.setItem('todos', JSON.stringify(state.todos));
-                                localStorage.setItem('transactions', JSON.stringify(state.transactions));
-                                localStorage.setItem('groups', JSON.stringify(state.groups));
-
-                                renderAll();
-
-                                // 3. 上传合并后的最新数据到云端
-                                await syncToCloud();
-                                console.log('[自动同步] 双向同步完成');
-                            }
-                        } else {
-                            // 云端无数据，直接上传本地数据
-                            await syncToCloud();
-                        }
-                    } catch (e) {
-                        console.error('[自动同步] 失败:', e);
-                    }
-                }, SYNC_DELAY);
+                console.log('[自动同步] 上传数据到云端...');
+                syncToCloud();
             }
         }
 
         // 页面卸载前立即同步
         window.addEventListener('beforeunload', () => {
-            if (syncTimer) {
-                clearTimeout(syncTimer);
+            if (currentUser) {
                 syncToCloud();
             }
         });
