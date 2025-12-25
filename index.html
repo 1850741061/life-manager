@@ -3065,8 +3065,8 @@
 
                 console.log('[Realtime] 正在订阅数据变化...');
 
-                // 订阅 user_data 表的变化（使用最早工作的配置）
-                realtimeChannel = supabase
+                // 订阅 user_data 表的变化
+                realtimeChannel = supabaseClient
                 .channel('public:user_data')
                 .on(
                     'postgres_changes',
@@ -3141,7 +3141,7 @@
             if (realtimeChannel) {
                 try {
                     console.log('[Realtime] 取消订阅');
-                    supabase.removeChannel(realtimeChannel);
+                    supabaseClient.removeChannel(realtimeChannel);
                 } catch (e) {
                     console.warn('[Realtime] 取消订阅失败（非致命）:', e);
                 }
