@@ -990,20 +990,72 @@
         .checkbox input:checked ~ .checkmark:after { display: block; }
         .todo-item.completed .todo-text { text-decoration: line-through; opacity: 0.5; }
 
-        /* 响应式 */
+        /* 响应式 - 移动端适配 */
         @media (max-width: 768px) {
+            /* 容器和布局 */
             .main-layout.todo-mode { flex-direction: column; }
             .sidebar { width: 100%; border-right: none; border-bottom: 3px solid var(--border-color); max-height: 200px; }
             .container { height: 100vh; border-radius: 0; border: none; }
             body { padding: 0; }
             .todo-actions { opacity: 1; }
-            .stats-bar { padding: 15px 10px; }
-            .stat-value { font-size: 1.5rem; }
-            
-            .group-actions { opacity: 1 !important; } 
-            
-            .header-controls { gap: 10px; }
-            .view-tabs { margin-right: 0; }
+
+            /* 头部区域 */
+            header { padding: 10px 15px; flex-wrap: wrap; gap: 10px; }
+            h1 { font-size: 1.1rem; gap: 8px; }
+            .header-controls { gap: 8px; flex-wrap: wrap; justify-content: center; }
+            .view-tabs { padding: 3px; }
+            .view-tab { padding: 6px 12px; font-size: 0.8rem; }
+
+            /* 统计栏 */
+            .stats-bar { padding: 12px 8px; flex-wrap: wrap; gap: 10px; }
+            .stat-item { min-width: 30%; }
+            .stat-value { font-size: 1.4rem; }
+            .stat-label { font-size: 0.7rem; }
+
+            /* 内容区域 */
+            .content-view { padding: 15px 12px; }
+            .input-section { padding: 12px; margin-bottom: 15px; }
+            input, select, textarea { padding: 12px; font-size: 0.95rem; }
+            .custom-select-trigger { padding: 12px 40px 12px 12px; font-size: 0.95rem; }
+
+            /* 待办项 */
+            .todo-item { padding: 10px; }
+            .attribute-badge { font-size: 0.7rem; padding: 3px 6px; }
+
+            /* 分组 */
+            .group-item { padding: 10px 12px; margin-bottom: 8px; }
+            .group-actions { opacity: 1 !important; }
+
+            /* 按钮 */
+            .btn { padding: 8px 14px; font-size: 0.8rem; }
+            .btn-icon { width: 36px; height: 36px; font-size: 1rem; }
+
+            /* 模态框 */
+            .modal { max-width: 95%; margin: 20px 10px; max-height: 90vh; overflow-y: auto; }
+            .modal h2 { font-size: 1.2rem; }
+
+            /* 日历视图 */
+            .calendar-header { flex-wrap: wrap; }
+            .calendar-day { min-height: 60px; font-size: 0.8rem; }
+            .calendar-day-number { font-size: 0.9rem; }
+
+            /* 记账视图 */
+            .transaction-item { padding: 10px; }
+            .t-amount { font-size: 0.9rem; }
+            .filter-chip { padding: 6px 12px; font-size: 0.8rem; }
+        }
+
+        /* 超小屏幕适配 (<= 480px) */
+        @media (max-width: 480px) {
+            header { padding: 8px 10px; }
+            h1 { font-size: 0.9rem; }
+            h1 i { display: none; } /* 隐藏图标节省空间 */
+            .view-tab { padding: 5px 10px; font-size: 0.75rem; }
+            .btn-icon { width: 32px; height: 32px; }
+            .stats-bar { padding: 10px 5px; }
+            .stat-value { font-size: 1.2rem; }
+            .content-view { padding: 12px 8px; }
+            .modal { margin: 10px 5px; }
         }
     </style>
 </head>
@@ -2790,21 +2842,29 @@
         }
 
         // 保存时自动同步 - 添加防抖，减少同步频率
-        // 保存原始 save 函数的引用（在重定义之前）
-        const originalSaveFunc = save;
+        // 保存原始 baseSave 函数的引用（在重定义之前）
+        const originalBaseSave = baseSave;
         let syncTimer = null;
-        const SYNC_DELAY = 2000; // 2秒防抖，停止操作2秒后才同步
+        const SYNC_DELAY = 10000; // 10秒防抖，停止操作10秒后才同步（减少频繁同步）
 
-        // 重写 save 函数，添加云同步
+        // 重写 baseSave 和 save 函数，优化性能
+        function baseSave() {
+            localStorage.setItem('todos', JSON.stringify(state.todos));
+            localStorage.setItem('groups', JSON.stringify(state.groups));
+            localStorage.setItem('transactions', JSON.stringify(state.transactions));
+        }
+
         function save() {
-            // 先调用原始保存函数
-            originalSaveFunc();
-            // 云同步（带防抖）
+            // 立即保存到本地
+            baseSave();
+            // 云同步（带防抖，只在已登录时触发）
             if (currentUser) {
+                // 清除之前的定时器
                 if (syncTimer) clearTimeout(syncTimer);
+                // 设置新的定时器
                 syncTimer = setTimeout(() => {
                     console.log('[自动同步] 开始上传...');
-                    syncToCloud();
+                    syncToCloud().catch(e => console.error('[同步] 失败:', e));
                 }, SYNC_DELAY);
             }
         }
