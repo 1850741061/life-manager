@@ -2907,8 +2907,12 @@
         // 登出
         async function signOut() {
             try {
-                // 取消 Realtime 订阅
-                unsubscribeToRealtime();
+                // 取消 Realtime 订阅（静默失败，不阻塞登出）
+                try {
+                    unsubscribeToRealtime();
+                } catch (e) {
+                    console.warn('[登出] 取消订阅失败（非致命）:', e);
+                }
 
                 // 清理本地状态
                 currentUser = null;
@@ -3032,18 +3036,19 @@
 
         // ========== Realtime 实时同步 ==========
         function subscribeToRealtime() {
-            // 先清理旧的订阅
-            unsubscribeToRealtime();
+            try {
+                // 先清理旧的订阅
+                unsubscribeToRealtime();
 
-            if (!currentUser || !accessToken) {
-                console.log('[Realtime] 未登录，跳过订阅');
-                return;
-            }
+                if (!currentUser || !accessToken) {
+                    console.log('[Realtime] 未登录，跳过订阅');
+                    return;
+                }
 
-            console.log('[Realtime] 正在订阅数据变化...');
+                console.log('[Realtime] 正在订阅数据变化...');
 
-            // 订阅 user_data 表的变化
-            realtimeChannel = supabaseClient
+                // 订阅 user_data 表的变化
+                realtimeChannel = supabaseClient
                 .channel('public:user_data')
                 .on(
                     'postgres_changes',
@@ -3123,12 +3128,19 @@
                         }
                     }
                 });
+            } catch (e) {
+                console.error('[Realtime] 订阅异常:', e);
+            }
         }
 
         function unsubscribeToRealtime() {
             if (realtimeChannel) {
-                console.log('[Realtime] 取消订阅');
-                supabaseClient.removeChannel(realtimeChannel);
+                try {
+                    console.log('[Realtime] 取消订阅');
+                    supabaseClient.removeChannel(realtimeChannel);
+                } catch (e) {
+                    console.warn('[Realtime] 取消订阅失败（非致命）:', e);
+                }
                 realtimeChannel = null;
             }
         }
