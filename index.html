@@ -61,14 +61,45 @@
             flex-direction: column;
         }
 
-        /* --- 自定义标题栏（浏览器版本隐藏）--- */
+        /* --- 自定义标题栏 --- */
         .custom-titlebar {
+            height: 40px;
+            background: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid var(--border-color);
+            flex-shrink: 0;
+            -webkit-app-region: drag;
+            user-select: none;
+        }
+
+        body.dark-mode .custom-titlebar {
+            background: var(--border-color);
+        }
+
+        /* 浏览器环境隐藏标题栏（通过 JS 添加 .browser-env 类） */
+        body.browser-env .custom-titlebar {
             display: none !important;
         }
 
-        /* --- 容器（浏览器版本全高） --- */
-        .container {
+        /* Electron 环境显示标题栏并调整容器高度 */
+        body.electron-env .custom-titlebar {
+            display: flex !important;
+        }
+
+        body.electron-env .container {
+            height: calc(100vh - 40px) !important;
+        }
+
+        /* 浏览器环境容器全高 */
+        body.browser-env .container {
             height: 100vh !important;
+        }
+
+        /* 默认容器样式（兼容无 JS 类的情况） */
+        .container {
+            height: 100vh;
         }
 
         .titlebar-left {
@@ -1446,21 +1477,31 @@
 
     <script>
         // --- Electron 窗口控制（仅在 Electron 环境中执行）---
-        if (typeof require !== 'undefined' && typeof window !== 'undefined' && window.process && window.process.type === 'renderer') {
+        // --- 环境检测与标题栏控制 ---
+        const isElectron = (function() {
             try {
-                const { ipcRenderer } = require('electron');
-                document.getElementById('btnMinimize').addEventListener('click', () => {
-                    ipcRenderer.send('window-minimize');
-                });
-                document.getElementById('btnMaximize').addEventListener('click', () => {
-                    ipcRenderer.send('window-maximize');
-                });
-                document.getElementById('btnClose').addEventListener('click', () => {
-                    ipcRenderer.send('window-close');
-                });
+                return typeof require !== 'undefined' && typeof window !== 'undefined' && window.process && window.process.type === 'renderer';
             } catch (e) {
-                console.log('Not in Electron environment');
+                return false;
             }
+        })();
+
+        // 根据环境添加相应的类
+        if (isElectron) {
+            document.body.classList.add('electron-env');
+            // 绑定窗口控制按钮
+            const { ipcRenderer } = require('electron');
+            document.getElementById('btnMinimize').addEventListener('click', () => {
+                ipcRenderer.send('window-minimize');
+            });
+            document.getElementById('btnMaximize').addEventListener('click', () => {
+                ipcRenderer.send('window-maximize');
+            });
+            document.getElementById('btnClose').addEventListener('click', () => {
+                ipcRenderer.send('window-close');
+            });
+        } else {
+            document.body.classList.add('browser-env');
         }
 
         // --- 数据与状态 ---
@@ -1667,11 +1708,21 @@
             state.view = view;
             document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
             document.querySelectorAll('.content-view').forEach(v => v.classList.toggle('active', v.id === view + 'View'));
-            
+
             const layout = document.getElementById('mainLayout');
             layout.classList.toggle('todo-mode', view !== 'finance');
-            
-            if(view === 'calendar') renderCalendar();
+
+            if(view === 'calendar') {
+                // 自动选择今天，并设置日历显示月份为当前月
+                const today = new Date();
+                state.calendarDate = today;  // 设置日历显示的月份
+                const dateStr = today.toISOString().split('T')[0];
+                state.selectedDate = dateStr;
+                renderCalendar();
+                // 确保详情面板显示
+                document.getElementById('calendarDetailPanel').style.display = 'block';
+                renderCalendarDetail();
+            }
             if(view === 'finance') renderFinance();
         }
 
@@ -1877,7 +1928,7 @@
 
                 li.innerHTML = `
                     <div class="todo-main">
-                        <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="toggleTodo(${t.id})"><span class="checkmark"></span></label>
+                        <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="event.stopPropagation(); toggleTodo(${t.id})"><span class="checkmark"></span></label>
                         <div class="todo-content" style="flex:1">
                             <div class="todo-text">${t.text}</div>
                             <div class="todo-attributes">
@@ -1923,8 +1974,31 @@
         }
 
         window.toggleTodo = (id) => {
-            state.todos = state.todos.map(t => t.id===id ? {...t, completed:!t.completed} : t);
-            save(); renderTodos();
+            const task = state.todos.find(t => t.id === id);
+            if (!task) return;
+
+            // 检查子任务状态
+            const hasIncompleteSubtasks = task.subtasks && task.subtasks.length > 0 &&
+                !task.subtasks.every(st => st.completed);
+
+            // 在日历页面点击含有未完成子任务的主任务，标记为完成并弹出详情页
+            const isInCalendarView = state.view === 'calendar' && state.selectedDate;
+
+            if (!task.completed && hasIncompleteSubtasks && isInCalendarView) {
+                // 先标记为完成
+                state.todos = state.todos.map(t => t.id === id ? {...t, completed: true} : t);
+                save();
+                renderTodos();
+                if(state.selectedDate) renderCalendarDetail();
+                // 然后弹出详情页
+                setTimeout(() => openTaskDetailModal(id), 100);
+                return;
+            }
+
+            // 其他情况正常切换完成状态
+            state.todos = state.todos.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+            save();
+            renderTodos();
             if(state.view === 'calendar' && state.selectedDate) renderCalendarDetail();
         };
 
@@ -2008,17 +2082,39 @@
         window.toggleSubtask = (todoId, subtaskId) => {
             state.todos = state.todos.map(t => {
                 if (t.id === todoId) {
+                    const updatedSubtasks = t.subtasks.map(st =>
+                        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+                    );
+
                     return {
                         ...t,
-                        subtasks: t.subtasks.map(st =>
-                            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-                        )
+                        subtasks: updatedSubtasks
+                        // 不再自动标记主任务为完成，主任务完成状态独立管理
                     };
                 }
                 return t;
             });
             save();
             renderTodos();
+
+            // 如果详情页打开着，更新详情页中的计数和子任务列表
+            const modal = document.getElementById('taskDetailModal');
+            if (modal.classList.contains('active')) {
+                const task = state.todos.find(t => t.id === todoId);
+                if (task && task.subtasks && task.subtasks.length > 0) {
+                    const completed = task.subtasks.filter(st => st.completed).length;
+                    document.getElementById('detailSubtaskCount').innerText = `(${completed}/${task.subtasks.length})`;
+
+                    // 更新子任务列表的显示
+                    const subtaskList = document.getElementById('detailSubtaskList');
+                    subtaskList.innerHTML = task.subtasks.map(st => `
+                        <li class="subtask-item ${st.completed ? 'completed' : ''}">
+                            <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${task.id}, ${st.id});">
+                            <span class="subtask-text">${escapeHtml(st.text)}</span>
+                        </li>
+                    `).join('');
+                }
+            }
         };
 
         window.deleteSubtask = (todoId, subtaskId) => {
@@ -2288,7 +2384,12 @@
                         </div>
                     `;
                     li.onclick = (e) => {
-                        if (!e.target.classList.contains('checkbox') && !e.target.classList.contains('checkmark')) {
+                        // 只有点击非 checkbox 区域才打开详情页
+                        const clickedCheckbox = e.target.tagName === 'INPUT' && e.target.type === 'checkbox';
+                        const clickedCheckmark = e.target.classList.contains('checkmark');
+                        const clickedLabel = e.target.tagName === 'LABEL' && e.target.classList.contains('checkbox');
+
+                        if (!clickedCheckbox && !clickedCheckmark && !clickedLabel) {
                             openTaskDetailModal(t.id);
                         }
                     };
@@ -2347,7 +2448,7 @@
                 const subtaskList = document.getElementById('detailSubtaskList');
                 subtaskList.innerHTML = t.subtasks.map(st => `
                     <li class="subtask-item ${st.completed ? 'completed' : ''}">
-                        <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} disabled>
+                        <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${t.id}, ${st.id});">
                         <span class="subtask-text">${escapeHtml(st.text)}</span>
                     </li>
                 `).join('');
@@ -2362,6 +2463,17 @@
             };
 
             openModal('taskDetailModal');
+        };
+
+        // 检查是否所有子任务都完成了，如果是则关闭详情页
+        window.closeIfNeeded = (taskId) => {
+            const task = state.todos.find(t => t.id === taskId);
+            if (!task || !task.subtasks || task.subtasks.length === 0) return;
+
+            const allCompleted = task.subtasks.every(st => st.completed);
+            if (allCompleted) {
+                closeModal('taskDetailModal');
+            }
         };
 
         // --- 记账 ---
