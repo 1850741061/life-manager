@@ -3067,56 +3067,31 @@
 
                 // 订阅 user_data 表的变化
                 realtimeChannel = supabaseClient
-                .channel('public:user_data')
+                .channel('user_data_changes')
                 .on(
                     'postgres_changes',
                     {
-                        event: '*', // 监听所有事件（INSERT, UPDATE, DELETE）
+                        event: 'UPDATE',
                         schema: 'public',
                         table: 'user_data',
-                        filter: `id=eq.${currentUser.id}` // 只监听当前用户的数据
+                        filter: `id=eq.${currentUser.id}`
                     },
                     (payload) => {
-                        console.log('[Realtime] 收到数据变化:', payload);
-
-                        // 处理不同类型的事件
-                        if (payload.eventType === 'UPDATE' && payload.new) {
-                            const cloudTodos = payload.new.todos || [];
-                            const cloudTransactions = payload.new.transactions || [];
-                            const cloudGroups = payload.new.groups || [];
-
-                            // 直接用云端数据覆盖本地（以云端为准）
-                            console.log('[Realtime] 检测到云端数据变化，更新本地...');
-                            state.todos = cloudTodos;
-                            state.transactions = cloudTransactions;
-                            state.groups = cloudGroups;
-
-                            // 更新本地存储
-                            baseSave();
-
-                            // 更新 UI
-                            renderAll();
-                            showSyncToast('数据已同步');
-                        } else if (payload.eventType === 'INSERT' && payload.new) {
-                            // 新数据插入，直接覆盖本地
-                            const cloudTodos = payload.new.todos || [];
-                            const cloudTransactions = payload.new.transactions || [];
-                            const cloudGroups = payload.new.groups || [];
-
-                            console.log('[Realtime] 检测到新数据，更新本地...');
-                            state.todos = cloudTodos;
-                            state.transactions = cloudTransactions;
-                            state.groups = cloudGroups;
-
-                            // 更新本地存储
-                            baseSave();
-
-                            // 更新 UI
-                            renderAll();
-                            showSyncToast('数据已同步');
-                        } else if (payload.eventType === 'DELETE') {
-                            console.warn('[Realtime] 数据被删除（不太可能发生）');
-                        }
+                        console.log('[Realtime] 收到 UPDATE 通知:', payload);
+                        handleRealtimeData(payload.new);
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'user_data',
+                        filter: `id=eq.${currentUser.id}`
+                    },
+                    (payload) => {
+                        console.log('[Realtime] 收到 INSERT 通知:', payload);
+                        handleRealtimeData(payload.new);
                     }
                 )
                 .subscribe((status, err) => {
@@ -3137,6 +3112,28 @@
             } catch (e) {
                 console.error('[Realtime] 订阅异常:', e);
             }
+        }
+
+        // 处理 Realtime 数据更新
+        function handleRealtimeData(cloudData) {
+            if (!cloudData) return;
+
+            const cloudTodos = cloudData.todos || [];
+            const cloudTransactions = cloudData.transactions || [];
+            const cloudGroups = cloudData.groups || [];
+
+            // 直接用云端数据覆盖本地（以云端为准）
+            console.log('[Realtime] 检测到云端数据变化，更新本地...');
+            state.todos = cloudTodos;
+            state.transactions = cloudTransactions;
+            state.groups = cloudGroups;
+
+            // 更新本地存储
+            baseSave();
+
+            // 更新 UI
+            renderAll();
+            showSyncToast('数据已同步');
         }
 
         function unsubscribeToRealtime() {
