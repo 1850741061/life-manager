@@ -2743,14 +2743,14 @@
                 const localItem = merged.get(remoteItem.id);
 
                 if (!localItem) {
-                    // 本地没有这个数据，直接添加
+                    // 本地没有这个数据，添加远程数据
                     merged.set(remoteItem.id, remoteItem);
                 } else {
-                    // 本地和远程都有，比较 updatedAt（如果有）
+                    // 本地和远程都有，比较 updatedAt
                     const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0);
                     const remoteTime = new Date(remoteItem.updatedAt || remoteItem.createdAt || 0);
 
-                    // 保留最新的数据
+                    // 保留最新的数据（基于时间戳）
                     if (remoteTime > localTime) {
                         merged.set(remoteItem.id, remoteItem);
                     }
@@ -2758,19 +2758,15 @@
                 }
             });
 
+            // 返回合并后的数据
             return Array.from(merged.values());
         }
 
-        // 登录时的同步：直接使用云端数据覆盖本地
+        // 登录时的同步：以云端数据为准
         async function syncDataOnLogin() {
             try {
                 console.log('[同步] 开始检查云端数据...');
                 console.log('[同步] 当前用户ID:', currentUser.id);
-                console.log('[同步] 本地数据:', {
-                    todos: state.todos.length,
-                    transactions: state.transactions.length,
-                    groups: state.groups.length
-                });
 
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     headers: {
@@ -2786,19 +2782,14 @@
                     if (data && data[0]) {
                         // 云端有数据，直接覆盖本地
                         console.log('[同步] 云端有数据，直接使用云端数据...');
-                        console.log('[同步] 云端数据:', {
-                            todos: data[0].todos?.length || 0,
-                            transactions: data[0].transactions?.length || 0,
-                            groups: data[0].groups?.length || 0
-                        });
 
-                        // 直接使用云端数据
+                        // 直接使用云端数据（不合并）
                         state.todos = data[0].todos || [];
                         state.transactions = data[0].transactions || [];
                         state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
 
                         // 保存到本地
-                        save();
+                        baseSave(); // 使用 baseSave 避免循环上传
                         renderAll();
 
                         showSyncToast(`已合并数据: ${state.todos.length} 个待办，${state.transactions.length} 条记录`);
@@ -2943,9 +2934,6 @@
                 return false;
             }
 
-            // 设置上传标志，避免 Realtime 回调处理自己的通知
-            isUploading = true;
-
             try {
                 console.log('[同步] 开始上传数据到云端...');
                 console.log('[同步] 当前用户ID:', currentUser.id);
@@ -3008,11 +2996,6 @@
             } catch (e) {
                 console.error('[同步] 上传异常:', e);
                 return false;
-            } finally {
-                // 延迟清除标志，给 Realtime 通知一些时间到达
-                setTimeout(() => {
-                    isUploading = false;
-                }, 500);
             }
         }
 
@@ -3021,17 +3004,6 @@
             if (!currentUser || !accessToken) {
                 showSyncToast('未登录，无法刷新', 'error');
                 return;
-            }
-
-            // 如果正在上传，等待上传完成
-            if (isUploading) {
-                console.log('[刷新] 等待上传完成...');
-                showSyncToast('等待上传完成...', 'error');
-                // 等待最多 5 秒
-                for (let i = 0; i < 50; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    if (!isUploading) break;
-                }
             }
 
             try {
@@ -3051,16 +3023,13 @@
 
                 const data = await res.json();
                 if (data && data[0]) {
-                    // 直接用云端数据覆盖本地（不合并）
+                    // 直接用云端数据覆盖本地
                     state.todos = data[0].todos || [];
                     state.transactions = data[0].transactions || [];
                     state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
 
                     // 更新本地存储
-                    localStorage.setItem('todos', JSON.stringify(state.todos));
-                    localStorage.setItem('transactions', JSON.stringify(state.transactions));
-                    localStorage.setItem('groups', JSON.stringify(state.groups));
-
+                    baseSave();
                     renderAll();
                     showSyncToast('刷新成功');
                     console.log('[刷新] 数据已更新');
@@ -3076,8 +3045,6 @@
         // 保存时自动同步 - 无防抖，立即上传
         // 保存原始 baseSave 函数的引用（在重定义之前）
         const originalBaseSave = baseSave;
-        // 跟踪是否正在上传，避免处理自己的 Realtime 回调
-        let isUploading = false;
 
         // ========== Realtime 实时同步 ==========
         function subscribeToRealtime() {
@@ -3112,37 +3079,24 @@
                     (payload) => {
                         console.log('[Realtime] 收到数据变化:', payload);
 
-                        // 如果是自己正在上传，忽略这个通知（避免回滚）
-                        if (isUploading) {
-                            console.log('[Realtime] 忽略自己上传的通知');
-                            return;
-                        }
-
                         // 处理不同类型的事件
                         if (payload.eventType === 'UPDATE' && payload.new) {
                             const cloudTodos = payload.new.todos || [];
                             const cloudTransactions = payload.new.transactions || [];
                             const cloudGroups = payload.new.groups || [];
 
-                            // 比较是否有变化
-                            const oldTodosJson = JSON.stringify(state.todos);
+                            // 直接用云端数据覆盖本地（以云端为准）
+                            console.log('[Realtime] 检测到云端数据变化，更新本地...');
+                            state.todos = cloudTodos;
+                            state.transactions = cloudTransactions;
+                            state.groups = cloudGroups;
 
-                            // 如果数据有变化，直接覆盖本地（不合并）
-                            if (oldTodosJson !== JSON.stringify(cloudTodos)) {
-                                console.log('[Realtime] 检测到云端数据变化，更新本地...');
-                                state.todos = cloudTodos;
-                                state.transactions = cloudTransactions;
-                                state.groups = cloudGroups;
+                            // 更新本地存储
+                            baseSave();
 
-                                // 更新本地存储
-                                localStorage.setItem('todos', JSON.stringify(state.todos));
-                                localStorage.setItem('transactions', JSON.stringify(state.transactions));
-                                localStorage.setItem('groups', JSON.stringify(state.groups));
-
-                                // 更新 UI
-                                renderAll();
-                                showSyncToast('数据已同步');
-                            }
+                            // 更新 UI
+                            renderAll();
+                            showSyncToast('数据已同步');
                         } else if (payload.eventType === 'INSERT' && payload.new) {
                             // 新数据插入，直接覆盖本地
                             const cloudTodos = payload.new.todos || [];
@@ -3155,9 +3109,7 @@
                             state.groups = cloudGroups;
 
                             // 更新本地存储
-                            localStorage.setItem('todos', JSON.stringify(state.todos));
-                            localStorage.setItem('transactions', JSON.stringify(state.transactions));
-                            localStorage.setItem('groups', JSON.stringify(state.groups));
+                            baseSave();
 
                             // 更新 UI
                             renderAll();
