@@ -1,0 +1,213 @@
+# ProLife - 待办记账应用
+
+<div align="center">
+
+![ProLife Logo](https://img.shields.io/badge/ProLife-v1.0-blue?style=for-the-badge)
+
+**一款简洁高效的生活管理应用**
+
+任务管理 · 记账统计 · 云端同步 · 跨平台使用
+
+[在线使用](https://1850741061.github.io/life-manager/) · [桌面版下载](#下载) · [功能特性](#功能特性)
+
+</div>
+
+---
+
+## ✨ 功能特性
+
+### 📋 任务管理
+- ✅ 任务添加、编辑、删除
+- ✅ 子任务支持
+- ✅ 任务分组管理（自定义颜色）
+- ✅ 时间规划（设置开始/结束时间）
+- ✅ 日历视图查看任务
+- ✅ 任务完成状态追踪
+
+### 💰 记账功能
+- ✅ 收支记录管理
+- ✅ 分类统计（自定义分类和颜色）
+- ✅ 按月查看账单
+- ✅ 月份详情弹窗（分类统计）
+- ✅ 实时统计（收入/支出/结余）
+
+### 🔄 云端同步
+- ✅ 基于 Supabase 的云端数据同步
+- ✅ 多设备数据一致性
+- ✅ 防抖机制，避免频繁同步
+- ✅ 智能合并，不覆盖本地数据
+
+### 📱 跨平台支持
+- ✅ **桌面端**：Electron 应用（Windows）
+- ✅ **网页端**：PWA 应用（可安装到手机/电脑）
+- ✅ **移动端**：响应式设计，支持手机浏览器
+
+---
+
+## 🎯 界面预览
+
+### 应用界面
+- Pop 风格设计，硬边框阴影效果
+- 自定义下拉组件
+- 流畅的交互动画
+
+### 视图模式
+- **任务视图**：看板式任务列表
+- **日历视图**：日历形式查看任务分布
+- **记账视图**：列表/月份双模式切换
+
+---
+
+## 🚀 快速开始
+
+### 在线使用
+
+直接访问：**[https://1850741061.github.io/life-manager/](https://1850741061.github.io/life-manager/)**
+
+### 桌面版下载
+
+<details>
+<summary>Windows 桌面版</summary>
+
+下载 `dist/ProLife-win32-x64/ProLife.exe` 即可运行
+
+</details>
+
+### 本地开发
+
+```bash
+# 克隆仓库
+git clone https://github.com/1850741061/life-manager.git
+cd life-manager
+
+# 浏览器版
+# 直接打开 index.html 文件
+
+# 桌面版（需要打包）
+npm install
+npm run build
+```
+
+---
+
+## 📦 技术栈
+
+| 技术 | 用途 |
+|------|------|
+| HTML5 | 页面结构 |
+| CSS3 | Pop 风格样式设计 |
+| Vanilla JavaScript | 核心逻辑（无框架依赖） |
+| Electron | 桌面应用打包 |
+| Supabase | 云端数据同步 |
+| PWA | 渐进式 Web 应用 |
+| Service Worker | 离线缓存支持 |
+
+---
+
+## 🗂️ 项目结构
+
+```
+life-manager/
+├── index.html              # 主应用文件（浏览器版）
+├── manifest.json           # PWA 配置
+├── sw.js                   # Service Worker
+├── README.md               # 项目说明
+├── PROJECT_CONTEXT.md      # 项目开发文档
+└── dist/
+    └── ProLife-win32-x64/  # 桌面版打包文件
+```
+
+---
+
+## 📊 数据存储
+
+### 本地存储
+- `localStorage` 存储所有数据
+- 支持离线使用
+
+### 云端同步
+- 基于 Supabase 的用户数据表
+- 自动同步机制（防抖 2 秒）
+- 智能合并策略，避免数据冲突
+
+### 数据结构
+```javascript
+{
+  todos: [],           // 任务列表
+  groups: [],          // 任务分组
+  transactions: [],    // 记账记录
+  view: 'todo',        // 当前视图
+  financeViewMode: 'list', // 记账视图模式
+  financeFilter: 'all'     // 记账分类筛选
+}
+```
+
+---
+
+## 🔐 账号与同步
+
+### 注册账号
+1. 点击应用右上角"登录"按钮
+2. 切换到"注册"标签
+3. 填写邮箱和密码（至少 6 位）
+4. 完成注册后需要验证邮箱
+
+### 数据同步
+- 登录后自动开启云同步
+- 所有数据实时同步到云端
+- 支持多设备同时使用
+
+---
+
+## 🎨 自定义配置
+
+### 任务分组
+- 自定义分组名称
+- 10 种预设颜色可选
+- 拖拽任务到不同分组
+
+### 记账分类
+- 自定义分类名称
+- 自定义分类颜色
+- 支持收入/支出类型
+
+---
+
+## 📝 更新日志
+
+### v1.0.0 (2025-12-25)
+- ✅ 新增月份记账视图
+- ✅ 新增月份详情弹窗
+- ✅ 优化列表视图（仅显示当月）
+- ✅ 修复侧边栏显示问题
+- ✅ 支持云同步功能
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+---
+
+## 📄 开源协议
+
+MIT License
+
+---
+
+## 🔗 相关链接
+
+- **GitHub**: https://github.com/1850741061/life-manager
+- **在线体验**: https://1850741061.github.io/life-manager/
+- **问题反馈**: https://github.com/1850741061/life-manager/issues
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [1850741061](https://github.com/1850741061)**
+
+⭐ 如果觉得有用，请给个 Star！
+
+</div>
