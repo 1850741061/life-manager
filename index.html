@@ -2897,11 +2897,24 @@
 
         // 登出
         async function signOut() {
-            currentUser = null;
-            accessToken = null;
-            localStorage.removeItem('user_id');
-            localStorage.removeItem('access_token');
-            location.reload();
+            try {
+                // 清理本地状态
+                currentUser = null;
+                accessToken = null;
+
+                // 清理 localStorage
+                localStorage.removeItem('user_id');
+                localStorage.removeItem('access_token');
+
+                console.log('[登出] 已清理登录状态');
+
+                // 刷新页面
+                setTimeout(() => location.reload(), 100);
+            } catch (e) {
+                console.error('[登出] 错误:', e);
+                // 即使出错也尝试刷新
+                location.reload();
+            }
         }
 
         // 云端同步 - 上传
@@ -2912,6 +2925,11 @@
             }
             try {
                 console.log('[同步] 开始上传数据到云端...');
+                console.log('[同步] 当前用户ID:', currentUser.id);
+                console.log('[同步] 待办数量:', state.todos.length);
+                console.log('[同步] 记账数量:', state.transactions.length);
+                console.log('[同步] 分组数量:', state.groups.length);
+
                 const payload = {
                     id: currentUser.id,
                     todos: state.todos,
@@ -2919,7 +2937,6 @@
                     groups: state.groups,
                     updated_at: new Date().toISOString()
                 };
-                console.log('[同步] 上传数据:', payload);
 
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     method: 'POST',
@@ -2933,11 +2950,16 @@
                 });
 
                 console.log('[同步] 上传响应状态:', res.status);
+
                 if (!res.ok) {
                     const errorText = await res.text();
-                    console.error('[同步] 上传失败:', errorText);
+                    console.error('[同步] 上传失败响应:', errorText);
+                    return false;
                 }
-                return res.ok;
+
+                // 状态 201/204 可能没有响应体，不需要解析 JSON
+                console.log('[同步] 上传成功！');
+                return true;
             } catch (e) {
                 console.error('[同步] 上传异常:', e);
                 return false;
@@ -3050,15 +3072,25 @@
             }
         });
 
-        // 检查已保存的登录状态
+        // 检查已保存的登录状态（静默失败，不阻塞应用）
         async function checkAuthStatus() {
-            const savedUserId = localStorage.getItem('user_id');
-            const savedToken = localStorage.getItem('access_token');
-            if (savedUserId && savedToken) {
-                currentUser = { id: savedUserId };
-                accessToken = savedToken;
-                await syncDataOnLogin();
-                updateCloudStatus();
+            try {
+                const savedUserId = localStorage.getItem('user_id');
+                const savedToken = localStorage.getItem('access_token');
+                if (savedUserId && savedToken) {
+                    currentUser = { id: savedUserId };
+                    accessToken = savedToken;
+                    // 尝试同步，但不阻塞应用启动
+                    await syncDataOnLogin().catch(e => {
+                        console.warn('[检查登录状态] 同步失败，但不影响应用使用:', e);
+                    });
+                    updateCloudStatus();
+                }
+            } catch (e) {
+                console.error('[检查登录状态] 错误:', e);
+                // 确保应用能正常使用
+                currentUser = null;
+                accessToken = null;
             }
         }
         checkAuthStatus();
@@ -3108,10 +3140,20 @@
 
         // 打开登录窗口
         function openAuthModal() {
+            console.log('[登录] 打开登录窗口');
             switchAuthMode();
             document.getElementById('authEmail').value = '';
             document.getElementById('authPassword').value = '';
             document.getElementById('authError').style.display = 'none';
+
+            // 确保输入框可以被点击
+            const emailInput = document.getElementById('authEmail');
+            const passwordInput = document.getElementById('authPassword');
+            console.log('[登录] 邮箱输入框:', emailInput);
+            console.log('[登录] 密码输入框:', passwordInput);
+            console.log('[登录] 邮箱输入框可聚焦:', !emailInput.disabled);
+            console.log('[登录] 邮箱输入框 pointer-events:', getComputedStyle(emailInput).pointerEvents);
+
             openModal('authModal');
         }
 
