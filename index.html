@@ -3031,8 +3031,6 @@
         const SYNC_DELAY = 10000; // 10秒防抖，停止操作10秒后才同步（减少频繁同步）
 
         // ========== Realtime 实时同步 ==========
-        let realtimeChannel = null;
-
         function subscribeToRealtime() {
             // 先清理旧的订阅
             unsubscribeToRealtime();
