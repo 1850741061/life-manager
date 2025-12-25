@@ -1076,6 +1076,55 @@
             .filter-chip { padding: 6px 12px; font-size: 0.8rem; }
         }
 
+        /* --- 月份分组样式 --- */
+        .month-group {
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .month-header {
+            background: var(--accent-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid var(--border-color);
+        }
+
+        .month-title {
+            font-size: 1.1rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .month-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .month-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .month-stat.income { color: var(--success-color); }
+        .month-stat.expense { color: var(--danger-color); }
+
+        .month-transactions {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
         /* 超小屏幕适配 (<= 480px) */
         @media (max-width: 480px) {
             header { padding: 8px 10px; }
@@ -1238,6 +1287,14 @@
                         </div>
                     </div>
 
+                    <!-- 视图切换 -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div class="view-tabs" style="padding: 3px;">
+                            <button class="view-tab active" id="financeViewList" onclick="setFinanceViewMode('list')">列表</button>
+                            <button class="view-tab" id="financeViewMonth" onclick="setFinanceViewMode('month')">月份</button>
+                        </div>
+                    </div>
+
                     <div class="input-section">
                         <h3 style="margin-bottom: 15px; font-weight: 800; text-transform: uppercase;">记一笔</h3>
                         <!-- Row 1: Type | Date -->
@@ -1271,7 +1328,10 @@
 
                     <div id="financeFilterBar" class="finance-filter-bar"></div>
 
+                    <!-- 列表视图 -->
                     <div id="transactionList" style="display: flex; flex-direction: column;"></div>
+                    <!-- 月份视图 -->
+                    <div id="transactionMonthList" style="display: none; flex-direction: column; gap: 25px;"></div>
                 </div>
             </div>
         </div>
@@ -1527,6 +1587,7 @@
             currentGroupId: 'all',
             filter: 'all',
             financeFilter: 'all',
+            financeViewMode: 'list', // 'list' or 'month'
             view: 'todo',
             editingId: null,
             editingGroupId: null,
@@ -2479,15 +2540,36 @@
 
         // --- 记账 ---
         function renderFinance() {
+            // 根据视图模式切换显示
+            const listContainer = document.getElementById('transactionList');
+            const monthContainer = document.getElementById('transactionMonthList');
+
+            if (state.financeViewMode === 'month') {
+                listContainer.style.display = 'none';
+                monthContainer.style.display = 'flex';
+                renderFinanceByMonth();
+            } else {
+                listContainer.style.display = 'flex';
+                monthContainer.style.display = 'none';
+                renderFinanceList();
+            }
+
+            // 更新视图切换按钮状态
+            document.getElementById('financeViewList').classList.toggle('active', state.financeViewMode === 'list');
+            document.getElementById('financeViewMonth').classList.toggle('active', state.financeViewMode === 'month');
+        }
+
+        // 列表视图渲染
+        function renderFinanceList() {
             const l = document.getElementById('transactionList');
             const filterBar = document.getElementById('financeFilterBar');
             l.innerHTML = '';
             filterBar.innerHTML = '';
-            
+
             let inc=0, exp=0;
-            
+
             const uniqueCats = [...new Set(state.transactions.map(t => t.category))];
-            
+
             const chips = [{name: '全部', val: 'all'}, ...uniqueCats.map(c => ({name: c, val: c}))];
             chips.forEach(c => {
                 const chip = document.createElement('div');
@@ -2503,17 +2585,17 @@
 
             listToRender.forEach(t => {
                 if(t.type==='income') inc+=parseFloat(t.amount); else exp+=parseFloat(t.amount);
-                
+
                 // 获取分类颜色对象
                 const catObj = financeCats.find(c => c.name === t.category);
                 const color = catObj ? catObj.color : '#ccc'; // 兼容旧数据
-                
+
                 const div = document.createElement('div');
                 div.className = `transaction-item`;
-                
+
                 // 动态设置左侧边框颜色
                 div.style.borderLeftColor = color;
-                
+
                 div.innerHTML = `
                     <div>
                         <div style="font-weight:800; text-transform:uppercase; display:flex; align-items:center; gap:5px;">
@@ -2533,6 +2615,110 @@
             document.getElementById('totalExpense').innerText = '¥'+exp.toFixed(2);
             document.getElementById('totalBalance').innerText = '¥'+(inc-exp).toFixed(2);
         }
+
+        // 月份视图渲染
+        function renderFinanceByMonth() {
+            const monthContainer = document.getElementById('transactionMonthList');
+            const filterBar = document.getElementById('financeFilterBar');
+            monthContainer.innerHTML = '';
+            filterBar.innerHTML = '';
+
+            let totalInc=0, totalExp=0;
+
+            // 按月份分组
+            const groupedByMonth = {};
+            state.transactions.forEach(t => {
+                const monthKey = t.date.substring(0, 7); // YYYY-MM
+                if (!groupedByMonth[monthKey]) {
+                    groupedByMonth[monthKey] = [];
+                }
+                groupedByMonth[monthKey].push(t);
+            });
+
+            // 按月份降序排序
+            const sortedMonths = Object.keys(groupedByMonth).sort().reverse();
+
+            // 渲染每个月份
+            sortedMonths.forEach(monthKey => {
+                const transactions = groupedByMonth[monthKey];
+                let monthInc = 0, monthExp = 0;
+
+                // 计算该月统计
+                transactions.forEach(t => {
+                    if(t.type==='income') monthInc+=parseFloat(t.amount);
+                    else monthExp+=parseFloat(t.amount);
+                });
+
+                totalInc += monthInc;
+                totalExp += monthExp;
+
+                // 创建月份分组容器
+                const monthGroup = document.createElement('div');
+                monthGroup.className = 'month-group';
+
+                // 月份头部
+                const [year, month] = monthKey.split('-');
+                monthGroup.innerHTML = `
+                    <div class="month-header">
+                        <div class="month-title">
+                            <i class="fas fa-calendar-alt"></i>
+                            ${year}年 ${parseInt(month)}月
+                        </div>
+                        <div class="month-stats">
+                            <div class="month-stat income">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>收入 ¥${monthInc.toFixed(2)}</span>
+                            </div>
+                            <div class="month-stat expense">
+                                <i class="fas fa-arrow-down"></i>
+                                <span>支出 ¥${monthExp.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="month-transactions"></div>
+                `;
+
+                // 添加该月的交易记录
+                const transContainer = monthGroup.querySelector('.month-transactions');
+                transactions
+                    .sort((a,b) => new Date(b.date) - new Date(a.date))
+                    .forEach(t => {
+                        const catObj = financeCats.find(c => c.name === t.category);
+                        const color = catObj ? catObj.color : '#ccc';
+
+                        const div = document.createElement('div');
+                        div.className = 'transaction-item';
+                        div.style.borderLeftColor = color;
+
+                        div.innerHTML = `
+                            <div>
+                                <div style="font-weight:800; text-transform:uppercase; display:flex; align-items:center; gap:5px;">
+                                    <span class="cat-badge" style="background:${color}; border-color:${color}; color:var(--card-bg);">${t.category}</span>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--text-secondary);">${t.date} ${t.note?'| '+t.note:''}</div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <div class="t-amount ${t.type}">${t.type==='income'?'+':'-'}${t.amount}</div>
+                                <i class="fas fa-pen action-icon" onclick="openEditTransaction(${t.id})" style="cursor:pointer; font-size:0.9rem; color:var(--text-secondary);"></i>
+                            </div>
+                        `;
+                        transContainer.appendChild(div);
+                    });
+
+                monthContainer.appendChild(monthGroup);
+            });
+
+            // 更新总统计
+            document.getElementById('totalIncome').innerText = '¥'+totalInc.toFixed(2);
+            document.getElementById('totalExpense').innerText = '¥'+totalExp.toFixed(2);
+            document.getElementById('totalBalance').innerText = '¥'+(totalInc-totalExp).toFixed(2);
+        }
+
+        // 切换记账视图模式
+        window.setFinanceViewMode = (mode) => {
+            state.financeViewMode = mode;
+            renderFinance();
+        };
 
         window.addTransaction = () => {
             const type = getCustomSelectValue('transTypeCustom');
