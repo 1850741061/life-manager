@@ -2855,6 +2855,10 @@
 
                 // 先检查云端是否有数据，有则下载，无则上传本地数据
                 await syncDataOnLogin();
+
+                // 启动定期轮询云端数据
+                startPolling();
+
                 return { success: true };
             } catch (e) {
                 console.error('登录异常:', e);
@@ -3018,6 +3022,65 @@
         let syncTimer = null;
         const SYNC_DELAY = 10000; // 10秒防抖，停止操作10秒后才同步（减少频繁同步）
 
+        // 定期检查云端数据（30秒一次）
+        let pollTimer = null;
+        function startPolling() {
+            if (pollTimer) clearInterval(pollTimer);
+            if (!currentUser || !accessToken) return;
+
+            pollTimer = setInterval(async () => {
+                if (!currentUser || !accessToken) {
+                    clearInterval(pollTimer);
+                    return;
+                }
+
+                try {
+                    // 下载云端数据并合并
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data[0]) {
+                            const cloudTodos = data[0].todos || [];
+                            const cloudTransactions = data[0].transactions || [];
+                            const cloudGroups = data[0].groups || [];
+
+                            // 比较是否有变化
+                            const oldTodoCount = state.todos.length;
+                            const newTodos = mergeArrays(state.todos, cloudTodos);
+                            const newTransactions = mergeArrays(state.transactions, cloudTransactions);
+                            const newGroups = mergeArrays(state.groups, cloudGroups);
+
+                            // 如果数据有变化，更新本地
+                            if (newTodos.length !== oldTodoCount ||
+                                JSON.stringify(state.todos) !== JSON.stringify(newTodos)) {
+                                console.log('[轮询] 检测到云端数据变化，更新本地...');
+                                state.todos = newTodos;
+                                state.transactions = newTransactions;
+                                state.groups = newGroups;
+
+                                // 更新本地存储
+                                localStorage.setItem('todos', JSON.stringify(state.todos));
+                                localStorage.setItem('transactions', JSON.stringify(state.transactions));
+                                localStorage.setItem('groups', JSON.stringify(state.groups));
+
+                                renderAll();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('[轮询] 检查云端数据失败:', e);
+                }
+            }, 30000); // 30秒检查一次
+
+            console.log('[轮询] 已启动自动检查云端数据');
+        }
+
         // 重写 baseSave 和 save 函数，优化性能
         function baseSave() {
             localStorage.setItem('todos', JSON.stringify(state.todos));
@@ -3106,6 +3169,8 @@
                     await syncDataOnLogin().catch(e => {
                         console.warn('[检查登录状态] 同步失败，但不影响应用使用:', e);
                     });
+                    // 启动定期轮询
+                    startPolling();
                     updateCloudStatus();
                 }
             } catch (e) {
