@@ -18,6 +18,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -25,53 +33,38 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
-
-      - name: Copy web assets to Android
         run: |
-          mkdir -p android/app/src/main/assets/public
-          cp -r www/* android/app/src/main/assets/public/
-          cp capacitor.config.ts android/app/src/main/assets/
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mkdir -p ~/Android/sdk/cmdline-tools/latest
+          mv cmdline-tools/* ~/Android/sdk/cmdline-tools/latest/
+          echo "ANDROID_SDK_ROOT=$HOME/Android/sdk" >> $GITHUB_ENV
+          echo "$HOME/Android/sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Build Debug APK
+      - name: Sync and Build
         run: |
+          npm install @capacitor/cli @capacitor/android
+          npx cap sync android
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Build Release APK
-        run: |
-          cd android
-          ./gradlew assembleRelease --no-daemon
-
-      - name: Upload Debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: prolife-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: prolife-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
-
       - name: Create Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/release/app-release.apk
+          files: android/app/build/outputs/apk/debug/app-debug.apk
           tag_name: android-v${{ github.run_number }}
           name: ProLife Android v${{ github.run_number }}
           body: |
             ## ProLife Android APK
-
-            **Debug 版本**：用于测试
-            **Release 版本**：用于正式使用
 
             下载后安装到 Android 手机即可使用。
         env:
