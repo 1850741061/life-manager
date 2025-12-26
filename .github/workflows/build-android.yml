@@ -5,11 +5,10 @@ on:
     branches: [ main ]
     paths:
       - 'www/**'
-      - 'android/**'
-      - 'capacitor.config.ts'
+      - '.github/workflows/build-android.yml'
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,15 +17,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -37,10 +27,14 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Capacitor
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Copy web assets to Android
         run: |
-          npm install @capacitor/cli @capacitor/android
-          npx cap sync android
+          mkdir -p android/app/src/main/assets/public
+          cp -r www/* android/app/src/main/assets/public/
+          cp capacitor.config.ts android/app/src/main/assets/
 
       - name: Build Debug APK
         run: |
@@ -64,14 +58,14 @@ jobs:
           name: prolife-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
 
-      - name: Create Release (on push to main)
+      - name: Create Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
           files: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/release/app-release.apk
-          tag_name: v${{ github.run_number }}
+          tag_name: android-v${{ github.run_number }}
           name: ProLife Android v${{ github.run_number }}
           body: |
             ## ProLife Android APK
