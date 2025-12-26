@@ -41,3 +41,4 @@ builder-debug.yml
 # Config files with project IDs
 supabase/config.toml
 vercel.json
+android/
