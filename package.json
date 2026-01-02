@@ -1,7 +1,7 @@
 {
   "name": "pro-life",
-  "version": "1.4.0",
-  "description": "待办事项与记账应用 - 看板视图版：Kanban看板、Markdown导出、拖拽管理",
+  "version": "1.5.0",
+  "description": "待办事项与记账应用 - 移动端优化版：底部导航、滑动删除、悬浮按钮、触摸优化",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

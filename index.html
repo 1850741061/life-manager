@@ -1102,12 +1102,146 @@
         .checkbox input:checked ~ .checkmark:after { display: block; }
         .todo-item.completed .todo-text { text-decoration: line-through; opacity: 0.5; }
 
+        /* --- 移动端底部导航栏 --- */
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border-top: 3px solid var(--border-color);
+            padding: 8px 0;
+            z-index: 1000;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .mobile-bottom-nav .nav-items {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .mobile-bottom-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 70px;
+        }
+
+        .mobile-bottom-nav .nav-item i {
+            font-size: 1.3rem;
+            transition: var(--transition);
+        }
+
+        .mobile-bottom-nav .nav-item.active {
+            color: var(--accent-color);
+        }
+
+        .mobile-bottom-nav .nav-item.active i {
+            transform: scale(1.2);
+        }
+
+        .mobile-bottom-nav .nav-item:active {
+            transform: scale(0.95);
+        }
+
+        /* --- 移动端滑动删除 --- */
+        .swipe-container {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .swipe-delete-bg {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 80px;
+            background: var(--danger-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .swipe-content {
+            position: relative;
+            background: var(--card-bg);
+            transition: transform 0.3s ease-out;
+            z-index: 1;
+        }
+
+        .swipe-content.swiping {
+            transition: none;
+        }
+
+        .swipe-content.show-delete {
+            transform: translateX(-80px);
+        }
+
+        .swipe-container.show-delete .swipe-delete-bg {
+            opacity: 1;
+        }
+
+        /* --- 移动端悬浮添加按钮 --- */
+        .mobile-fab {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: var(--accent-color);
+            border: 3px solid var(--border-color);
+            border-radius: 50%;
+            box-shadow: 4px 4px 0 0 var(--border-color);
+            cursor: pointer;
+            z-index: 999;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            font-size: 1.5rem;
+        }
+
+        .mobile-fab:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 0 var(--border-color);
+        }
+
+        .mobile-fab i {
+            transition: var(--transition);
+        }
+
+        .mobile-fab:hover i {
+            transform: rotate(90deg);
+        }
+
         /* 响应式 - 移动端适配 */
         @media (max-width: 768px) {
             /* 容器和布局 */
             .main-layout.todo-mode { flex-direction: column; }
             .sidebar { width: 100%; border-right: none; border-bottom: 3px solid var(--border-color); max-height: 200px; }
-            .container { height: 100vh; border-radius: 0; border: none; }
+            .container { height: 100vh; border-radius: 0; border: none; padding-bottom: 70px; }
             body { padding: 0; }
             .todo-actions { opacity: 1; }
 
@@ -1115,8 +1249,14 @@
             header { padding: 10px 15px; flex-wrap: wrap; gap: 10px; }
             h1 { font-size: 1.1rem; gap: 8px; }
             .header-controls { gap: 8px; flex-wrap: wrap; justify-content: center; }
-            .view-tabs { padding: 3px; }
+            .view-tabs { display: none; } /* 隐藏顶部导航，使用底部导航 */
             .view-tab { padding: 6px 12px; font-size: 0.8rem; }
+
+            /* 显示移动端底部导航 */
+            .mobile-bottom-nav { display: block; }
+
+            /* 显示移动端悬浮按钮 */
+            .mobile-fab { display: flex; }
 
             /* 统计栏 */
             .stats-bar { padding: 12px 8px; flex-wrap: wrap; gap: 10px; }
@@ -1127,8 +1267,73 @@
             /* 内容区域 */
             .content-view { padding: 15px 12px; }
             .input-section { padding: 12px; margin-bottom: 15px; }
-            input, select, textarea { padding: 12px; font-size: 0.95rem; }
-            .custom-select-trigger { padding: 12px 40px 12px 12px; font-size: 0.95rem; }
+
+            /* 优化移动端输入体验 */
+            input, select, textarea {
+                padding: 14px;
+                font-size: 16px; /* 防止 iOS 缩放 */
+                min-height: 44px; /* 符合触摸标准 */
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+            }
+
+            textarea {
+                min-height: 80px;
+                resize: vertical;
+            }
+
+            .custom-select-trigger {
+                padding: 14px 40px 14px 14px;
+                font-size: 16px;
+                min-height: 44px;
+            }
+
+            button, .btn, .btn-icon {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 10px 16px;
+                font-size: 0.95rem;
+            }
+
+            .btn-icon {
+                padding: 10px;
+            }
+
+            /* 改善移动端触摸反馈 */
+            button:active, .btn:active, .btn-icon:active {
+                transform: scale(0.95);
+                opacity: 0.8;
+            }
+
+            .todo-item:active {
+                background: var(--bg-color);
+                transform: scale(0.98);
+            }
+
+            .view-tab:active, .filter-btn:active {
+                transform: scale(0.95);
+            }
+
+            .kanban-card:active {
+                transform: scale(0.98);
+                box-shadow: 2px 2px 0 0 var(--border-color);
+            }
+
+            .action-icon:active {
+                transform: scale(1.2);
+            }
+
+            /* 触摸高亮优化 */
+            * {
+                -webkit-tap-highlight-color: transparent;
+                -webkit-touch-callout: none;
+            }
+
+            /* 可点击元素的触摸反馈 */
+            a, button, [onclick], .clickable {
+                -webkit-tap-highlight-color: rgba(var(--accent-color-rgb), 0.2);
+            }
 
             /* 待办项 */
             .todo-item { padding: 10px; }
@@ -1271,6 +1476,60 @@
 
             .kanban-column {
                 min-height: 300px;
+            }
+        }
+
+        /* 移动端看板优化 */
+        @media (max-width: 768px) {
+            .kanban-board {
+                gap: 12px;
+                padding-bottom: 20px;
+            }
+
+            .kanban-column {
+                min-height: 200px;
+                border-width: 2px;
+            }
+
+            .kanban-column-header {
+                padding: 12px 15px;
+                font-size: 0.85rem;
+                border-bottom-width: 2px;
+            }
+
+            .kanban-column-content {
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .kanban-card {
+                padding: 12px;
+                border-width: 2px;
+                border-left-width: 6px;
+            }
+
+            .kanban-card:hover {
+                transform: none;
+                box-shadow: none;
+            }
+
+            .kanban-card-title {
+                font-size: 0.95rem;
+            }
+
+            .kanban-card-meta {
+                font-size: 0.7rem;
+            }
+
+            .kanban-card-actions {
+                opacity: 1;
+                margin-top: 8px;
+            }
+
+            .kanban-count {
+                padding: 3px 8px;
+                font-size: 0.75rem;
+                border-width: 2px;
             }
         }
 
@@ -1679,6 +1938,33 @@
             </div>
         </div>
     </div>
+
+    <!-- 移动端底部导航栏 -->
+    <div class="mobile-bottom-nav">
+        <div class="nav-items">
+            <button class="nav-item active" data-view="todo" onclick="setView('todo')">
+                <i class="fas fa-list-check"></i>
+                <span>待办</span>
+            </button>
+            <button class="nav-item" data-view="calendar" onclick="setView('calendar')">
+                <i class="fas fa-calendar-alt"></i>
+                <span>日历</span>
+            </button>
+            <button class="nav-item" data-view="finance" onclick="setView('finance')">
+                <i class="fas fa-wallet"></i>
+                <span>记账</span>
+            </button>
+            <button class="nav-item" onclick="document.getElementById('statsBtn').click()">
+                <i class="fas fa-chart-pie"></i>
+                <span>统计</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 移动端悬浮添加按钮 -->
+    <button class="mobile-fab" id="mobileFab" onclick="handleMobileFabClick()">
+        <i class="fas fa-plus"></i>
+    </button>
 
     <!-- 任务详情模态框 (日历点击查看) -->
     <div class="modal-overlay" id="taskDetailModal">
@@ -2311,6 +2597,9 @@
             document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
             document.querySelectorAll('.content-view').forEach(v => v.classList.toggle('active', v.id === view + 'View'));
 
+            // 同步移动端底部导航栏
+            document.querySelectorAll('.mobile-bottom-nav .nav-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+
             const layout = document.getElementById('mainLayout');
             layout.classList.toggle('todo-mode', view !== 'finance');
 
@@ -2327,6 +2616,40 @@
             }
             if(view === 'finance') renderFinance();
         }
+
+        // 创建 setView 全局函数供移动端底部导航使用
+        window.setView = switchView;
+
+        // --- 移动端悬浮添加按钮处理 ---
+        window.handleMobileFabClick = function() {
+            const currentView = state.view;
+
+            if (currentView === 'todo') {
+                // 待办视图：聚焦到添加任务输入框
+                const todoInput = document.getElementById('todoInput');
+                if (todoInput) {
+                    todoInput.focus();
+                    todoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else if (currentView === 'finance') {
+                // 记账视图：打开添加记账模态框
+                const addFinanceBtn = document.getElementById('addFinanceBtn');
+                if (addFinanceBtn) {
+                    addFinanceBtn.click();
+                }
+            } else if (currentView === 'calendar') {
+                // 日历视图：聚焦到添加任务输入框
+                const todoInput = document.getElementById('todoInput');
+                if (todoInput) {
+                    // 先切换到待办视图
+                    switchView('todo');
+                    setTimeout(() => {
+                        todoInput.focus();
+                        todoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                }
+            }
+        };
 
         // --- 分组管理 ---
         function initColorPicker() {
@@ -2468,6 +2791,59 @@
             renderTodos();
         }
 
+        // --- 移动端滑动删除处理 ---
+        function addSwipeHandlers(element, container) {
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+
+            element.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isDragging = true;
+                element.classList.add('swiping');
+            }, { passive: true });
+
+            element.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                currentX = e.touches[0].clientX;
+                const diff = currentX - startX;
+
+                // 只允许向左滑动
+                if (diff < 0 && diff > -100) {
+                    element.style.transform = `translateX(${diff}px)`;
+                }
+            }, { passive: true });
+
+            element.addEventListener('touchend', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                element.classList.remove('swiping');
+
+                const diff = currentX - startX;
+
+                // 滑动超过40px则显示删除按钮
+                if (diff < -40) {
+                    element.classList.add('show-delete');
+                    container.classList.add('show-delete');
+                } else {
+                    element.classList.remove('show-delete');
+                    container.classList.remove('show-delete');
+                    element.style.transform = '';
+                }
+
+                currentX = 0;
+            });
+
+            // 点击其他地方时重置
+            document.addEventListener('touchstart', (e) => {
+                if (!container.contains(e.target)) {
+                    element.classList.remove('show-delete');
+                    container.classList.remove('show-delete');
+                    element.style.transform = '';
+                }
+            });
+        }
+
         function renderTodos() {
             // 根据视图模式渲染不同的布局
             if (state.todoViewMode === 'kanban') {
@@ -2506,8 +2882,16 @@
             list.sort((a,b) => new Date(b.date) - new Date(a.date));
 
             list.forEach((t, index) => {
+                const container = document.createElement('div');
+                container.className = 'swipe-container';
+
+                const deleteBtn = document.createElement('div');
+                deleteBtn.className = 'swipe-delete-bg';
+                deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
+                deleteBtn.onclick = () => deleteTodo(t.id);
+
                 const li = document.createElement('li');
-                li.className = `todo-item ${t.completed?'completed':''} fade-in`;
+                li.className = `todo-item swipe-content ${t.completed?'completed':''} fade-in`;
                 li.style.setProperty('--group-color', t.groupColor);
                 li.style.animationDelay = `${index * 0.03}s`;
 
@@ -2518,6 +2902,11 @@
                 li.ondragover = (e) => onTodoDragOver(e, t.id);
                 li.ondragleave = (e) => onTodoDragLeave(e);
                 li.ondrop = (e) => onTodoDrop(e, t.id);
+
+                // 添加触摸滑动事件（仅在移动端）
+                if (window.innerWidth <= 768) {
+                    addSwipeHandlers(li, container);
+                }
 
                 const pLabel = pMap[t.priority] || '中';
                 const dateDisplay = t.date ? t.date.substring(5) : '无日期';
@@ -2604,7 +2993,10 @@
                         <i class="fas fa-trash action-icon" onclick="deleteTodo(${t.id})" style="color:var(--danger-color)"></i>
                     </div>
                 `;
-                l.appendChild(li);
+
+                container.appendChild(deleteBtn);
+                container.appendChild(li);
+                l.appendChild(container);
             });
             updateStats();
             renderGroups();
