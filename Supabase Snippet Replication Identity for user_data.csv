@@ -1,0 +1,6 @@
+column_name,data_type,is_nullable
+id,uuid,NO
+todos,jsonb,YES
+transactions,jsonb,YES
+groups,jsonb,YES
+updated_at,timestamp with time zone,YES

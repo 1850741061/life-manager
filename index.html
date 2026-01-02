@@ -38,14 +38,18 @@
         }
 
         body.dark-mode {
-            --primary-color: #f8f8f7;
-            --bg-color: #1a1a1a;
-            --card-bg: #2a2a2a;
-            --text-main: #f8f8f7;
-            --text-secondary: #a1a1a1;
-            --border-color: #f8f8f7;
-            --shadow: 6px 6px 0 0 #f8f8f7;
-            --header-bg: #b3b300;
+            --primary-color: #e0e0e0;
+            --bg-color: #1e1e1e;
+            --card-bg: #2d2d2d;
+            --text-main: #e8e8e8;
+            --text-secondary: #b0b0b0;
+            --border-color: #4a4a4a;
+            --shadow: 6px 6px 0 0 rgba(74, 74, 74, 0.6);
+            --header-bg: #3a3a3a;
+            --accent-color: #7eb3ff;
+            --success-color: #6dd89a;
+            --danger-color: #ff8787;
+            --warning-color: #ffc876;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
@@ -999,12 +1003,42 @@
             transform: none;
         }
 
-        .color-picker { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .color-option {
-            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
-            border: 3px solid var(--border-color); transition: var(--transition);
+        .color-picker {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+            max-width: 100%;
         }
-        .color-option.selected { transform: scale(1.2); box-shadow: 3px 3px 0 0 var(--border-color); }
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid var(--border-color);
+            transition: var(--transition);
+            position: relative;
+        }
+        .color-option:hover {
+            transform: scale(1.15);
+        }
+        .color-option.selected {
+            transform: scale(1.25);
+            box-shadow: 0 0 0 3px var(--accent-color);
+            border-color: var(--accent-color);
+        }
+        .color-option.selected::after {
+            content: '\f00c';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            text-shadow: 0 0 3px rgba(0,0,0,0.5);
+        }
 
         /* --- 复选框 Pop 风格 --- */
         .checkbox { position: relative; width: 24px; height: 24px; cursor: pointer; margin-top: 4px; }
@@ -1604,7 +1638,29 @@
         }
 
         // --- 数据与状态 ---
-        const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6'];
+        // 扩展的标签配色选项（20种颜色）
+        const colors = [
+            '#ef4444', // 红色
+            '#f59e0b', // 橙色
+            '#eab308', // 黄色
+            '#84cc16', // 柠檬绿
+            '#10b981', // 绿色
+            '#14b8a6', // 青色
+            '#06b6d4', // 天蓝
+            '#3b82f6', // 蓝色
+            '#6366f1', // 靛蓝
+            '#8b5cf6', // 紫色
+            '#a855f7', // 深紫
+            '#d946ef', // 洋红
+            '#ec4899', // 粉红
+            '#f43f5e', // 玫红
+            '#fb7185', // 浅粉
+            '#fbbf24', // 金色
+            '#f97316', // 深橙
+            '#dc2626', // 深红
+            '#6b7280', // 灰色
+            '#475569'  // 深灰
+        ];
         const pMap = {low:'低', medium:'中', high:'高'};
         
         // 预定义记账分类（带颜色）
@@ -3621,13 +3677,45 @@
 
         // 导入/导出功能
         document.getElementById('importExportBtn').onclick = () => {
-            const choice = confirm('点击"确定"导出数据，点击"取消"导入数据');
-            if (choice) {
-                exportData();
-            } else {
-                importData();
-            }
+            showImportExportMenu();
         };
+
+        // 显示导入导出菜单
+        function showImportExportMenu() {
+            const menu = document.createElement('div');
+            menu.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--card-bg);
+                border: 3px solid var(--border-color);
+                border-radius: var(--radius);
+                box-shadow: var(--shadow);
+                padding: 20px;
+                z-index: 10000;
+                min-width: 300px;
+            `;
+            menu.innerHTML = `
+                <h3 style="margin-bottom: 15px; font-weight: 800; text-transform: uppercase;">导入/导出</h3>
+                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportData(); this.parentElement.remove();">
+                    <i class="fas fa-download"></i> 导出为 JSON
+                </button>
+                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportToCSV(); this.parentElement.remove();">
+                    <i class="fas fa-file-csv"></i> 导出为 CSV
+                </button>
+                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="importData(); this.parentElement.remove();">
+                    <i class="fas fa-upload"></i> 导入 JSON
+                </button>
+                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="importFromSpreadsheet(); this.parentElement.remove();">
+                    <i class="fas fa-table"></i> 导入 CSV/Excel 表格
+                </button>
+                <button class="btn" style="width: 100%;" onclick="this.parentElement.remove();">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            `;
+            document.body.appendChild(menu);
+        }
 
         // 导出数据
         function exportData() {
@@ -3669,7 +3757,7 @@
                                 state.groups = data.groups;
                                 save();
                                 renderAll();
-                                alert('数据导入成功！');
+                                showSyncToast('数据导入成功！');
                             }
                         } else {
                             alert('文件格式不正确');
@@ -3681,6 +3769,260 @@
                 reader.readAsText(file);
             };
             input.click();
+        }
+
+        // 导出为 CSV
+        window.exportToCSV = function() {
+            // CSV 表头
+            let csv = '任务内容,优先级,日期,开始时间,结束时间,分组,备注,完成状态\n';
+
+            // 添加所有待办事项
+            state.todos.forEach(todo => {
+                const row = [
+                    `"${(todo.text || '').replace(/"/g, '""')}"`,
+                    todo.priority || 'medium',
+                    todo.date || '',
+                    todo.startTime || '',
+                    todo.endTime || '',
+                    `"${(todo.groupName || '').replace(/"/g, '""')}"`,
+                    `"${(todo.notes || '').replace(/"/g, '""')}"`,
+                    todo.completed ? '已完成' : '未完成'
+                ].join(',');
+                csv += row + '\n';
+            });
+
+            // 创建并下载文件
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prolife-todos-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showSyncToast('CSV 导出成功！');
+        };
+
+        // 从表格导入
+        window.importFromSpreadsheet = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv,.xlsx,.xls';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const fileName = file.name.toLowerCase();
+
+                try {
+                    if (fileName.endsWith('.csv')) {
+                        await importCSV(file);
+                    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                        showSyncToast('Excel 格式需要先转换为 CSV 格式', 'error');
+                        showSyncToast('请在 Excel 中另存为 CSV 格式后重新导入', 'error');
+                    } else {
+                        showSyncToast('不支持的文件格式', 'error');
+                    }
+                } catch (err) {
+                    console.error('导入失败:', err);
+                    showSyncToast('导入失败: ' + err.message, 'error');
+                }
+            };
+            input.click();
+        };
+
+        // 解析 CSV 文件
+        async function importCSV(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const text = event.target.result;
+                        const rows = parseCSV(text);
+
+                        if (rows.length < 2) {
+                            throw new Error('CSV 文件为空或格式不正确');
+                        }
+
+                        // 解析表头
+                        const headers = rows[0].map(h => h.trim());
+                        const dataRows = rows.slice(1);
+
+                        // 查找列索引
+                        const findIndex = (names) => {
+                            for (let name of names) {
+                                const idx = headers.findIndex(h => h.includes(name));
+                                if (idx !== -1) return idx;
+                            }
+                            return -1;
+                        };
+
+                        const textIdx = findIndex(['任务', '内容', 'task', 'title']);
+                        const priorityIdx = findIndex(['优先级', 'priority']);
+                        const dateIdx = findIndex(['日期', 'date']);
+                        const startTimeIdx = findIndex(['开始时间', 'start']);
+                        const endTimeIdx = findIndex(['结束时间', 'end']);
+                        const groupIdx = findIndex(['分组', 'group', '标签']);
+                        const notesIdx = findIndex(['备注', 'note', '描述']);
+
+                        if (textIdx === -1) {
+                            throw new Error('未找到任务内容列，请确保表格中有"任务"或"内容"列');
+                        }
+
+                        // 解析任务
+                        const newTodos = [];
+                        const defaultGroup = state.groups[0];
+
+                        dataRows.forEach((row, index) => {
+                            const text = row[textIdx]?.trim();
+                            if (!text) return; // 跳过空行
+
+                            // 解析优先级
+                            let priority = 'medium';
+                            if (priorityIdx !== -1) {
+                                const p = row[priorityIdx]?.trim().toLowerCase();
+                                if (p.includes('高') || p.includes('high')) priority = 'high';
+                                else if (p.includes('低') || p.includes('low')) priority = 'low';
+                            }
+
+                            // 解析日期
+                            let date = new Date().toISOString().split('T')[0];
+                            if (dateIdx !== -1 && row[dateIdx]) {
+                                const dateStr = row[dateIdx].trim();
+                                // 尝试解析各种日期格式
+                                if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                    date = dateStr;
+                                } else {
+                                    const parsed = new Date(dateStr);
+                                    if (!isNaN(parsed)) {
+                                        date = parsed.toISOString().split('T')[0];
+                                    }
+                                }
+                            }
+
+                            // 解析分组
+                            let groupName = defaultGroup.name;
+                            let groupColor = defaultGroup.color;
+                            let groupId = defaultGroup.id;
+
+                            if (groupIdx !== -1 && row[groupIdx]) {
+                                const gName = row[groupIdx].trim();
+                                const existingGroup = state.groups.find(g => g.name === gName);
+                                if (existingGroup) {
+                                    groupName = existingGroup.name;
+                                    groupColor = existingGroup.color;
+                                    groupId = existingGroup.id;
+                                } else {
+                                    // 创建新分组
+                                    const newGroup = {
+                                        id: 'g_' + Date.now() + '_' + index,
+                                        name: gName,
+                                        color: colors[state.groups.length % colors.length]
+                                    };
+                                    state.groups.push(newGroup);
+                                    groupName = newGroup.name;
+                                    groupColor = newGroup.color;
+                                    groupId = newGroup.id;
+                                }
+                            }
+
+                            newTodos.push({
+                                id: Date.now() + index,
+                                text: text,
+                                notes: notesIdx !== -1 ? (row[notesIdx]?.trim() || '') : '',
+                                completed: false,
+                                priority: priority,
+                                groupId: groupId,
+                                groupName: groupName,
+                                groupColor: groupColor,
+                                date: date,
+                                startTime: startTimeIdx !== -1 ? (row[startTimeIdx]?.trim() || null) : null,
+                                endTime: endTimeIdx !== -1 ? (row[endTimeIdx]?.trim() || null) : null,
+                                subtasks: [],
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString()
+                            });
+                        });
+
+                        if (newTodos.length === 0) {
+                            throw new Error('没有找到有效的任务数据');
+                        }
+
+                        // 询问是否覆盖或追加
+                        const choice = confirm(
+                            `找到 ${newTodos.length} 个任务\n\n` +
+                            `点击"确定"追加到现有任务\n` +
+                            `点击"取消"替换所有任务`
+                        );
+
+                        if (choice) {
+                            // 追加
+                            state.todos = [...newTodos, ...state.todos];
+                        } else {
+                            // 替换
+                            state.todos = newTodos;
+                        }
+
+                        save();
+                        renderAll();
+                        showSyncToast(`成功导入 ${newTodos.length} 个任务！`);
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = () => reject(new Error('文件读取失败'));
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // 简单的 CSV 解析器
+        function parseCSV(text) {
+            const rows = [];
+            let currentRow = [];
+            let currentField = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // 转义的引号
+                        currentField += '"';
+                        i++;
+                    } else {
+                        // 切换引号状态
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    // 字段分隔符
+                    currentRow.push(currentField);
+                    currentField = '';
+                } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                    // 行分隔符
+                    if (currentField || currentRow.length > 0) {
+                        currentRow.push(currentField);
+                        rows.push(currentRow);
+                        currentRow = [];
+                        currentField = '';
+                    }
+                    // 跳过 \r\n 中的 \n
+                    if (char === '\r' && nextChar === '\n') {
+                        i++;
+                    }
+                } else {
+                    currentField += char;
+                }
+            }
+
+            // 添加最后一行
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField);
+                rows.push(currentRow);
+            }
+
+            return rows;
         }
     </script>
 </body>
