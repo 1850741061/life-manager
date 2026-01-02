@@ -2473,11 +2473,17 @@
             if (state.todoViewMode === 'kanban') {
                 document.getElementById('todoList').style.display = 'none';
                 document.getElementById('kanbanView').style.display = 'block';
+                // 同步按钮状态
+                document.getElementById('todoViewList').classList.remove('active');
+                document.getElementById('todoViewKanban').classList.add('active');
                 renderKanban();
                 return;
             } else {
                 document.getElementById('todoList').style.display = 'flex';
                 document.getElementById('kanbanView').style.display = 'none';
+                // 同步按钮状态
+                document.getElementById('todoViewList').classList.add('active');
+                document.getElementById('todoViewKanban').classList.remove('active');
             }
 
             const l = document.getElementById('todoList');
