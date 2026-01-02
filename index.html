@@ -1246,11 +1246,16 @@
             .todo-actions { opacity: 1; }
 
             /* 头部区域 */
-            header { padding: 10px 15px; flex-wrap: wrap; gap: 10px; }
-            h1 { font-size: 1.1rem; gap: 8px; }
-            .header-controls { gap: 8px; flex-wrap: wrap; justify-content: center; }
+            header { padding: 10px 15px; flex-wrap: nowrap; gap: 10px; justify-content: space-between; }
+            h1 { font-size: 1.1rem; gap: 8px; flex-shrink: 0; }
+            .header-controls { gap: 6px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .header-controls > div:first-child { display: flex; gap: 6px; }
             .view-tabs { display: none; } /* 隐藏顶部导航，使用底部导航 */
             .view-tab { padding: 6px 12px; font-size: 0.8rem; }
+
+            /* 移动端隐藏部分按钮 */
+            #searchBoxContainer { display: none !important; }
+            #batchModeBtn, #templateBtn, #pomodoroBtn, #notificationBtn, #importExportBtn { display: none !important; }
 
             /* 显示移动端底部导航 */
             .mobile-bottom-nav { display: block; }
@@ -1335,6 +1340,58 @@
                 -webkit-tap-highlight-color: rgba(var(--accent-color-rgb), 0.2);
             }
 
+            /* 移动端模态框优化 */
+            .modal {
+                max-width: 95% !important;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+
+            /* 统计视图移动端优化 */
+            #statsModal .modal {
+                padding: 15px;
+            }
+
+            #statsModal div[style*="grid-template-columns: repeat(4"] {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+                margin-bottom: 20px !important;
+            }
+
+            #statsModal div[style*="grid-template-columns: 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+
+            #statsModal canvas {
+                max-height: 250px !important;
+            }
+
+            #statsModal div[style*="padding: 20px"] {
+                padding: 15px !important;
+            }
+
+            #statsModal div[style*="font-size: 2rem"] {
+                font-size: 1.5rem !important;
+            }
+
+            /* 登录模态框移动端优化 */
+            #authModal .modal {
+                padding: 20px 15px;
+            }
+
+            #authModal input[type="email"],
+            #authModal input[type="password"] {
+                font-size: 16px !important;
+                padding: 14px !important;
+            }
+
+            #authModal .btn {
+                min-height: 44px;
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+
             /* 待办项 */
             .todo-item { padding: 10px; }
             .attribute-badge { font-size: 0.7rem; padding: 3px 6px; }
@@ -1351,10 +1408,43 @@
             .modal { max-width: 95%; margin: 20px 10px; max-height: 90vh; overflow-y: auto; }
             .modal h2 { font-size: 1.2rem; }
 
-            /* 日历视图 */
+            /* 日历视图优化 */
+            .calendar-controls {
+                flex-direction: row !important;
+                padding: 10px;
+            }
+
+            .calendar-controls h2 {
+                font-size: 1rem;
+            }
+
             .calendar-header { flex-wrap: wrap; }
-            .calendar-day { min-height: 60px; font-size: 0.8rem; }
-            .calendar-day-number { font-size: 0.9rem; }
+
+            .calendar-grid {
+                gap: 3px;
+            }
+
+            .calendar-day {
+                min-height: 55px;
+                font-size: 0.75rem;
+                padding: 4px;
+                border-width: 2px;
+            }
+
+            .calendar-day:hover {
+                transform: none;
+            }
+
+            .calendar-day-number, .day-number {
+                font-size: 0.85rem;
+                margin-bottom: 3px;
+            }
+
+            .task-dot {
+                width: 4px;
+                height: 4px;
+                margin: 1px;
+            }
 
             /* 记账视图 */
             .transaction-item { padding: 10px; }
@@ -2109,13 +2199,9 @@
 
             <div id="authError" style="margin-bottom: 15px; padding: 10px; background: var(--danger-color); color: white; border-radius: var(--radius); display: none;"></div>
 
-            <div style="margin-bottom: 20px;">
-                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-                    <input type="checkbox" id="authRemember" style="width:18px;height:18px;">
-                    <span style="font-weight:600;">启用云端同步</span>
-                </label>
-                <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:5px;">
-                    <i class="fas fa-info-circle"></i> 启用后数据将存储在云端，可在多设备间同步
+            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--border-color);">
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">
+                    <i class="fas fa-info-circle" style="color: var(--accent-color);"></i> 登录后将自动启用云端同步，数据可在多设备间同步
                 </p>
             </div>
 
