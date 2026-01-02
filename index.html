@@ -850,7 +850,13 @@
         .subtask-checkbox {
             width: 18px;
             height: 18px;
+            min-width: 18px;
             cursor: pointer;
+            flex-shrink: 0;
+            accent-color: var(--accent-color);
+            -webkit-appearance: checkbox;
+            -moz-appearance: checkbox;
+            appearance: checkbox;
         }
         .subtask-delete {
             background: none;
@@ -1350,9 +1356,83 @@
                 font-size: 1rem;
             }
 
-            /* 待办项 */
-            .todo-item { padding: 10px; }
-            .attribute-badge { font-size: 0.7rem; padding: 3px 6px; }
+            /* 待办项优化 */
+            .todo-item {
+                padding: 12px;
+                border-width: 2px;
+            }
+
+            .todo-main {
+                gap: 10px;
+            }
+
+            .todo-text {
+                font-size: 0.95rem;
+                line-height: 1.4;
+            }
+
+            .todo-attributes {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .attribute-badge {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+                border-width: 2px;
+            }
+
+            .todo-notes {
+                font-size: 0.85rem;
+                padding: 10px;
+                margin-top: 10px;
+            }
+
+            /* 子任务优化 */
+            .subtasks-section {
+                margin-top: 12px;
+            }
+
+            .subtasks-header {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+            }
+
+            .subtask-list {
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .subtask-item {
+                padding: 10px;
+                border-width: 2px;
+                font-size: 0.9rem;
+            }
+
+            .subtask-checkbox {
+                width: 20px !important;
+                height: 20px !important;
+                min-width: 20px !important;
+            }
+
+            .subtask-delete {
+                opacity: 1 !important;
+                padding: 8px;
+            }
+
+            .add-subtask-btn {
+                padding: 6px 12px;
+                font-size: 0.75rem;
+            }
+
+            .add-subtask-input input {
+                font-size: 16px;
+                padding: 10px;
+            }
+
+            .add-subtask-input button {
+                padding: 10px 14px;
+            }
 
             /* 分组 */
             .group-item { padding: 10px 12px; margin-bottom: 8px; }
