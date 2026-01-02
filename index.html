@@ -1159,48 +1159,6 @@
             transform: scale(0.95);
         }
 
-        /* --- 移动端滑动删除 --- */
-        .swipe-container {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .swipe-delete-bg {
-            position: absolute;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            width: 80px;
-            background: var(--danger-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 0.9rem;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .swipe-content {
-            position: relative;
-            background: var(--card-bg);
-            transition: transform 0.3s ease-out;
-            z-index: 1;
-        }
-
-        .swipe-content.swiping {
-            transition: none;
-        }
-
-        .swipe-content.show-delete {
-            transform: translateX(-80px);
-        }
-
-        .swipe-container.show-delete .swipe-delete-bg {
-            opacity: 1;
-        }
-
         /* --- 移动端悬浮添加按钮 --- */
         .mobile-fab {
             display: none;
@@ -2877,59 +2835,6 @@
             renderTodos();
         }
 
-        // --- 移动端滑动删除处理 ---
-        function addSwipeHandlers(element, container) {
-            let startX = 0;
-            let currentX = 0;
-            let isDragging = false;
-
-            element.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
-                isDragging = true;
-                element.classList.add('swiping');
-            }, { passive: true });
-
-            element.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                currentX = e.touches[0].clientX;
-                const diff = currentX - startX;
-
-                // 只允许向左滑动
-                if (diff < 0 && diff > -100) {
-                    element.style.transform = `translateX(${diff}px)`;
-                }
-            }, { passive: true });
-
-            element.addEventListener('touchend', () => {
-                if (!isDragging) return;
-                isDragging = false;
-                element.classList.remove('swiping');
-
-                const diff = currentX - startX;
-
-                // 滑动超过40px则显示删除按钮
-                if (diff < -40) {
-                    element.classList.add('show-delete');
-                    container.classList.add('show-delete');
-                } else {
-                    element.classList.remove('show-delete');
-                    container.classList.remove('show-delete');
-                    element.style.transform = '';
-                }
-
-                currentX = 0;
-            });
-
-            // 点击其他地方时重置
-            document.addEventListener('touchstart', (e) => {
-                if (!container.contains(e.target)) {
-                    element.classList.remove('show-delete');
-                    container.classList.remove('show-delete');
-                    element.style.transform = '';
-                }
-            });
-        }
-
         function renderTodos() {
             // 根据视图模式渲染不同的布局
             if (state.todoViewMode === 'kanban') {
@@ -2968,16 +2873,8 @@
             list.sort((a,b) => new Date(b.date) - new Date(a.date));
 
             list.forEach((t, index) => {
-                const container = document.createElement('div');
-                container.className = 'swipe-container';
-
-                const deleteBtn = document.createElement('div');
-                deleteBtn.className = 'swipe-delete-bg';
-                deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
-                deleteBtn.onclick = () => deleteTodo(t.id);
-
                 const li = document.createElement('li');
-                li.className = `todo-item swipe-content ${t.completed?'completed':''} fade-in`;
+                li.className = `todo-item ${t.completed?'completed':''} fade-in`;
                 li.style.setProperty('--group-color', t.groupColor);
                 li.style.animationDelay = `${index * 0.03}s`;
 
@@ -2988,11 +2885,6 @@
                 li.ondragover = (e) => onTodoDragOver(e, t.id);
                 li.ondragleave = (e) => onTodoDragLeave(e);
                 li.ondrop = (e) => onTodoDrop(e, t.id);
-
-                // 添加触摸滑动事件（仅在移动端）
-                if (window.innerWidth <= 768) {
-                    addSwipeHandlers(li, container);
-                }
 
                 const pLabel = pMap[t.priority] || '中';
                 const dateDisplay = t.date ? t.date.substring(5) : '无日期';
@@ -3080,9 +2972,7 @@
                     </div>
                 `;
 
-                container.appendChild(deleteBtn);
-                container.appendChild(li);
-                l.appendChild(container);
+                l.appendChild(li);
             });
             updateStats();
             renderGroups();
