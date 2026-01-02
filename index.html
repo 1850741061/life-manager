@@ -1157,6 +1157,123 @@
             .filter-chip { padding: 6px 12px; font-size: 0.8rem; }
         }
 
+        /* --- 看板视图样式 --- */
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding-bottom: 50px;
+        }
+
+        .kanban-column {
+            background: var(--bg-color);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kanban-column-header {
+            padding: 15px 20px;
+            background: var(--card-bg);
+            border-bottom: 3px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.95rem;
+        }
+
+        .kanban-column-header i {
+            font-size: 0.7rem;
+        }
+
+        .kanban-count {
+            margin-left: auto;
+            background: var(--accent-color);
+            color: var(--text-main);
+            padding: 4px 10px;
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            min-width: 28px;
+            text-align: center;
+            border: 2px solid var(--border-color);
+        }
+
+        .kanban-column-content {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .kanban-card {
+            background: var(--card-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 15px;
+            cursor: grab;
+            transition: var(--transition);
+            border-left-width: 8px;
+        }
+
+        .kanban-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 4px 4px 0 0 var(--border-color);
+        }
+
+        .kanban-card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .kanban-card.drag-over {
+            border-style: dashed;
+            background: var(--bg-color);
+        }
+
+        .kanban-card-title {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        .kanban-card-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+        }
+
+        .kanban-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .kanban-card:hover .kanban-card-actions {
+            opacity: 1;
+        }
+
+        /* 响应式看板布局 */
+        @media (max-width: 1024px) {
+            .kanban-board {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .kanban-column {
+                min-height: 300px;
+            }
+        }
+
         /* --- 月份分组样式 --- */
         .month-group {
             background: var(--card-bg);
@@ -1335,13 +1452,20 @@
                         <textarea id="todoNotes" placeholder="备注（可选）" style="resize: vertical; min-height: 50px; margin-top: 15px;"></textarea>
                     </div>
                     
-                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
                         <div id="todoFilterBar" style="display: flex; gap: 5px;">
                             <button class="btn" id="btnFilterAll" onclick="setFilter('all')">全部</button>
                             <button class="btn" id="btnFilterActive" onclick="setFilter('active')">进行中</button>
                             <button class="btn" id="btnFilterCompleted" onclick="setFilter('completed')">已完成</button>
                         </div>
-                        <button class="btn" style="color:var(--danger-color); border-color:var(--danger-color);" onclick="clearCompleted()">清除</button>
+                        <!-- 视图切换和清除按钮 -->
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div class="view-tabs" style="padding: 3px;">
+                                <button class="view-tab active" id="todoViewList" onclick="setTodoViewMode('list')"><i class="fas fa-list"></i> 列表</button>
+                                <button class="view-tab" id="todoViewKanban" onclick="setTodoViewMode('kanban')"><i class="fas fa-th"></i> 看板</button>
+                            </div>
+                            <button class="btn" style="color:var(--danger-color); border-color:var(--danger-color);" onclick="clearCompleted()">清除</button>
+                        </div>
                     </div>
 
                     <!-- 新增：批量操作工具栏 -->
@@ -1360,7 +1484,38 @@
                         </div>
                     </div>
 
+                    <!-- 列表视图 -->
                     <ul class="todo-list" id="todoList"></ul>
+
+                    <!-- 看板视图 -->
+                    <div id="kanbanView" style="display: none;">
+                        <div class="kanban-board">
+                            <div class="kanban-column" id="kanbanTodo">
+                                <div class="kanban-column-header">
+                                    <i class="fas fa-circle" style="color: var(--warning-color);"></i>
+                                    <span>待办</span>
+                                    <span class="kanban-count" id="kanbanTodoCount">0</span>
+                                </div>
+                                <div class="kanban-column-content" id="kanbanTodoContent"></div>
+                            </div>
+                            <div class="kanban-column" id="kanbanInProgress">
+                                <div class="kanban-column-header">
+                                    <i class="fas fa-circle" style="color: var(--accent-color);"></i>
+                                    <span>进行中</span>
+                                    <span class="kanban-count" id="kanbanInProgressCount">0</span>
+                                </div>
+                                <div class="kanban-column-content" id="kanbanInProgressContent"></div>
+                            </div>
+                            <div class="kanban-column" id="kanbanCompleted">
+                                <div class="kanban-column-header">
+                                    <i class="fas fa-circle" style="color: var(--success-color);"></i>
+                                    <span>已完成</span>
+                                    <span class="kanban-count" id="kanbanCompletedCount">0</span>
+                                </div>
+                                <div class="kanban-column-content" id="kanbanCompletedContent"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 日历视图 -->
@@ -2314,6 +2469,17 @@
         }
 
         function renderTodos() {
+            // 根据视图模式渲染不同的布局
+            if (state.todoViewMode === 'kanban') {
+                document.getElementById('todoList').style.display = 'none';
+                document.getElementById('kanbanView').style.display = 'block';
+                renderKanban();
+                return;
+            } else {
+                document.getElementById('todoList').style.display = 'flex';
+                document.getElementById('kanbanView').style.display = 'none';
+            }
+
             const l = document.getElementById('todoList');
             l.innerHTML = '';
 
@@ -2635,6 +2801,178 @@
             animateValue("statTotal", parseInt(document.getElementById("statTotal").innerText), total, 500);
             animateValue("statActive", parseInt(document.getElementById("statActive").innerText), active, 500);
             document.getElementById("statRate").innerText = rate + "%";
+        }
+
+        // ========== 看板视图功能 ==========
+        // 切换待办视图模式（列表/看板）
+        window.setTodoViewMode = function(mode) {
+            state.todoViewMode = mode;
+            localStorage.setItem('todoViewMode', mode);
+
+            // 更新按钮状态
+            document.getElementById('todoViewList').classList.toggle('active', mode === 'list');
+            document.getElementById('todoViewKanban').classList.toggle('active', mode === 'kanban');
+
+            // 重新渲染
+            renderTodos();
+        };
+
+        // 渲染看板视图
+        function renderKanban() {
+            // 获取并过滤任务列表
+            let list = state.todos;
+            if(state.currentGroupId !== 'all') list = list.filter(t => t.groupId === state.currentGroupId);
+
+            // 搜索过滤
+            if(state.searchQuery) {
+                list = list.filter(t =>
+                    t.text.toLowerCase().includes(state.searchQuery) ||
+                    (t.notes && t.notes.toLowerCase().includes(state.searchQuery)) ||
+                    t.groupName.toLowerCase().includes(state.searchQuery)
+                );
+            }
+
+            // 根据状态分组（注意：看板视图中不使用filter过滤器）
+            const todoTasks = list.filter(t => !t.completed && !t.kanbanStatus);
+            const inProgressTasks = list.filter(t => !t.completed && t.kanbanStatus === 'in-progress');
+            const completedTasks = list.filter(t => t.completed);
+
+            // 渲染各列
+            renderKanbanColumn('kanbanTodoContent', 'kanbanTodoCount', todoTasks, 'todo');
+            renderKanbanColumn('kanbanInProgressContent', 'kanbanInProgressCount', inProgressTasks, 'in-progress');
+            renderKanbanColumn('kanbanCompletedContent', 'kanbanCompletedCount', completedTasks, 'completed');
+
+            // 更新统计
+            updateStats();
+        }
+
+        // 渲染看板列
+        function renderKanbanColumn(contentId, countId, tasks, status) {
+            const container = document.getElementById(contentId);
+            const countEl = document.getElementById(countId);
+
+            container.innerHTML = '';
+            countEl.textContent = tasks.length;
+
+            tasks.forEach((t, index) => {
+                const card = document.createElement('div');
+                card.className = 'kanban-card slide-in';
+                card.style.setProperty('--group-color', t.groupColor);
+                card.style.borderLeftColor = t.groupColor;
+                card.style.animationDelay = `${index * 0.05}s`;
+                card.draggable = true;
+                card.dataset.todoId = t.id;
+
+                // 拖拽事件
+                card.ondragstart = (e) => onKanbanCardDragStart(e, t.id);
+                card.ondragend = (e) => onKanbanCardDragEnd(e);
+
+                const pLabel = pMap[t.priority] || '中';
+                const dateDisplay = t.date ? t.date.substring(5) : '无日期';
+
+                // 构建元数据HTML
+                let metaHtml = `
+                    <span class="attribute-badge" style="background:var(--bg-color);"><i class="far fa-calendar"></i> ${dateDisplay}</span>
+                    <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
+                    <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
+                `;
+
+                if (t.startTime || t.endTime) {
+                    metaHtml += `<span class="attribute-badge" style="color:var(--accent-color); border-color:var(--accent-color);"><i class="far fa-clock"></i> ${t.startTime || '--'} - ${t.endTime || '--'}</span>`;
+                }
+
+                if (t.subtasks && t.subtasks.length > 0) {
+                    const completedSubtasks = t.subtasks.filter(st => st.completed).length;
+                    metaHtml += `<span class="attribute-badge"><i class="fas fa-tasks"></i> ${completedSubtasks}/${t.subtasks.length}</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="kanban-card-title">${escapeHtml(t.text)}</div>
+                    <div class="kanban-card-meta">${metaHtml}</div>
+                    ${t.notes ? `<div style="margin-top:8px; font-size:0.85rem; color:var(--text-secondary); line-height:1.4;">${escapeHtml(t.notes).substring(0, 60)}${t.notes.length > 60 ? '...' : ''}</div>` : ''}
+                    <div class="kanban-card-actions">
+                        <button class="btn" onclick="event.stopPropagation(); openEditTask(${t.id});" style="padding:6px 12px; font-size:0.8rem;"><i class="fas fa-pen"></i></button>
+                        <button class="btn" onclick="event.stopPropagation(); deleteTodo(${t.id});" style="padding:6px 12px; font-size:0.8rem; color:var(--danger-color); border-color:var(--danger-color);"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+
+                // 点击卡片打开详情
+                card.onclick = (e) => {
+                    if (!e.target.classList.contains('btn') && !e.target.closest('.btn')) {
+                        openTaskDetailModal(t.id);
+                    }
+                };
+
+                container.appendChild(card);
+            });
+
+            // 设置拖拽目标区域
+            container.ondragover = (e) => onKanbanColumnDragOver(e, status);
+            container.ondragleave = (e) => onKanbanColumnDragLeave(e);
+            container.ondrop = (e) => onKanbanColumnDrop(e, status);
+        }
+
+        // 看板卡片拖拽事件处理
+        let draggedKanbanCardId = null;
+
+        function onKanbanCardDragStart(e, todoId) {
+            draggedKanbanCardId = todoId;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', todoId);
+        }
+
+        function onKanbanCardDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedKanbanCardId = null;
+
+            // 移除所有拖拽样式
+            document.querySelectorAll('.kanban-column-content').forEach(col => {
+                col.style.background = '';
+                col.style.borderColor = '';
+            });
+        }
+
+        function onKanbanColumnDragOver(e, status) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            const container = e.currentTarget;
+            container.style.background = 'var(--accent-color)';
+            container.style.opacity = '0.3';
+        }
+
+        function onKanbanColumnDragLeave(e) {
+            if (e.target === e.currentTarget) {
+                e.currentTarget.style.background = '';
+                e.currentTarget.style.opacity = '';
+            }
+        }
+
+        function onKanbanColumnDrop(e, status) {
+            e.preventDefault();
+            e.currentTarget.style.background = '';
+            e.currentTarget.style.opacity = '';
+
+            if (!draggedKanbanCardId) return;
+
+            // 更新任务状态
+            state.todos = state.todos.map(t => {
+                if (t.id === draggedKanbanCardId) {
+                    if (status === 'completed') {
+                        return {...t, completed: true, kanbanStatus: null};
+                    } else if (status === 'todo') {
+                        return {...t, completed: false, kanbanStatus: null};
+                    } else if (status === 'in-progress') {
+                        return {...t, completed: false, kanbanStatus: 'in-progress'};
+                    }
+                }
+                return t;
+            });
+
+            save();
+            renderKanban();
+            showSyncToast('已移动任务');
         }
 
         function updateGroupSelects() {
@@ -4068,6 +4406,9 @@
                 <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportToCSV(); this.parentElement.remove();">
                     <i class="fas fa-file-csv"></i> 导出为 CSV
                 </button>
+                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportToMarkdown(); this.parentElement.remove();">
+                    <i class="fab fa-markdown"></i> 导出为 Markdown
+                </button>
                 <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="importData(); this.parentElement.remove();">
                     <i class="fas fa-upload"></i> 导入 JSON
                 </button>
@@ -4164,6 +4505,105 @@
             a.click();
             URL.revokeObjectURL(url);
             showSyncToast('CSV 导出成功！');
+        };
+
+        // 导出为 Markdown
+        window.exportToMarkdown = function() {
+            const today = new Date().toISOString().split('T')[0];
+            let markdown = `# ProLife 待办事项导出\n\n`;
+            markdown += `> 导出时间: ${today}\n\n`;
+
+            // 统计信息
+            const total = state.todos.length;
+            const completed = state.todos.filter(t => t.completed).length;
+            const active = total - completed;
+            const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            markdown += `## 📊 统计概览\n\n`;
+            markdown += `- **总任务**: ${total}\n`;
+            markdown += `- **已完成**: ${completed}\n`;
+            markdown += `- **进行中**: ${active}\n`;
+            markdown += `- **完成率**: ${completionRate}%\n\n`;
+
+            // 按分组整理
+            markdown += `## 📁 任务列表\n\n`;
+
+            // 按分组分组
+            const groupedTasks = {};
+            state.groups.forEach(g => {
+                groupedTasks[g.id] = {name: g.name, tasks: []};
+            });
+
+            state.todos.forEach(t => {
+                if (groupedTasks[t.groupId]) {
+                    groupedTasks[t.groupId].tasks.push(t);
+                } else {
+                    if (!groupedTasks['other']) {
+                        groupedTasks['other'] = {name: '其他', tasks: []};
+                    }
+                    groupedTasks['other'].tasks.push(t);
+                }
+            });
+
+            // 渲染每个分组
+            Object.values(groupedTasks).forEach(group => {
+                if (group.tasks.length === 0) return;
+
+                markdown += `### ${group.name}\n\n`;
+
+                group.tasks.forEach(t => {
+                    const checkbox = t.completed ? '[x]' : '[ ]';
+                    const priority = {high: '🔴', medium: '🟡', low: '🟢'}[t.priority] || '⚪';
+                    const timeRange = (t.startTime || t.endTime) ? ` ⏰ ${t.startTime || '--'} - ${t.endTime || '--'}` : '';
+
+                    markdown += `- ${checkbox} ${priority} **${t.text}**`;
+
+                    if (t.date) {
+                        markdown += ` 📅 ${t.date}`;
+                    }
+
+                    if (timeRange) {
+                        markdown += timeRange;
+                    }
+
+                    markdown += `\n`;
+
+                    // 添加备注
+                    if (t.notes) {
+                        markdown += `  > ${t.notes}\n`;
+                    }
+
+                    // 添加子任务
+                    if (t.subtasks && t.subtasks.length > 0) {
+                        markdown += `  **子任务**:\n`;
+                        t.subtasks.forEach(st => {
+                            const stCheckbox = st.completed ? '[x]' : '[ ]';
+                            markdown += `    - ${stCheckbox} ${st.text}\n`;
+                        });
+                    }
+
+                    markdown += `\n`;
+                });
+            });
+
+            // 已完成任务单独列出（如果需要）
+            const completedTasks = state.todos.filter(t => t.completed);
+            if (completedTasks.length > 0) {
+                markdown += `## ✅ 已完成任务 (${completedTasks.length})\n\n`;
+                completedTasks.forEach(t => {
+                    markdown += `- [x] ${t.text} _(${t.date || '无日期'})_\n`;
+                });
+            }
+
+            // 创建并下载文件
+            const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prolife-todos-${today}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showSyncToast('Markdown 导出成功！');
         };
 
         // 从表格导入
