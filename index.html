@@ -53,6 +53,52 @@
             --warning-color: #ffc876;
         }
 
+        /* === 动画效果 === */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .fade-out {
+            animation: fadeOut 0.2s cubic-bezier(0.4, 0, 1, 1);
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
 
         body {
@@ -1921,7 +1967,11 @@
             templates: JSON.parse(localStorage.getItem('templates')) || [],
             // 新增：拖拽状态
             draggedTodoId: null,
-            dragOverGroupId: null
+            dragOverGroupId: null,
+            // 新增：子任务折叠状态 {todoId: boolean} true=展开, false=折叠
+            expandedSubtasks: {},
+            // 新增：待办视图模式 'list' | 'kanban'
+            todoViewMode: localStorage.getItem('todoViewMode') || 'list'
         };
 
         // --- 初始化 ---
@@ -1942,6 +1992,7 @@
             initTemplates();
             initStats();
             initPomodoro();
+            initKeyboardShortcuts();
         });
 
         // --- 自定义下拉组件初始化 ---
@@ -2282,10 +2333,11 @@
 
             list.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-            list.forEach(t => {
+            list.forEach((t, index) => {
                 const li = document.createElement('li');
-                li.className = `todo-item ${t.completed?'completed':''}`;
+                li.className = `todo-item ${t.completed?'completed':''} fade-in`;
                 li.style.setProperty('--group-color', t.groupColor);
+                li.style.animationDelay = `${index * 0.03}s`;
 
                 // 添加拖拽属性
                 li.draggable = true;
@@ -2308,13 +2360,20 @@
                 let subtasksHtml = '';
                 if (t.subtasks && t.subtasks.length > 0) {
                     const completedSubtasks = t.subtasks.filter(st => st.completed).length;
+                    const isExpanded = state.expandedSubtasks[t.id] !== false; // 默认展开
+                    const expandIcon = isExpanded ? 'fa-chevron-down' : 'fa-chevron-right';
+                    const subtaskListDisplay = isExpanded ? 'flex' : 'none';
+
                     subtasksHtml = `
                         <div class="subtasks-section">
-                            <div class="subtasks-header">
-                                <span><i class="fas fa-tasks"></i> 子任务 (${completedSubtasks}/${t.subtasks.length})</span>
-                                <button class="add-subtask-btn" onclick="toggleSubtaskInput(${t.id})"><i class="fas fa-plus"></i> 添加</button>
+                            <div class="subtasks-header" style="cursor: pointer;" onclick="toggleSubtasksExpand(${t.id})">
+                                <span>
+                                    <i class="fas ${expandIcon}" id="expand-icon-${t.id}" style="margin-right: 5px; transition: transform 0.2s;"></i>
+                                    <i class="fas fa-tasks"></i> 子任务 (${completedSubtasks}/${t.subtasks.length})
+                                </span>
+                                <button class="add-subtask-btn" onclick="event.stopPropagation(); toggleSubtaskInput(${t.id})"><i class="fas fa-plus"></i> 添加</button>
                             </div>
-                            <ul class="subtask-list" id="subtask-list-${t.id}">
+                            <ul class="subtask-list slide-in" id="subtask-list-${t.id}" style="display: ${subtaskListDisplay};">
                                 ${t.subtasks.map(st => `
                                     <li class="subtask-item ${st.completed ? 'completed' : ''}">
                                         <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${t.id}, ${st.id})">
@@ -2323,7 +2382,7 @@
                                     </li>
                                 `).join('')}
                             </ul>
-                            <div class="add-subtask-input" id="subtask-input-${t.id}">
+                            <div class="add-subtask-input" id="subtask-input-${t.id}" style="display: ${isExpanded ? 'flex' : 'none'};">
                                 <input type="text" placeholder="子任务内容..." id="subtask-text-${t.id}" onkeypress="if(event.key==='Enter') addSubtask(${t.id})">
                                 <button onclick="addSubtask(${t.id})"><i class="fas fa-plus"></i></button>
                             </div>
@@ -2480,6 +2539,11 @@
 
         // --- 子任务相关函数 ---
         window.toggleSubtaskInput = (todoId) => {
+            // 如果子任务栏是折叠状态，先展开
+            if (state.expandedSubtasks[todoId] === false) {
+                toggleSubtasksExpand(todoId);
+            }
+
             const inputDiv = document.getElementById(`subtask-input-${todoId}`);
             inputDiv.classList.toggle('active');
             if (inputDiv.classList.contains('active')) {
@@ -3292,8 +3356,28 @@
             }, Math.max(stepTime, 10)); 
         }
 
-        function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.add('active');
+            const modalContent = modal.querySelector('.modal');
+            if (modalContent) {
+                modalContent.classList.add('fade-in');
+            }
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            const modalContent = modal.querySelector('.modal');
+            if (modalContent) {
+                modalContent.classList.add('fade-out');
+                setTimeout(() => {
+                    modal.classList.remove('active');
+                    modalContent.classList.remove('fade-out', 'fade-in');
+                }, 200);
+            } else {
+                modal.classList.remove('active');
+            }
+        }
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -5328,6 +5412,114 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 });
             }
         }
+
+        // ========== 键盘快捷键 ==========
+        function initKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+N: 快速添加任务
+                if ((e.ctrlKey || e.metaKey) && e.key === 'n' && state.view === 'todo') {
+                    e.preventDefault();
+                    document.getElementById('todoInput').focus();
+                }
+
+                // Ctrl+F: 打开搜索
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    const searchBtn = document.getElementById('searchBtn');
+                    searchBtn.click();
+                    setTimeout(() => {
+                        document.getElementById('searchInput')?.focus();
+                    }, 100);
+                }
+
+                // Ctrl+/: 显示快捷键帮助
+                if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                    e.preventDefault();
+                    showKeyboardShortcutsHelp();
+                }
+
+                // ESC: 关闭模态框
+                if (e.key === 'Escape') {
+                    const openModals = document.querySelectorAll('.modal-overlay');
+                    openModals.forEach(modal => {
+                        if (modal.style.display !== 'none' && !modal.classList.contains('hidden')) {
+                            const modalId = modal.id;
+                            closeModal(modalId);
+                        }
+                    });
+                }
+
+                // Ctrl+S: 云端同步
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    if (currentUser) {
+                        syncToCloud();
+                        showSyncToast('手动同步中...');
+                    }
+                }
+
+                // Ctrl+B: 切换批量模式
+                if ((e.ctrlKey || e.metaKey) && e.key === 'b' && state.view === 'todo') {
+                    e.preventDefault();
+                    document.getElementById('batchModeBtn').click();
+                }
+            });
+
+            // 在添加任务输入框中按 Enter 快速保存
+            document.getElementById('todoInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    addTodo();
+                }
+            });
+        }
+
+        // 显示快捷键帮助
+        function showKeyboardShortcutsHelp() {
+            const shortcuts = `
+📌 ProLife 键盘快捷键
+
+基础操作：
+  Ctrl+N        快速添加任务
+  Ctrl+F        打开搜索
+  Ctrl+S        云端同步
+  Ctrl+B        切换批量模式
+  Ctrl+/        显示此帮助
+  ESC           关闭弹窗
+
+任务操作：
+  Enter         快速保存任务
+
+提示：Mac 用户请使用 Cmd 代替 Ctrl
+            `.trim();
+
+            alert(shortcuts);
+        }
+
+        // ========== 子任务展开/折叠 ==========
+        window.toggleSubtasksExpand = function(todoId) {
+            // 切换展开状态
+            state.expandedSubtasks[todoId] = !state.expandedSubtasks[todoId];
+
+            // 更新图标和列表显示
+            const icon = document.getElementById(`expand-icon-${todoId}`);
+            const list = document.getElementById(`subtask-list-${todoId}`);
+            const input = document.getElementById(`subtask-input-${todoId}`);
+
+            if (state.expandedSubtasks[todoId]) {
+                // 展开
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+                list.style.display = 'flex';
+                if (input) input.style.display = 'flex';
+            } else {
+                // 折叠
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+                list.style.display = 'none';
+                if (input) input.style.display = 'none';
+            }
+        };
     </script>
 </body>
 </html>
