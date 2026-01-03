@@ -1211,7 +1211,7 @@
 
             /* 移动端隐藏部分按钮和元素 */
             #searchBoxContainer { display: none !important; }
-            #searchBtn, #batchModeBtn, #templateBtn, #pomodoroBtn, #notificationBtn, #importExportBtn { display: none !important; }
+            #batchModeBtn, #statsBtn { display: none !important; }
             .view-tabs { display: none !important; } /* 底部导航替代 */
             .mobile-group-toggle { display: none !important; } /* 集成到底部导航 */
 
@@ -2232,9 +2232,9 @@
                 <i class="fas fa-wallet"></i>
                 <span>记账</span>
             </button>
-            <button class="nav-item" onclick="document.getElementById('statsBtn').click()">
-                <i class="fas fa-chart-pie"></i>
-                <span>统计</span>
+            <button class="nav-item" onclick="document.getElementById('pomodoroBtn').click()">
+                <i class="fas fa-clock"></i>
+                <span>番茄钟</span>
             </button>
         </div>
     </div>
