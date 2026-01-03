@@ -119,7 +119,6 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 3px solid var(--border-color);
             flex-shrink: 0;
             -webkit-app-region: drag;
             user-select: none;
@@ -128,7 +127,6 @@
 
         body.dark-mode .custom-titlebar {
             background: var(--card-bg);
-            border-bottom: 3px solid var(--border-color);
         }
 
         /* 浏览器环境隐藏标题栏（通过 JS 添加 .browser-env 类） */
@@ -158,35 +156,15 @@
         .titlebar-left {
             display: flex;
             align-items: center;
-            padding-left: 15px;
-            gap: 12px;
-        }
-
-        .titlebar-icon {
-            width: 28px;
-            height: 28px;
-            background: var(--accent-color);
-            border: 3px solid var(--border-color);
-            border-radius: 2px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 900;
-            color: var(--text-main);
-            box-shadow: 3px 3px 0 0 var(--border-color);
-        }
-
-        body.dark-mode .titlebar-icon {
-            color: var(--bg-color);
+            padding-left: 20px;
         }
 
         .titlebar-title {
             color: var(--text-main);
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 2px;
         }
 
         body.dark-mode .titlebar-title {
@@ -1895,8 +1873,7 @@
     <!-- 自定义标题栏 -->
     <div class="custom-titlebar">
         <div class="titlebar-left">
-            <div class="titlebar-icon"><i class="fas fa-layer-group"></i></div>
-            <div class="titlebar-title">Pro Life</div>
+            <div class="titlebar-title">PRO LIFE</div>
         </div>
         <div class="titlebar-controls">
             <button class="titlebar-btn" id="btnMinimize" title="最小化">
