@@ -1219,7 +1219,7 @@
 
             /* 移动端隐藏部分按钮和元素 */
             #searchBoxContainer { display: none !important; }
-            #batchModeBtn, #templateBtn, #pomodoroBtn, #notificationBtn, #importExportBtn { display: none !important; }
+            #searchBtn, #batchModeBtn, #templateBtn, #pomodoroBtn, #notificationBtn, #importExportBtn { display: none !important; }
             .view-tabs { display: none !important; } /* 底部导航替代 */
             .mobile-group-toggle { display: none !important; } /* 集成到底部导航 */
 
@@ -1436,23 +1436,25 @@
                 padding: 10px 14px;
             }
 
-            /* 分组 - 移动端折叠 */
+            /* 分组 - 移动端从底部展开 */
             .sidebar {
                 position: fixed;
-                top: 70px;
-                left: -100%;
-                width: 80%;
-                max-width: 300px;
-                height: calc(100vh - 140px);
+                bottom: 70px;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-height: 0;
                 background: var(--card-bg);
-                border-right: 3px solid var(--border-color);
+                border-top: 3px solid var(--border-color);
+                border-right: none;
                 z-index: 900;
-                transition: left 0.3s ease-out;
+                transition: max-height 0.3s ease-out;
                 overflow-y: auto;
             }
 
             .sidebar.mobile-open {
-                left: 0;
+                max-height: 60vh;
+                box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
             }
 
             .mobile-group-toggle {
@@ -1550,6 +1552,17 @@
             .finance-controls .btn {
                 flex: 1;
                 padding: 10px 12px;
+            }
+
+            /* 记账视图切换按钮在移动端显示 */
+            #financeView .view-tabs {
+                display: flex !important;
+                padding: 3px !important;
+            }
+
+            #financeView .view-tab {
+                padding: 8px 16px !important;
+                font-size: 0.85rem !important;
             }
 
             /* 统计卡片优化 */
@@ -3045,11 +3058,15 @@
                 <div class="group-name"><i class="fas fa-th-large"></i> 全部任务</div>
             </li>`;
             
-            state.groups.forEach(g => {
+            state.groups.forEach((g, index) => {
                 const li = document.createElement('li');
                 li.className = `group-item ${state.currentGroupId===g.id?'active':''}`;
                 li.innerHTML = `
-                    <div class="group-name"><div class="group-color" style="background:${g.color}"></div> <span>${g.name}</span></div>
+                    <div class="group-name">
+                        <i class="fas fa-grip-vertical" style="cursor: move; color: var(--text-secondary); margin-right: 8px;"></i>
+                        <div class="group-color" style="background:${g.color}"></div>
+                        <span>${g.name}</span>
+                    </div>
                     <div class="group-actions">
                         <i class="fas fa-pen action-icon" onclick="event.stopPropagation();openEditGroupModal('${g.id}')"></i>
                         <i class="fas fa-trash action-icon" onclick="event.stopPropagation();deleteGroup('${g.id}')" style="color:var(--danger-color)"></i>
@@ -3057,10 +3074,13 @@
                 `;
                 li.onclick = () => selectGroup(g.id);
 
-                // 添加拖拽目标属性
-                li.ondragover = (e) => onGroupDragOver(e, g.id);
+                // 添加拖拽功能（用于排序）
+                li.draggable = true;
+                li.ondragstart = (e) => onGroupDragStart(e, index);
+                li.ondragend = (e) => onGroupDragEnd(e);
+                li.ondragover = (e) => onGroupDragOver(e, index);
                 li.ondragleave = (e) => onGroupDragLeave(e);
-                li.ondrop = (e) => onGroupDrop(e, g.id);
+                li.ondrop = (e) => onGroupDropReorder(e, index);
 
                 l.appendChild(li);
             });
@@ -3085,6 +3105,43 @@
                 if (overlay) overlay.classList.remove('active');
                 updateMobileGroupToggle();
             }
+        };
+
+        // --- 分组拖拽排序 ---
+        let draggedGroupIndex = null;
+
+        function onGroupDragStart(e, index) {
+            draggedGroupIndex = index;
+            e.target.style.opacity = '0.5';
+        }
+
+        function onGroupDragEnd(e) {
+            e.target.style.opacity = '';
+        }
+
+        function onGroupDragOver(e, index) {
+            e.preventDefault();
+            if (draggedGroupIndex === null || draggedGroupIndex === index) return;
+            e.currentTarget.style.borderTop = '3px solid var(--accent-color)';
+        }
+
+        function onGroupDragLeave(e) {
+            e.currentTarget.style.borderTop = '';
+        }
+
+        function onGroupDropReorder(e, targetIndex) {
+            e.preventDefault();
+            e.currentTarget.style.borderTop = '';
+
+            if (draggedGroupIndex === null || draggedGroupIndex === targetIndex) return;
+
+            // 重新排序分组数组
+            const movedGroup = state.groups.splice(draggedGroupIndex, 1)[0];
+            state.groups.splice(targetIndex, 0, movedGroup);
+
+            draggedGroupIndex = null;
+            save();
+            renderGroups();
         };
 
         // --- 待办逻辑 ---
