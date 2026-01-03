@@ -1210,10 +1210,22 @@
             .view-tab { padding: 6px 12px; font-size: 0.8rem; }
 
             /* 移动端隐藏部分按钮和元素 */
-            #searchBoxContainer { display: none !important; }
             #batchModeBtn, #statsBtn { display: none !important; }
             .view-tabs { display: none !important; } /* 底部导航替代 */
             .mobile-group-toggle { display: none !important; } /* 集成到底部导航 */
+
+            /* 移动端搜索框优化 */
+            #searchBoxContainer {
+                position: fixed !important;
+                top: 60px;
+                left: 10px;
+                right: 10px;
+                z-index: 999;
+            }
+            #searchInput {
+                width: 100% !important;
+                max-width: none !important;
+            }
 
             /* 显示移动端底部导航 */
             .mobile-bottom-nav { display: block; }
