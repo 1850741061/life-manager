@@ -1217,9 +1217,11 @@
             .view-tabs { display: none; } /* 隐藏顶部导航，使用底部导航 */
             .view-tab { padding: 6px 12px; font-size: 0.8rem; }
 
-            /* 移动端隐藏部分按钮 */
+            /* 移动端隐藏部分按钮和元素 */
             #searchBoxContainer { display: none !important; }
             #batchModeBtn, #templateBtn, #pomodoroBtn, #notificationBtn, #importExportBtn { display: none !important; }
+            .view-tabs { display: none !important; } /* 底部导航替代 */
+            .mobile-group-toggle { display: none !important; } /* 集成到底部导航 */
 
             /* 显示移动端底部导航 */
             .mobile-bottom-nav { display: block; }
@@ -1533,9 +1535,73 @@
                 margin: 1px;
             }
 
-            /* 记账视图 */
-            .transaction-item { padding: 10px; }
-            .t-amount { font-size: 0.9rem; }
+            /* 记账视图优化 */
+            .finance-header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 12px;
+            }
+
+            .finance-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .finance-controls .btn {
+                flex: 1;
+                padding: 10px 12px;
+            }
+
+            .transaction-item {
+                padding: 12px;
+                border-width: 2px;
+            }
+
+            .t-info {
+                gap: 8px;
+            }
+
+            .t-category {
+                font-size: 0.85rem;
+            }
+
+            .t-date {
+                font-size: 0.75rem;
+            }
+
+            .t-amount {
+                font-size: 1.1rem;
+                font-weight: 800;
+            }
+
+            .t-notes {
+                font-size: 0.8rem;
+                margin-top: 6px;
+            }
+
+            /* 月份视图优化 */
+            .month-group {
+                border-width: 2px;
+                margin-bottom: 15px;
+            }
+
+            .month-header {
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+
+            .month-summary {
+                gap: 15px;
+                padding: 12px 15px;
+            }
+
+            .summary-item {
+                font-size: 0.8rem;
+            }
+
+            .summary-amount {
+                font-size: 1.2rem;
+            }
             .filter-chip { padding: 6px 12px; font-size: 0.8rem; }
         }
 
@@ -2127,7 +2193,7 @@
     <!-- 移动端底部导航栏 -->
     <div class="mobile-bottom-nav">
         <div class="nav-items">
-            <button class="nav-item active" data-view="todo" onclick="setView('todo')">
+            <button class="nav-item active" data-view="todo" onclick="handleMobileTodoNav()">
                 <i class="fas fa-list-check"></i>
                 <span>待办</span>
             </button>
@@ -2812,6 +2878,22 @@
             } else {
                 sidebar.classList.add('mobile-open');
                 overlay.classList.add('active');
+            }
+        };
+
+        // --- 移动端待办导航处理 ---
+        window.handleMobileTodoNav = function() {
+            if (window.innerWidth > 768) {
+                setView('todo');
+                return;
+            }
+
+            // 如果已经在待办视图，则打开分组选择
+            if (state.view === 'todo') {
+                toggleMobileSidebar();
+            } else {
+                // 否则切换到待办视图
+                setView('todo');
             }
         };
 
