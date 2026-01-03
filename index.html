@@ -175,7 +175,6 @@
             display: flex;
             height: 100%;
             -webkit-app-region: no-drag;
-            gap: 1px;
         }
 
         .titlebar-btn {
@@ -191,7 +190,6 @@
             color: var(--text-main);
             font-size: 0.95rem;
             position: relative;
-            border-left: 2px solid var(--border-color);
         }
 
         body.dark-mode .titlebar-btn {
@@ -1898,7 +1896,7 @@
 
     <div class="container">
         <header>
-            <h1><i class="fas fa-layer-group"></i> Pro Life</h1>
+            <h1 style="display: none;"><i class="fas fa-layer-group"></i> Pro Life</h1>
             <div class="header-controls">
                 <div class="view-tabs">
                     <button class="view-tab active" data-view="todo">待办</button>
