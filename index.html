@@ -5566,9 +5566,9 @@
             // 点击搜索按钮切换搜索框显示
             searchBtn.onclick = () => {
                 const isVisible = searchBox.style.display !== 'none';
-                searchBox.style.display = isVisible ? 'none' : 'flex';
+                searchBox.style.display = isVisible ? 'none' : 'block';
                 if (!isVisible) {
-                    searchInput.focus();
+                    setTimeout(() => searchInput.focus(), 100);
                 }
             };
 
