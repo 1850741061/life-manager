@@ -1434,7 +1434,56 @@
                 padding: 10px 14px;
             }
 
-            /* 分组 */
+            /* 分组 - 移动端折叠 */
+            .sidebar {
+                position: fixed;
+                top: 70px;
+                left: -100%;
+                width: 80%;
+                max-width: 300px;
+                height: calc(100vh - 140px);
+                background: var(--card-bg);
+                border-right: 3px solid var(--border-color);
+                z-index: 900;
+                transition: left 0.3s ease-out;
+                overflow-y: auto;
+            }
+
+            .sidebar.mobile-open {
+                left: 0;
+            }
+
+            .mobile-group-toggle {
+                display: block;
+                position: fixed;
+                top: 70px;
+                left: 10px;
+                z-index: 901;
+                background: var(--accent-color);
+                border: 2px solid var(--border-color);
+                border-radius: var(--radius);
+                padding: 10px 14px;
+                box-shadow: 2px 2px 0 0 var(--border-color);
+                font-weight: 700;
+                font-size: 0.85rem;
+                min-height: 44px;
+            }
+
+            .mobile-sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 899;
+            }
+
+            .mobile-sidebar-overlay.active {
+                display: block;
+            }
+
             .group-item { padding: 10px 12px; margin-bottom: 8px; }
             .group-actions { opacity: 1 !important; }
 
@@ -1743,6 +1792,14 @@
             </button>
         </div>
     </div>
+
+    <!-- 移动端分组切换按钮 -->
+    <button class="mobile-group-toggle" id="mobileGroupToggle" style="display: none;" onclick="toggleMobileSidebar()">
+        <i class="fas fa-layer-group"></i> <span id="currentGroupName">全部</span>
+    </button>
+
+    <!-- 移动端侧边栏遮罩 -->
+    <div class="mobile-sidebar-overlay" id="mobileSidebarOverlay" onclick="toggleMobileSidebar()"></div>
 
     <div class="container">
         <header>
@@ -2744,6 +2801,46 @@
         // 创建 setView 全局函数供移动端底部导航使用
         window.setView = switchView;
 
+        // --- 移动端侧边栏折叠控制 ---
+        window.toggleMobileSidebar = function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobileSidebarOverlay');
+
+            if (sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                overlay.classList.remove('active');
+            } else {
+                sidebar.classList.add('mobile-open');
+                overlay.classList.add('active');
+            }
+        };
+
+        // 更新移动端分组按钮显示的当前分组名称
+        function updateMobileGroupToggle() {
+            if (window.innerWidth <= 768) {
+                const groupToggle = document.getElementById('mobileGroupToggle');
+                const currentGroupNameSpan = document.getElementById('currentGroupName');
+
+                if (groupToggle) {
+                    groupToggle.style.display = 'block';
+
+                    if (state.currentGroupId === 'all') {
+                        currentGroupNameSpan.textContent = '全部';
+                    } else {
+                        const group = state.groups.find(g => g.id === state.currentGroupId);
+                        currentGroupNameSpan.textContent = group ? group.name : '全部';
+                    }
+                }
+            } else {
+                const groupToggle = document.getElementById('mobileGroupToggle');
+                if (groupToggle) groupToggle.style.display = 'none';
+            }
+        }
+
+        // 窗口大小改变时更新
+        window.addEventListener('resize', updateMobileGroupToggle);
+        updateMobileGroupToggle();
+
         // --- 移动端悬浮添加按钮处理 ---
         window.handleMobileFabClick = function() {
             const currentView = state.view;
@@ -2873,6 +2970,15 @@
             // 联动：自动切换添加任务的分组选择器
             if (id !== 'all') {
                 setCustomSelectValue('groupSelectCustom', id);
+            }
+
+            // 移动端：关闭侧边栏并更新按钮文本
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('mobileSidebarOverlay');
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                updateMobileGroupToggle();
             }
         };
 
