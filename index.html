@@ -1552,6 +1552,29 @@
                 padding: 10px 12px;
             }
 
+            /* 统计卡片优化 */
+            .finance-cards {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                margin-bottom: 15px;
+            }
+
+            .finance-card {
+                padding: 12px;
+                border-width: 2px;
+                box-shadow: 2px 2px 0 0 var(--border-color);
+            }
+
+            .finance-card h3 {
+                font-size: 0.65rem;
+                margin-bottom: 6px;
+            }
+
+            .finance-card .amount {
+                font-size: 1.3rem;
+                line-height: 1.2;
+            }
+
             .transaction-item {
                 padding: 12px;
                 border-width: 2px;
