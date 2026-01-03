@@ -1978,6 +1978,14 @@
                         </div>
                     </div>
 
+                    <!-- 搜索框区域 (移动端专用) -->
+                    <div id="mobileSearchContainer" style="display: none;">
+                        <div class="input-group" style="margin-bottom: 15px;">
+                            <input type="text" id="mobileSearchInput" placeholder="搜索任务..." style="flex: 1;">
+                            <button class="btn" id="clearMobileSearchBtn" style="background: var(--danger-color); color: white;"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+
                     <div class="input-section">
                         <div class="input-group">
                             <input type="text" id="todoInput" placeholder="添加一个新的任务...">
@@ -5581,11 +5589,24 @@
 
             // 点击搜索按钮切换搜索框显示
             searchBtn.onclick = () => {
-                const currentDisplay = window.getComputedStyle(searchBox).display;
-                const isVisible = currentDisplay !== 'none';
-                searchBox.style.display = isVisible ? 'none' : 'block';
-                if (!isVisible) {
-                    setTimeout(() => searchInput.focus(), 100);
+                // 移动端使用专用搜索框
+                if (window.innerWidth <= 768) {
+                    const mobileSearchContainer = document.getElementById('mobileSearchContainer');
+                    const mobileSearchInput = document.getElementById('mobileSearchInput');
+                    const currentDisplay = window.getComputedStyle(mobileSearchContainer).display;
+                    const isVisible = currentDisplay !== 'none';
+                    mobileSearchContainer.style.display = isVisible ? 'none' : 'block';
+                    if (!isVisible) {
+                        setTimeout(() => mobileSearchInput.focus(), 100);
+                    }
+                } else {
+                    // 桌面端使用原搜索框
+                    const currentDisplay = window.getComputedStyle(searchBox).display;
+                    const isVisible = currentDisplay !== 'none';
+                    searchBox.style.display = isVisible ? 'none' : 'block';
+                    if (!isVisible) {
+                        setTimeout(() => searchInput.focus(), 100);
+                    }
                 }
             };
 
@@ -5602,6 +5623,26 @@
                 searchBox.style.display = 'none';
                 renderTodos();
             };
+
+            // 移动端搜索框事件
+            const mobileSearchInput = document.getElementById('mobileSearchInput');
+            const clearMobileSearchBtn = document.getElementById('clearMobileSearchBtn');
+
+            if (mobileSearchInput) {
+                mobileSearchInput.oninput = (e) => {
+                    state.searchQuery = e.target.value.toLowerCase();
+                    renderTodos();
+                };
+            }
+
+            if (clearMobileSearchBtn) {
+                clearMobileSearchBtn.onclick = () => {
+                    mobileSearchInput.value = '';
+                    state.searchQuery = '';
+                    renderTodos();
+                    document.getElementById('mobileSearchContainer').style.display = 'none';
+                };
+            }
 
             // 回车搜索
             searchInput.onkeypress = (e) => {
