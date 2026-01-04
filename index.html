@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Life | 待办 & 记账</title>
+    <title>Todo | 待办 & 记账</title>
     <!-- PWA Manifest -->
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#6c5ce7">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="ProLife">
+    <meta name="apple-mobile-web-app-title" content="Todo">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -5133,42 +5133,470 @@
 
         // 显示导入导出菜单
         function showImportExportMenu() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.15s ease;
+            `;
+
+            // 添加淡入动画
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `;
+            if (!document.querySelector('style[data-dialog-animation]')) {
+                style.setAttribute('data-dialog-animation', '');
+                document.head.appendChild(style);
+            }
+
             const menu = document.createElement('div');
             menu.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
                 background: var(--card-bg);
                 border: 3px solid var(--border-color);
                 border-radius: var(--radius);
                 box-shadow: var(--shadow);
-                padding: 20px;
-                z-index: 10000;
-                min-width: 300px;
+                padding: 30px;
+                max-width: 450px;
+                width: 90%;
+                font-family: var(--font-family);
             `;
+
             menu.innerHTML = `
-                <h3 style="margin-bottom: 15px; font-weight: 800; text-transform: uppercase;">导入/导出</h3>
-                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportData(); this.parentElement.remove();">
-                    <i class="fas fa-download"></i> 导出为 JSON
-                </button>
-                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportToCSV(); this.parentElement.remove();">
-                    <i class="fas fa-file-csv"></i> 导出为 CSV
-                </button>
-                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportToMarkdown(); this.parentElement.remove();">
-                    <i class="fab fa-markdown"></i> 导出为 Markdown
-                </button>
-                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="importData(); this.parentElement.remove();">
-                    <i class="fas fa-upload"></i> 导入 JSON
-                </button>
-                <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="importFromSpreadsheet(); this.parentElement.remove();">
-                    <i class="fas fa-table"></i> 导入 CSV/Excel 表格
-                </button>
-                <button class="btn" style="width: 100%;" onclick="this.parentElement.remove();">
-                    <i class="fas fa-times"></i> 取消
-                </button>
+                <h2 style="margin: 0 0 20px 0; font-weight: 800; font-size: 24px; color: var(--text-main);">
+                    📦 导入/导出
+                </h2>
+                <div style="margin-bottom: 20px;">
+                    <p style="margin: 0 0 15px 0; font-weight: 600; color: var(--text-secondary); font-size: 14px;">
+                        导出数据
+                    </p>
+                    <button class="io-menu-btn" data-action="exportJSON" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        margin-bottom: 8px;
+                        border: 2px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text-main);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    ">
+                        <i class="fas fa-download" style="color: var(--accent-color);"></i>
+                        导出为 JSON
+                    </button>
+                    <button class="io-menu-btn" data-action="exportCSV" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        margin-bottom: 8px;
+                        border: 2px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text-main);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    ">
+                        <i class="fas fa-file-csv" style="color: var(--success-color);"></i>
+                        导出为 CSV
+                    </button>
+                    <button class="io-menu-btn" data-action="exportMarkdown" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        margin-bottom: 15px;
+                        border: 2px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text-main);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    ">
+                        <i class="fab fa-markdown" style="color: var(--warning-color);"></i>
+                        导出为 Markdown
+                    </button>
+
+                    <p style="margin: 15px 0 15px 0; font-weight: 600; color: var(--text-secondary); font-size: 14px;">
+                        导入数据
+                    </p>
+                    <button class="io-menu-btn" data-action="importJSON" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        margin-bottom: 8px;
+                        border: 2px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text-main);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    ">
+                        <i class="fas fa-upload" style="color: var(--accent-color);"></i>
+                        导入 JSON
+                    </button>
+                    <button class="io-menu-btn" data-action="importCSV" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        margin-bottom: 15px;
+                        border: 2px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text-main);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    ">
+                        <i class="fas fa-table" style="color: var(--success-color);"></i>
+                        导入 CSV/Excel
+                    </button>
+
+                    <button class="io-menu-btn" data-action="cancel" style="
+                        width: 100%;
+                        padding: 12px 15px;
+                        border: 2px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--danger-color);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    ">
+                        <i class="fas fa-times"></i>
+                        取消
+                    </button>
+                </div>
             `;
-            document.body.appendChild(menu);
+
+            overlay.appendChild(menu);
+            document.body.appendChild(overlay);
+
+            // 按钮交互
+            const buttons = menu.querySelectorAll('.io-menu-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.transform = 'translateX(5px)';
+                    btn.style.boxShadow = '4px 4px 0 0 var(--border-color)';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.transform = 'translateX(0)';
+                    btn.style.boxShadow = 'none';
+                });
+                btn.addEventListener('click', () => {
+                    const action = btn.dataset.action;
+                    overlay.remove();
+
+                    switch(action) {
+                        case 'exportJSON':
+                            showExportJSONDialog();
+                            break;
+                        case 'exportCSV':
+                            showExportCSVDialog();
+                            break;
+                        case 'exportMarkdown':
+                            showExportMarkdownDialog();
+                            break;
+                        case 'importJSON':
+                            showImportJSONDialog();
+                            break;
+                        case 'importCSV':
+                            importFromSpreadsheet();
+                            break;
+                        case 'cancel':
+                            break;
+                    }
+                });
+            });
+
+            // 点击遮罩关闭
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
+
+        // 显示导出 JSON 对话框
+        function showExportJSONDialog() {
+            const overlay = createDialogOverlay();
+            const dialog = createDialog('导出 JSON', `
+                <div style="margin-bottom: 20px;">
+                    <p style="margin: 0 0 15px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                        导出所有数据为 JSON 格式，包括：<br>
+                        • 所有任务 (${state.todos.length} 个)<br>
+                        • 所有账目 (${state.transactions.length} 个)<br>
+                        • 所有分组 (${state.groups.length} 个)
+                    </p>
+                </div>
+                <button class="dialog-btn-primary" data-action="confirm" style="
+                    width: 100%;
+                    padding: 15px;
+                    margin-bottom: 10px;
+                    border: 3px solid var(--border-color);
+                    background: var(--accent-color);
+                    color: white;
+                    cursor: pointer;
+                    border-radius: var(--radius);
+                    font-family: var(--font-family);
+                    font-size: 16px;
+                    font-weight: 700;
+                    transition: var(--transition);
+                ">
+                    <i class="fas fa-download"></i> 确认导出
+                </button>
+                <button class="dialog-btn-secondary" data-action="cancel" style="
+                    width: 100%;
+                    padding: 15px;
+                    border: 2px solid var(--border-color);
+                    background: var(--card-bg);
+                    color: var(--text-main);
+                    cursor: pointer;
+                    border-radius: var(--radius);
+                    font-family: var(--font-family);
+                    font-size: 14px;
+                    font-weight: 600;
+                    transition: var(--transition);
+                ">
+                    取消
+                </button>
+            `);
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            setupDialogButtons(overlay, (action) => {
+                if (action === 'confirm') {
+                    exportData();
+                }
+            });
+        }
+
+        // 显示导出 CSV 对话框
+        function showExportCSVDialog() {
+            const overlay = createDialogOverlay();
+            const dialog = createDialog('导出 CSV', `
+                <div style="margin-bottom: 20px;">
+                    <p style="margin: 0 0 15px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                        导出任务列表为 CSV 表格格式，包含：<br>
+                        • 任务标题、描述<br>
+                        • 优先级、状态<br>
+                        • 日期、分组<br>
+                        <br>
+                        共 ${state.todos.length} 个任务将被导出
+                    </p>
+                </div>
+                <button class="dialog-btn-primary" data-action="confirm">
+                    <i class="fas fa-file-csv"></i> 确认导出
+                </button>
+                <button class="dialog-btn-secondary" data-action="cancel">
+                    取消
+                </button>
+            `);
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            setupDialogButtons(overlay, (action) => {
+                if (action === 'confirm') {
+                    exportToCSV();
+                }
+            });
+        }
+
+        // 显示导出 Markdown 对话框
+        function showExportMarkdownDialog() {
+            const overlay = createDialogOverlay();
+            const dialog = createDialog('导出 Markdown', `
+                <div style="margin-bottom: 20px;">
+                    <p style="margin: 0 0 15px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                        导出为 Markdown 文档格式，适合：<br>
+                        • 在笔记应用中查看<br>
+                        • 分享给团队成员<br>
+                        • 打印或保存为PDF<br>
+                        <br>
+                        将导出 ${state.todos.length} 个任务
+                    </p>
+                </div>
+                <button class="dialog-btn-primary" data-action="confirm">
+                    <i class="fab fa-markdown"></i> 确认导出
+                </button>
+                <button class="dialog-btn-secondary" data-action="cancel">
+                    取消
+                </button>
+            `);
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            setupDialogButtons(overlay, (action) => {
+                if (action === 'confirm') {
+                    exportToMarkdown();
+                }
+            });
+        }
+
+        // 显示导入 JSON 对话框
+        function showImportJSONDialog() {
+            const overlay = createDialogOverlay();
+            const dialog = createDialog('导入 JSON', `
+                <div style="margin-bottom: 20px;">
+                    <div style="background: var(--warning-color); color: white; padding: 15px; border-radius: var(--radius); margin-bottom: 15px; font-weight: 600;">
+                        ⚠️ 警告：导入将完全覆盖现有数据！
+                    </div>
+                    <p style="margin: 0 0 15px 0; font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                        您当前有：<br>
+                        • ${state.todos.length} 个任务<br>
+                        • ${state.transactions.length} 个账目<br>
+                        • ${state.groups.length} 个分组<br>
+                        <br>
+                        导入后，这些数据将被替换为导入文件中的数据。
+                    </p>
+                </div>
+                <button class="dialog-btn-primary" data-action="confirm" style="background: var(--warning-color);">
+                    <i class="fas fa-upload"></i> 选择文件并导入
+                </button>
+                <button class="dialog-btn-secondary" data-action="cancel">
+                    取消
+                </button>
+            `);
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            setupDialogButtons(overlay, (action) => {
+                if (action === 'confirm') {
+                    importData();
+                }
+            });
+        }
+
+        // 创建对话框遮罩层
+        function createDialogOverlay() {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.15s ease;
+            `;
+            return overlay;
+        }
+
+        // 创建对话框
+        function createDialog(title, content) {
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                background: var(--card-bg);
+                border: 3px solid var(--border-color);
+                box-shadow: var(--shadow);
+                padding: 30px;
+                max-width: 500px;
+                width: 90%;
+                border-radius: var(--radius);
+                font-family: var(--font-family);
+            `;
+            dialog.innerHTML = `
+                <h2 style="margin: 0 0 20px 0; font-weight: 800; font-size: 24px; color: var(--text-main);">
+                    ${title}
+                </h2>
+                ${content}
+            `;
+            return dialog;
+        }
+
+        // 设置对话框按钮事件
+        function setupDialogButtons(overlay, callback) {
+            const buttons = overlay.querySelectorAll('[data-action]');
+            buttons.forEach(btn => {
+                // 添加样式
+                if (!btn.style.width) {
+                    btn.style.cssText = `
+                        width: 100%;
+                        padding: 15px;
+                        ${btn.classList.contains('dialog-btn-primary') ? 'margin-bottom: 10px;' : ''}
+                        border: ${btn.classList.contains('dialog-btn-primary') ? '3px' : '2px'} solid var(--border-color);
+                        background: ${btn.classList.contains('dialog-btn-primary') ? 'var(--accent-color)' : 'var(--card-bg)'};
+                        color: ${btn.classList.contains('dialog-btn-primary') ? 'white' : 'var(--text-main)'};
+                        cursor: pointer;
+                        border-radius: var(--radius);
+                        font-family: var(--font-family);
+                        font-size: ${btn.classList.contains('dialog-btn-primary') ? '16px' : '14px'};
+                        font-weight: ${btn.classList.contains('dialog-btn-primary') ? '700' : '600'};
+                        transition: var(--transition);
+                    `;
+                }
+
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.transform = 'translateY(-2px)';
+                    btn.style.boxShadow = '4px 4px 0 0 var(--border-color)';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.transform = 'translateY(0)';
+                    btn.style.boxShadow = 'none';
+                });
+                btn.addEventListener('click', () => {
+                    const action = btn.dataset.action;
+                    overlay.remove();
+                    callback(action);
+                });
+            });
+
+            // 点击遮罩关闭
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    callback('cancel');
+                }
+            });
         }
 
         // 导出数据
@@ -5355,6 +5783,157 @@
             showSyncToast('Markdown 导出成功！');
         };
 
+        // 显示导入选项对话框
+        function showImportDialog(newTodos, resolve, reject) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.15s ease;
+            `;
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                background: var(--card-bg);
+                border: 3px solid var(--border-color);
+                box-shadow: var(--shadow);
+                padding: 30px;
+                max-width: 500px;
+                width: 90%;
+                border-radius: var(--radius);
+                font-family: var(--font-family);
+            `;
+
+            dialog.innerHTML = `
+                <h2 style="margin: 0 0 20px 0; font-weight: 800; font-size: 24px; color: var(--text-main);">
+                    📥 导入任务
+                </h2>
+                <div style="background: var(--bg-color); border: 2px solid var(--border-color); padding: 15px; margin-bottom: 20px; border-radius: var(--radius);">
+                    <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">
+                        检测到 <span style="color: var(--accent-color); font-weight: 800;">${newTodos.length}</span> 个待导入的任务
+                    </p>
+                    <p style="margin: 0; font-size: 14px; color: var(--text-secondary);">
+                        您当前有 <strong>${state.todos.length}</strong> 个任务
+                    </p>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <p style="margin: 0 0 15px 0; font-weight: 600; color: var(--text-main);">请选择导入方式：</p>
+
+                    <button class="import-option-btn" data-mode="append" style="
+                        width: 100%;
+                        padding: 15px;
+                        margin-bottom: 10px;
+                        border: 3px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                    ">
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 5px; color: var(--success-color);">
+                            ✅ 追加模式
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                            → 保留现有任务，新增导入的任务<br>
+                            → 导入后共 <strong>${state.todos.length + newTodos.length}</strong> 个任务
+                        </div>
+                    </button>
+
+                    <button class="import-option-btn" data-mode="replace" style="
+                        width: 100%;
+                        padding: 15px;
+                        margin-bottom: 10px;
+                        border: 3px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                    ">
+                        <div style="font-weight: 700; font-size: 16px; margin-bottom: 5px; color: var(--warning-color);">
+                            ⚠️ 覆盖模式
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                            → 删除所有现有任务<br>
+                            → 仅保留导入的 <strong>${newTodos.length}</strong> 个任务
+                        </div>
+                    </button>
+
+                    <button class="import-option-btn" data-mode="cancel" style="
+                        width: 100%;
+                        padding: 15px;
+                        border: 3px solid var(--border-color);
+                        background: var(--card-bg);
+                        cursor: pointer;
+                        text-align: left;
+                        border-radius: var(--radius);
+                        transition: var(--transition);
+                        font-family: var(--font-family);
+                    ">
+                        <div style="font-weight: 700; font-size: 16px; color: var(--danger-color);">
+                            ❌ 取消导入
+                        </div>
+                    </button>
+                </div>
+            `;
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            // 添加按钮悬停效果
+            const buttons = dialog.querySelectorAll('.import-option-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('mouseenter', () => {
+                    btn.style.transform = 'translateX(5px)';
+                    btn.style.boxShadow = '8px 8px 0 0 var(--border-color)';
+                });
+                btn.addEventListener('mouseleave', () => {
+                    btn.style.transform = 'translateX(0)';
+                    btn.style.boxShadow = 'none';
+                });
+                btn.addEventListener('click', () => {
+                    const mode = btn.dataset.mode;
+                    overlay.remove();
+
+                    if (mode === 'cancel') {
+                        reject(new Error('用户取消导入'));
+                        return;
+                    }
+
+                    if (mode === 'append') {
+                        // 追加模式
+                        state.todos = [...newTodos, ...state.todos];
+                    } else if (mode === 'replace') {
+                        // 覆盖模式
+                        state.todos = newTodos;
+                    }
+
+                    save();
+                    renderAll();
+                    showSyncToast(`成功导入 ${newTodos.length} 个任务！`);
+                    resolve();
+                });
+            });
+
+            // 点击遮罩层关闭
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    reject(new Error('用户取消导入'));
+                }
+            });
+        }
+
         // 从表格导入
         window.importFromSpreadsheet = function() {
             const input = document.createElement('input');
@@ -5500,25 +6079,8 @@
                             throw new Error('没有找到有效的任务数据');
                         }
 
-                        // 询问是否覆盖或追加
-                        const choice = confirm(
-                            `找到 ${newTodos.length} 个任务\n\n` +
-                            `点击"确定"追加到现有任务\n` +
-                            `点击"取消"替换所有任务`
-                        );
-
-                        if (choice) {
-                            // 追加
-                            state.todos = [...newTodos, ...state.todos];
-                        } else {
-                            // 替换
-                            state.todos = newTodos;
-                        }
-
-                        save();
-                        renderAll();
-                        showSyncToast(`成功导入 ${newTodos.length} 个任务！`);
-                        resolve();
+                        // 显示导入选项对话框
+                        showImportDialog(newTodos, resolve, reject);
                     } catch (err) {
                         reject(err);
                     }

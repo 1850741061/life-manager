@@ -1,6 +1,6 @@
 {
-  "name": "ProLife 待办记账",
-  "short_name": "ProLife",
+  "name": "Todo",
+  "short_name": "Todo",
   "description": "极简风格的任务管理与记账应用",
   "start_url": "./index.html",
   "display": "standalone",
