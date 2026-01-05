@@ -4752,9 +4752,7 @@
                 // 清理 localStorage
                 localStorage.removeItem('user_id');
                 localStorage.removeItem('access_token');
-                // 登出时也清除记住的账号信息
-                localStorage.removeItem('remembered_email');
-                localStorage.removeItem('remembered_password');
+                // 登出时保留记住的账号信息，方便下次登录
 
                 console.log('[登出] 已清理登录状态');
 
@@ -5088,8 +5086,8 @@
                     // 保存邮箱和密码（base64编码，非安全加密）
                     localStorage.setItem('remembered_email', email);
                     localStorage.setItem('remembered_password', btoa(password));
-                } else {
-                    // 清除保存的账号信息
+                } else if (!rememberMe && isLoginMode) {
+                    // 用户取消勾选，清除保存的账号信息
                     localStorage.removeItem('remembered_email');
                     localStorage.removeItem('remembered_password');
                 }
