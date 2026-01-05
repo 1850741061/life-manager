@@ -2434,10 +2434,23 @@
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase; color:var(--text-color);">
                     <i class="fas fa-envelope" style="margin-right: 5px;"></i>邮箱
                 </label>
-                <input type="email" id="authEmail" placeholder="your@email.com"
-                    style="width: 100%; padding-left: 12px;"
-                    autocomplete="email"
-                    onkeypress="handleAuthKeyPress(event)">
+                <div style="position: relative;">
+                    <input type="email" id="authEmail" placeholder="your@email.com"
+                        style="width: 100%; padding-left: 12px; padding-right: 40px;"
+                        autocomplete="email"
+                        onkeypress="handleAuthKeyPress(event)"
+                        onfocus="hideAccountList()">
+                    <button type="button" id="accountListBtn"
+                        style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 1rem; padding: 5px; display: none;"
+                        onclick="toggleAccountList()"
+                        title="选择已保存的账号">
+                        <i class="fas fa-caret-down"></i>
+                    </button>
+                    <!-- 账号列表下拉菜单 -->
+                    <div id="accountListDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 5px; background: white; border: 2px solid var(--border-color); border-radius: var(--radius); box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto; z-index: 1000;">
+                        <!-- 动态生成账号列表 -->
+                    </div>
+                </div>
             </div>
 
             <!-- 密码输入 -->
@@ -2463,12 +2476,12 @@
                 </div>
             </div>
 
-            <!-- 记住账号 -->
-            <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <!-- 记住密码 -->
+            <div id="rememberPasswordSection" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="checkbox" id="rememberMe" style="width:18px;height:18px;cursor:pointer;">
+                    <input type="checkbox" id="rememberPassword" style="width:18px;height:18px;cursor:pointer;">
                     <span style="font-size:0.9rem; color:var(--text-secondary);">
-                        <i class="fas fa-history" style="font-size: 0.8rem; margin-right: 3px;"></i>记住账号
+                        <i class="fas fa-key" style="font-size: 0.8rem; margin-right: 3px;"></i>记住密码
                     </span>
                 </label>
             </div>
@@ -5105,6 +5118,37 @@
         }
         checkAuthStatus();
 
+        // 迁移旧版账号数据
+        function migrateOldAccountData() {
+            const oldEmail = localStorage.getItem('remembered_email');
+            const oldPassword = localStorage.getItem('remembered_password');
+
+            if (oldEmail) {
+                const accounts = getSavedAccounts();
+                const exists = accounts.some(acc => acc.email === oldEmail);
+
+                if (!exists) {
+                    saveAccount(oldEmail, oldPassword ? atob(oldPassword) : '', !!oldPassword);
+                }
+
+                // 清除旧数据
+                localStorage.removeItem('remembered_email');
+                localStorage.removeItem('remembered_password');
+            }
+        }
+        migrateOldAccountData();
+
+        // 点击外部关闭账号列表
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('accountListDropdown');
+            const listBtn = document.getElementById('accountListBtn');
+            const emailInput = document.getElementById('authEmail');
+
+            if (dropdown && listBtn && !dropdown.contains(event.target) && !listBtn.contains(event.target) && event.target !== emailInput) {
+                hideAccountList();
+            }
+        });
+
         // 认证模式切换
         let isLoginMode = true;
         function switchAuthMode() {
@@ -5119,6 +5163,16 @@
             document.getElementById('authSuccess').style.display = 'none';
             // 显示/隐藏忘记密码链接（仅登录模式显示）
             document.getElementById('forgotPassword').style.display = isLoginMode ? 'inline' : 'none';
+            // 显示/隐藏记住密码选项（仅登录模式显示）
+            document.getElementById('rememberPasswordSection').style.display = isLoginMode ? 'flex' : 'none';
+            // 显示/隐藏账号列表按钮（仅登录模式显示）
+            const accountListBtn = document.getElementById('accountListBtn');
+            if (isLoginMode) {
+                updateAccountListButton();
+            } else {
+                accountListBtn.style.display = 'none';
+                hideAccountList();
+            }
         }
 
         // 提交认证
@@ -5180,14 +5234,10 @@
                     successText.innerText = isLoginMode ? '登录成功！' : '注册成功！';
                     successDiv.style.display = 'block';
 
-                    // 处理记住账号
-                    const rememberMe = document.getElementById('rememberMe').checked;
-                    if (rememberMe && isLoginMode) {
-                        localStorage.setItem('remembered_email', email);
-                        localStorage.setItem('remembered_password', btoa(password));
-                    } else if (!rememberMe && isLoginMode) {
-                        localStorage.removeItem('remembered_email');
-                        localStorage.removeItem('remembered_password');
+                    // 保存账号（登录模式下）
+                    if (isLoginMode) {
+                        const rememberPass = document.getElementById('rememberPassword').checked;
+                        saveAccount(email, password, rememberPass);
                     }
 
                     setTimeout(() => {
@@ -5203,46 +5253,176 @@
             }
         }
 
+        // ========== 多账号管理系统 ==========
+
+        // 获取所有保存的账号
+        function getSavedAccounts() {
+            try {
+                const accounts = localStorage.getItem('saved_accounts');
+                return accounts ? JSON.parse(accounts) : [];
+            } catch (e) {
+                console.error('读取账号列表失败:', e);
+                return [];
+            }
+        }
+
+        // 保存账号列表
+        function saveSavedAccounts(accounts) {
+            try {
+                localStorage.setItem('saved_accounts', JSON.stringify(accounts));
+            } catch (e) {
+                console.error('保存账号列表失败:', e);
+            }
+        }
+
+        // 添加或更新账号
+        function saveAccount(email, password, rememberPassword) {
+            const accounts = getSavedAccounts();
+            const existingIndex = accounts.findIndex(acc => acc.email === email);
+
+            const accountData = {
+                email: email,
+                password: rememberPassword ? btoa(password) : null,
+                lastUsed: new Date().toISOString()
+            };
+
+            if (existingIndex >= 0) {
+                accounts[existingIndex] = accountData;
+            } else {
+                accounts.unshift(accountData); // 添加到开头
+            }
+
+            // 最多保存10个账号
+            if (accounts.length > 10) {
+                accounts.length = 10;
+            }
+
+            saveSavedAccounts(accounts);
+        }
+
+        // 删除账号
+        function deleteAccount(email) {
+            const accounts = getSavedAccounts();
+            const filtered = accounts.filter(acc => acc.email !== email);
+            saveSavedAccounts(filtered);
+            updateAccountListButton();
+            if (document.getElementById('accountListDropdown').style.display === 'block') {
+                renderAccountList();
+            }
+        }
+
+        // 选择账号
+        function selectAccount(email) {
+            const accounts = getSavedAccounts();
+            const account = accounts.find(acc => acc.email === email);
+
+            if (account) {
+                document.getElementById('authEmail').value = account.email;
+                document.getElementById('authPassword').value = account.password ? atob(account.password) : '';
+                document.getElementById('rememberPassword').checked = !!account.password;
+                hideAccountList();
+                // 聚焦到密码框
+                setTimeout(() => {
+                    document.getElementById('authPassword').focus();
+                }, 100);
+            }
+        }
+
+        // 渲染账号列表
+        function renderAccountList() {
+            const accounts = getSavedAccounts();
+            const dropdown = document.getElementById('accountListDropdown');
+
+            if (accounts.length === 0) {
+                dropdown.innerHTML = `
+                    <div style="padding: 15px; text-align: center; color: var(--text-secondary); font-size: 0.9rem;">
+                        <i class="fas fa-info-circle"></i> 暂无保存的账号
+                    </div>
+                `;
+                return;
+            }
+
+            dropdown.innerHTML = accounts.map(account => `
+                <div style="display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.2s;"
+                    onmouseover="this.style.background='var(--bg-color)'"
+                    onmouseout="this.style.background='white'"
+                    onclick="selectAccount('${account.email.replace(/'/g, "\\'")}')">
+                    <i class="fas fa-user-circle" style="color: var(--accent-color); font-size: 1.2rem;"></i>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${account.email}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                            ${account.password ? '<i class="fas fa-key"></i> 已保存密码' : '<i class="fas fa-key-slash"></i> 未保存密码'}
+                        </div>
+                    </div>
+                    <button type="button"
+                        style="background: none; border: none; color: var(--danger-color); cursor: pointer; padding: 5px; font-size: 1rem;"
+                        onclick="event.stopPropagation(); deleteAccount('${account.email.replace(/'/g, "\\'")}')"
+                        title="删除此账号">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // 切换账号列表显示
+        function toggleAccountList() {
+            const dropdown = document.getElementById('accountListDropdown');
+            if (dropdown.style.display === 'block') {
+                hideAccountList();
+            } else {
+                renderAccountList();
+                dropdown.style.display = 'block';
+            }
+        }
+
+        // 隐藏账号列表
+        function hideAccountList() {
+            document.getElementById('accountListDropdown').style.display = 'none';
+        }
+
+        // 更新账号列表按钮显示状态
+        function updateAccountListButton() {
+            const accounts = getSavedAccounts();
+            const btn = document.getElementById('accountListBtn');
+            btn.style.display = accounts.length > 0 ? 'block' : 'none';
+        }
+
         // 打开登录窗口
         function openAuthModal() {
             console.log('[登录] 打开登录窗口');
             switchAuthMode();
 
-            // 加载保存的账号信息
-            const savedEmail = localStorage.getItem('remembered_email');
-            const savedPassword = localStorage.getItem('remembered_password');
-            const rememberMeCheckbox = document.getElementById('rememberMe');
+            // 清空输入
+            document.getElementById('authEmail').value = '';
+            document.getElementById('authPassword').value = '';
+            document.getElementById('rememberPassword').checked = false;
 
-            if (savedEmail) {
-                document.getElementById('authEmail').value = savedEmail;
-                rememberMeCheckbox.checked = true;
-                if (savedPassword) {
-                    // 简单的base64解码（注意：这不是安全加密，仅用于防止明文存储）
-                    try {
-                        document.getElementById('authPassword').value = atob(savedPassword);
-                    } catch (e) {
-                        console.warn('密码解码失败:', e);
-                    }
+            // 自动填充最后使用的账号
+            const accounts = getSavedAccounts();
+            if (accounts.length > 0) {
+                const lastAccount = accounts[0]; // 最近使用的账号
+                document.getElementById('authEmail').value = lastAccount.email;
+                if (lastAccount.password) {
+                    document.getElementById('authPassword').value = atob(lastAccount.password);
+                    document.getElementById('rememberPassword').checked = true;
                 }
-            } else {
-                document.getElementById('authEmail').value = '';
-                document.getElementById('authPassword').value = '';
-                rememberMeCheckbox.checked = false;
             }
 
             document.getElementById('authError').style.display = 'none';
             document.getElementById('authSuccess').style.display = 'none';
+            hideAccountList();
+            updateAccountListButton();
 
             openModal('authModal');
 
-            // 自动聚焦到第一个输入框
+            // 自动聚焦
             setTimeout(() => {
                 const emailInput = document.getElementById('authEmail');
                 if (emailInput.value) {
-                    // 如果邮箱已填充，聚焦到密码框
                     document.getElementById('authPassword').focus();
                 } else {
-                    // 否则聚焦到邮箱框
                     emailInput.focus();
                 }
             }, 100);
