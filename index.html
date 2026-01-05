@@ -1273,13 +1273,24 @@
             .input-section { padding: 12px; margin-bottom: 15px; }
 
             /* 优化移动端输入体验 */
-            input, select, textarea {
+            input:not([type="checkbox"]), select, textarea {
                 padding: 14px;
                 font-size: 16px; /* 防止 iOS 缩放 */
                 min-height: 44px; /* 符合触摸标准 */
                 -webkit-appearance: none;
                 -moz-appearance: none;
                 appearance: none;
+            }
+
+            /* 移动端 checkbox 样式优化 */
+            input[type="checkbox"] {
+                -webkit-appearance: checkbox;
+                -moz-appearance: checkbox;
+                appearance: checkbox;
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
+                flex-shrink: 0;
             }
 
             textarea {

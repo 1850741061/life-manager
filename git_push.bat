@@ -1,6 +1,6 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "feat: clear inputs when switching to register mode"
+git commit -m "fix: mobile checkbox not showing checkmark"
 git push origin main
 pause
