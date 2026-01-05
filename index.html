@@ -5169,7 +5169,21 @@
             const accountListBtn = document.getElementById('accountListBtn');
             if (isLoginMode) {
                 updateAccountListButton();
+                // 切换回登录模式时，自动填充最后使用的账号
+                const accounts = getSavedAccounts();
+                if (accounts.length > 0) {
+                    const lastAccount = accounts[0];
+                    document.getElementById('authEmail').value = lastAccount.email;
+                    if (lastAccount.password) {
+                        document.getElementById('authPassword').value = atob(lastAccount.password);
+                        document.getElementById('rememberPassword').checked = true;
+                    }
+                }
             } else {
+                // 切换到注册模式时清空输入框
+                document.getElementById('authEmail').value = '';
+                document.getElementById('authPassword').value = '';
+                document.getElementById('rememberPassword').checked = false;
                 accountListBtn.style.display = 'none';
                 hideAccountList();
             }

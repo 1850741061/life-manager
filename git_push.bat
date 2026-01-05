@@ -1,6 +1,6 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "feat: smart login/register mode based on saved accounts"
+git commit -m "feat: clear inputs when switching to register mode"
 git push origin main
 pause
