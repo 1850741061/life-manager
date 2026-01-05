@@ -5392,16 +5392,31 @@
         // 打开登录窗口
         function openAuthModal() {
             console.log('[登录] 打开登录窗口');
-            switchAuthMode();
+
+            // 检查是否有保存的账号，决定默认显示登录还是注册
+            const accounts = getSavedAccounts();
+            const hasAccounts = accounts.length > 0;
+
+            // 设置模式：有账号显示登录，无账号显示注册
+            isLoginMode = hasAccounts;
+
+            // 更新 UI
+            const titleElement = document.getElementById('authTitle');
+            titleElement.innerHTML = isLoginMode
+                ? '<i class="fas fa-user-circle" style="color: var(--accent-color);"></i> 登录账号'
+                : '<i class="fas fa-user-plus" style="color: var(--accent-color);"></i> 注册账号';
+            document.getElementById('authSwitchText').innerText = isLoginMode ? '没有账号？去注册' : '已有账号？去登录';
+            document.getElementById('authSubmitBtnText').innerText = isLoginMode ? '登录' : '注册';
+            document.getElementById('forgotPassword').style.display = isLoginMode ? 'inline' : 'none';
+            document.getElementById('rememberPasswordSection').style.display = isLoginMode ? 'flex' : 'none';
 
             // 清空输入
             document.getElementById('authEmail').value = '';
             document.getElementById('authPassword').value = '';
             document.getElementById('rememberPassword').checked = false;
 
-            // 自动填充最后使用的账号
-            const accounts = getSavedAccounts();
-            if (accounts.length > 0) {
+            // 自动填充最后使用的账号（仅在登录模式）
+            if (isLoginMode && accounts.length > 0) {
                 const lastAccount = accounts[0]; // 最近使用的账号
                 document.getElementById('authEmail').value = lastAccount.email;
                 if (lastAccount.password) {
