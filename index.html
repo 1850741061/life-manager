@@ -2421,6 +2421,13 @@
                 <input type="password" id="authPassword" placeholder="至少6位字符" style="width: 100%;">
             </div>
 
+            <div style="margin-bottom: 15px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="rememberMe" style="width:18px;height:18px;cursor:pointer;">
+                    <span style="font-size:0.9rem; color:var(--text-secondary);">记住账号</span>
+                </label>
+            </div>
+
             <div id="authError" style="margin-bottom: 15px; padding: 10px; background: var(--danger-color); color: white; border-radius: var(--radius); display: none;"></div>
 
             <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--border-color);">
@@ -4745,6 +4752,9 @@
                 // 清理 localStorage
                 localStorage.removeItem('user_id');
                 localStorage.removeItem('access_token');
+                // 登出时也清除记住的账号信息
+                localStorage.removeItem('remembered_email');
+                localStorage.removeItem('remembered_password');
 
                 console.log('[登出] 已清理登录状态');
 
@@ -5072,6 +5082,18 @@
                 alert(result.message || '注册成功！请检查邮箱并点击验证链接，然后返回登录。');
                 switchAuthMode(); // 切换到登录模式
             } else {
+                // 登录成功，处理记住账号
+                const rememberMe = document.getElementById('rememberMe').checked;
+                if (rememberMe && isLoginMode) {
+                    // 保存邮箱和密码（base64编码，非安全加密）
+                    localStorage.setItem('remembered_email', email);
+                    localStorage.setItem('remembered_password', btoa(password));
+                } else {
+                    // 清除保存的账号信息
+                    localStorage.removeItem('remembered_email');
+                    localStorage.removeItem('remembered_password');
+                }
+
                 closeModal('authModal');
                 updateCloudStatus();
             }
@@ -5081,8 +5103,29 @@
         function openAuthModal() {
             console.log('[登录] 打开登录窗口');
             switchAuthMode();
-            document.getElementById('authEmail').value = '';
-            document.getElementById('authPassword').value = '';
+
+            // 加载保存的账号信息
+            const savedEmail = localStorage.getItem('remembered_email');
+            const savedPassword = localStorage.getItem('remembered_password');
+            const rememberMeCheckbox = document.getElementById('rememberMe');
+
+            if (savedEmail) {
+                document.getElementById('authEmail').value = savedEmail;
+                rememberMeCheckbox.checked = true;
+                if (savedPassword) {
+                    // 简单的base64解码（注意：这不是安全加密，仅用于防止明文存储）
+                    try {
+                        document.getElementById('authPassword').value = atob(savedPassword);
+                    } catch (e) {
+                        console.warn('密码解码失败:', e);
+                    }
+                }
+            } else {
+                document.getElementById('authEmail').value = '';
+                document.getElementById('authPassword').value = '';
+                rememberMeCheckbox.checked = false;
+            }
+
             document.getElementById('authError').style.display = 'none';
 
             // 确保输入框可以被点击
