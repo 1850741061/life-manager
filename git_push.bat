@@ -1,6 +1,6 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "feat: add automatic token refresh to prevent sync failure"
+git commit -m "fix: improve token refresh with better error handling and logging"
 git push origin main
 pause

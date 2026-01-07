@@ -4728,13 +4728,20 @@
                         }
                     }
                 } else {
-                    // 请求失败，尝试上传本地数据
+                    // 请求失败
                     console.log('[同步] 检查云端数据失败:', res.status);
-                    const uploaded = await syncToCloud();
-                    if (uploaded) {
-                        showSyncToast('已上传本地数据到云端');
+
+                    if (res.status === 401) {
+                        // 401 错误已经在 apiRequest 中处理了
+                        console.log('[同步] Token验证失败，已尝试自动刷新');
                     } else {
-                        showSyncToast('同步失败，请检查网络', 'error');
+                        // 其他错误，尝试上传本地数据
+                        const uploaded = await syncToCloud();
+                        if (uploaded) {
+                            showSyncToast('已上传本地数据到云端');
+                        } else {
+                            showSyncToast('同步失败，请检查网络', 'error');
+                        }
                     }
                 }
             } catch (e) {
@@ -4759,17 +4766,27 @@
             const res = await fetch(url, options);
 
             // 如果是 401 错误且允许重试，尝试刷新 token 并重试
-            if (res.status === 401 && retry && refreshToken) {
-                console.warn('[API] Token可能已过期，尝试刷新...');
-                const refreshed = await refreshAccessToken();
+            if (res.status === 401 && retry) {
+                console.warn('[API] 收到401错误，Token已过期');
+                console.log('[API] 当前refreshToken:', refreshToken ? '存在' : '不存在');
 
-                if (refreshed) {
-                    // 更新 Authorization header
-                    if (options.headers) {
-                        options.headers['Authorization'] = `Bearer ${accessToken}`;
+                if (refreshToken) {
+                    console.warn('[API] 尝试刷新token...');
+                    const refreshed = await refreshAccessToken();
+
+                    if (refreshed) {
+                        console.log('[API] Token刷新成功，重试请求...');
+                        // 更新 Authorization header
+                        if (options.headers) {
+                            options.headers['Authorization'] = `Bearer ${accessToken}`;
+                        }
+                        // 重试一次（不再重试避免死循环）
+                        return apiRequest(url, options, false);
+                    } else {
+                        console.error('[API] Token刷新失败，请重新登录');
                     }
-                    // 重试一次（不再重试避免死循环）
-                    return apiRequest(url, options, false);
+                } else {
+                    console.error('[API] 没有refresh_token，无法自动刷新，请重新登录');
                 }
             }
 
@@ -4798,6 +4815,18 @@
 
                 if (!res.ok || !data.access_token) {
                     console.error('[Token刷新] 刷新失败:', data);
+                    console.error('[Token刷新] 错误详情:', data.error_description || data.error || 'Unknown error');
+
+                    // 如果是 refresh_token 过期，提示用户重新登录
+                    if (data.error === 'invalid_grant' || data.error_description?.includes('expired')) {
+                        console.error('[Token刷新] Refresh token已过期，需要重新登录');
+                        showSyncToast('登录已过期，请重新登录', 'error');
+                        // 清除过期的 token
+                        setTimeout(() => {
+                            signOut();
+                        }, 2000);
+                    }
+
                     return false;
                 }
 
