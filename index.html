@@ -4772,10 +4772,13 @@
 
                 if (refreshToken) {
                     console.warn('[API] 尝试刷新token...');
+                    showSyncToast('正在刷新登录状态...', 'info');
+
                     const refreshed = await refreshAccessToken();
 
                     if (refreshed) {
                         console.log('[API] Token刷新成功，重试请求...');
+                        showSyncToast('登录状态已自动刷新', 'success');
                         // 更新 Authorization header
                         if (options.headers) {
                             options.headers['Authorization'] = `Bearer ${accessToken}`;
@@ -4783,10 +4786,11 @@
                         // 重试一次（不再重试避免死循环）
                         return apiRequest(url, options, false);
                     } else {
-                        console.error('[API] Token刷新失败，请重新登录');
+                        console.error('[API] Token刷新失败');
                     }
                 } else {
-                    console.error('[API] 没有refresh_token，无法自动刷新，请重新登录');
+                    console.error('[API] 没有refresh_token，无法自动刷新');
+                    showSyncToast('登录已失效，请重新登录', 'error');
                 }
             }
 
@@ -4820,11 +4824,26 @@
                     // 如果是 refresh_token 过期，提示用户重新登录
                     if (data.error === 'invalid_grant' || data.error_description?.includes('expired')) {
                         console.error('[Token刷新] Refresh token已过期，需要重新登录');
-                        showSyncToast('登录已过期，请重新登录', 'error');
-                        // 清除过期的 token
-                        setTimeout(() => {
+
+                        // 显示明显的全屏提示
+                        const overlay = createDialogOverlay();
+                        const dialog = createDialog(`
+                            <div style="text-align: center;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--danger-color); margin-bottom: 20px;"></i>
+                                <h3 style="margin: 0 0 15px 0; font-size: 1.5rem;">登录已过期</h3>
+                                <p style="margin: 0 0 20px 0; color: var(--text-secondary); line-height: 1.6;">
+                                    您的登录状态已过期，需要重新登录以继续使用云同步功能。<br>
+                                    点击确定后将自动跳转到登录页面。
+                                </p>
+                            </div>
+                        `);
+
+                        setupDialogButtons(overlay, dialog, '确定', null, () => {
                             signOut();
-                        }, 2000);
+                        });
+                    } else {
+                        // 其他刷新失败，显示简单提示
+                        showSyncToast('Token刷新失败，可能需要重新登录', 'error');
                     }
 
                     return false;
@@ -4860,8 +4879,10 @@
             tokenRefreshTimer = setTimeout(async () => {
                 console.log('[Token刷新] 定时刷新token...');
                 const success = await refreshAccessToken();
-                if (!success) {
-                    console.warn('[Token刷新] 定时刷新失败，可能需要重新登录');
+                if (success) {
+                    showSyncToast('登录状态已自动续期', 'success');
+                } else {
+                    console.warn('[Token刷新] 定时刷新失败');
                 }
             }, 50 * 60 * 1000);
         }
