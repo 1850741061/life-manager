@@ -4691,7 +4691,7 @@
                 console.log('[同步] 开始检查云端数据...');
                 console.log('[同步] 当前用户ID:', currentUser.id);
 
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                const res = await apiRequest(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${accessToken}`
@@ -4750,6 +4750,93 @@
         }
 
         // 登录
+        // Token 刷新变量
+        let refreshToken = null;
+        let tokenRefreshTimer = null;
+
+        // API 请求包装器：自动处理 token 过期并重试
+        async function apiRequest(url, options = {}, retry = true) {
+            const res = await fetch(url, options);
+
+            // 如果是 401 错误且允许重试，尝试刷新 token 并重试
+            if (res.status === 401 && retry && refreshToken) {
+                console.warn('[API] Token可能已过期，尝试刷新...');
+                const refreshed = await refreshAccessToken();
+
+                if (refreshed) {
+                    // 更新 Authorization header
+                    if (options.headers) {
+                        options.headers['Authorization'] = `Bearer ${accessToken}`;
+                    }
+                    // 重试一次（不再重试避免死循环）
+                    return apiRequest(url, options, false);
+                }
+            }
+
+            return res;
+        }
+
+        // 刷新 access token
+        async function refreshAccessToken() {
+            if (!refreshToken) {
+                console.warn('[Token刷新] 没有refresh_token，无法刷新');
+                return false;
+            }
+
+            try {
+                console.log('[Token刷新] 开始刷新token...');
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({ refresh_token: refreshToken })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.access_token) {
+                    console.error('[Token刷新] 刷新失败:', data);
+                    return false;
+                }
+
+                // 更新 token
+                accessToken = data.access_token;
+                if (data.refresh_token) {
+                    refreshToken = data.refresh_token;
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                }
+                localStorage.setItem('access_token', data.access_token);
+
+                console.log('[Token刷新] Token刷新成功');
+
+                // 重新设置定时刷新
+                scheduleTokenRefresh();
+
+                return true;
+            } catch (e) {
+                console.error('[Token刷新] 刷新异常:', e);
+                return false;
+            }
+        }
+
+        // 设置定时刷新 token（每50分钟刷新一次，token有效期通常是60分钟）
+        function scheduleTokenRefresh() {
+            if (tokenRefreshTimer) {
+                clearTimeout(tokenRefreshTimer);
+            }
+
+            // 50分钟后刷新
+            tokenRefreshTimer = setTimeout(async () => {
+                console.log('[Token刷新] 定时刷新token...');
+                const success = await refreshAccessToken();
+                if (!success) {
+                    console.warn('[Token刷新] 定时刷新失败，可能需要重新登录');
+                }
+            }, 50 * 60 * 1000);
+        }
+
         async function signIn(email, password) {
             try {
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -4773,8 +4860,13 @@
 
                 currentUser = data.user;
                 accessToken = data.access_token;
+                refreshToken = data.refresh_token;
                 localStorage.setItem('user_id', data.user.id);
                 localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+
+                // 启动定时刷新
+                scheduleTokenRefresh();
 
                 // 先检查云端是否有数据，有则下载，无则上传本地数据
                 await syncDataOnLogin();
@@ -4835,10 +4927,18 @@
                 // 清理本地状态
                 currentUser = null;
                 accessToken = null;
+                refreshToken = null;
+
+                // 停止定时刷新
+                if (tokenRefreshTimer) {
+                    clearTimeout(tokenRefreshTimer);
+                    tokenRefreshTimer = null;
+                }
 
                 // 清理 localStorage
                 localStorage.removeItem('user_id');
                 localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
                 // 登出时保留记住的账号信息，方便下次登录
 
                 console.log('[登出] 已清理登录状态');
@@ -4876,7 +4976,7 @@
                 };
 
                 // 先尝试更新（PATCH）
-                let res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                let res = await apiRequest(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -4890,7 +4990,7 @@
                 // 如果没有数据可更新（404），则创建新数据（POST）
                 if (res.status === 404) {
                     console.log('[同步] 数据不存在，创建新数据...');
-                    res = await fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
+                    res = await apiRequest(`${SUPABASE_URL}/rest/v1/user_data`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -4934,7 +5034,7 @@
 
             try {
                 console.log('[刷新] 从云端下载数据...');
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
+                const res = await apiRequest(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${accessToken}`
@@ -5109,12 +5209,31 @@
             try {
                 const savedUserId = localStorage.getItem('user_id');
                 const savedToken = localStorage.getItem('access_token');
+                const savedRefreshToken = localStorage.getItem('refresh_token');
+
                 if (savedUserId && savedToken) {
                     currentUser = { id: savedUserId };
                     accessToken = savedToken;
+                    refreshToken = savedRefreshToken;
+
+                    // 启动定时刷新
+                    if (refreshToken) {
+                        scheduleTokenRefresh();
+                    }
+
                     // 尝试同步，但不阻塞应用启动
-                    await syncDataOnLogin().catch(e => {
-                        console.warn('[检查登录状态] 同步失败，但不影响应用使用:', e);
+                    await syncDataOnLogin().catch(async (e) => {
+                        console.warn('[检查登录状态] 同步失败，尝试刷新token...', e);
+                        // 如果同步失败，可能是 token 过期，尝试刷新
+                        if (refreshToken) {
+                            const refreshed = await refreshAccessToken();
+                            if (refreshed) {
+                                // 刷新成功，重试同步
+                                await syncDataOnLogin().catch(e2 => {
+                                    console.warn('[检查登录状态] 刷新后同步仍失败:', e2);
+                                });
+                            }
+                        }
                     });
                     // 启动 Realtime 实时同步
                     subscribeToRealtime();
@@ -5125,6 +5244,7 @@
                 // 确保应用能正常使用
                 currentUser = null;
                 accessToken = null;
+                refreshToken = null;
             }
         }
         checkAuthStatus();
