@@ -2459,6 +2459,35 @@
                     <select id="editGroupSelect" class="native-select-hidden"></select>
                 </div>
             </div>
+            <!-- 重复设置 -->
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
+                    <i class="fas fa-redo"></i> 重复
+                </label>
+                <div class="custom-select" id="editRepeatCustom">
+                    <div class="custom-select-trigger" data-value="none">不重复</div>
+                    <div class="custom-select-options">
+                        <div class="custom-select-option selected" data-value="none">不重复</div>
+                        <div class="custom-select-option" data-value="daily">每天</div>
+                        <div class="custom-select-option" data-value="weekly">每周</div>
+                        <div class="custom-select-option" data-value="monthly">每月</div>
+                        <div class="custom-select-option" data-value="yearly">每年</div>
+                    </div>
+                    <select id="editRepeat" class="native-select-hidden">
+                        <option value="none">不重复</option>
+                        <option value="daily">每天</option>
+                        <option value="weekly">每周</option>
+                        <option value="monthly">每月</option>
+                        <option value="yearly">每年</option>
+                    </select>
+                </div>
+            </div>
+            <!-- 重复结束日期（可选） -->
+            <div id="repeatEndDateContainer" style="margin-bottom: 20px; display: none;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">重复结束日期（可选）</label>
+                <input type="date" id="editRepeatEndDate" placeholder="留空表示永久重复">
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">留空表示任务会一直重复</p>
+            </div>
             <div style="display: flex; justify-content: space-between; gap: 10px;">
                 <button class="btn" onclick="saveAsTemplate()" style="background: var(--warning-color); border-color: var(--warning-color);"><i class="fas fa-save"></i> 保存为模板</button>
                 <div style="display: flex; gap: 10px;">
@@ -3263,6 +3292,7 @@
             initGlobalSearch();
             initBatchMode();
             initArchive();
+            initRepeatOptions();
             initNotifications();
             initDragAndDrop();
             initTemplates();
@@ -3878,6 +3908,7 @@
                             <div class="todo-attributes">
                                 <span class="attribute-badge" style="color:var(--text-secondary); border-color:var(--border-color); background:var(--bg-color);"><i class="far fa-calendar"></i> ${dateDisplay}</span>
                                 ${timeRangeHtml ? `<span class="attribute-badge" style="color:var(--accent-color); border-color:var(--accent-color);"><i class="far fa-clock"></i> ${t.startTime || '--'} - ${t.endTime || '--'}</span>` : ''}
+                                ${t.repeat && t.repeat !== 'none' ? `<span class="attribute-badge" style="color:var(--warning-color); border-color:var(--warning-color);"><i class="fas fa-redo"></i> ${getRepeatLabel(t.repeat)}</span>` : ''}
                                 <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
                                 <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
                             </div>
@@ -3932,6 +3963,12 @@
             if (!task.completed && hasIncompleteSubtasks && isInCalendarView) {
                 // 先标记为完成
                 state.todos = state.todos.map(t => t.id === id ? {...t, completed: true} : t);
+
+                // 如果是重复任务，创建下一个实例
+                if (task.repeat && task.repeat !== 'none') {
+                    createNextRecurringTask(task);
+                }
+
                 save();
                 renderTodos();
                 if(state.selectedDate) renderCalendarDetail();
@@ -3941,11 +3978,94 @@
             }
 
             // 其他情况正常切换完成状态
-            state.todos = state.todos.map(t => t.id === id ? {...t, completed: !t.completed} : t);
+            const newCompletedState = !task.completed;
+            state.todos = state.todos.map(t => t.id === id ? {...t, completed: newCompletedState} : t);
+
+            // 如果任务是重复任务且刚刚被标记为完成，创建下一个实例
+            if (newCompletedState && task.repeat && task.repeat !== 'none') {
+                createNextRecurringTask(task);
+            }
+
             save();
             renderTodos();
             if(state.view === 'calendar' && state.selectedDate) renderCalendarDetail();
         };
+
+        // 获取重复类型标签
+        function getRepeatLabel(repeatType) {
+            const labels = {
+                'daily': '每天',
+                'weekly': '每周',
+                'monthly': '每月',
+                'yearly': '每年'
+            };
+            return labels[repeatType] || repeatType;
+        }
+
+        // 创建下一个重复任务
+        function createNextRecurringTask(task) {
+            // 检查是否已过结束日期
+            if (task.repeatEndDate) {
+                const endDate = new Date(task.repeatEndDate);
+                const taskDate = new Date(task.date);
+                if (taskDate >= endDate) {
+                    // 已到达结束日期，不再创建新任务
+                    return;
+                }
+            }
+
+            // 计算下一个日期
+            const nextDate = calculateNextDate(task.date, task.repeat);
+            if (!nextDate) return;
+
+            // 检查下一个日期是否超过结束日期
+            if (task.repeatEndDate) {
+                const endDate = new Date(task.repeatEndDate);
+                if (nextDate > endDate) {
+                    return;
+                }
+            }
+
+            // 创建新任务
+            const newTask = {
+                ...task,
+                id: Date.now(),
+                date: nextDate.toISOString().split('T')[0],
+                completed: false,
+                // 重置子任务完成状态
+                subtasks: task.subtasks ? task.subtasks.map(st => ({...st, completed: false})) : []
+            };
+
+            // 删除临时属性
+            delete newTask.repeatEndDate;
+
+            state.todos.push(newTask);
+        }
+
+        // 计算下一个重复日期
+        function calculateNextDate(currentDateStr, repeatType) {
+            const currentDate = new Date(currentDateStr);
+            let nextDate = new Date(currentDate);
+
+            switch (repeatType) {
+                case 'daily':
+                    nextDate.setDate(currentDate.getDate() + 1);
+                    break;
+                case 'weekly':
+                    nextDate.setDate(currentDate.getDate() + 7);
+                    break;
+                case 'monthly':
+                    nextDate.setMonth(currentDate.getMonth() + 1);
+                    break;
+                case 'yearly':
+                    nextDate.setFullYear(currentDate.getFullYear() + 1);
+                    break;
+                default:
+                    return null;
+            }
+
+            return nextDate;
+        }
 
         window.deleteTodo = (id) => {
             if(!confirm('删除？')) return;
@@ -3965,6 +4085,20 @@
             setCustomSelectValue('editGroupSelectCustom', t.groupId);  // 设置自定义select
             document.getElementById('editStartTime').value = t.startTime || '';
             document.getElementById('editEndTime').value = t.endTime || '';
+
+            // 设置重复选项
+            const repeatValue = t.repeat || 'none';
+            setCustomSelectValue('editRepeatCustom', repeatValue);
+            document.getElementById('editRepeatEndDate').value = t.repeatEndDate || '';
+
+            // 显示/隐藏重复结束日期
+            const endDateContainer = document.getElementById('repeatEndDateContainer');
+            if (repeatValue !== 'none') {
+                endDateContainer.style.display = 'block';
+            } else {
+                endDateContainer.style.display = 'none';
+            }
+
             openModal('editModal');
         };
 
@@ -3975,6 +4109,8 @@
             const gId = getCustomSelectValue('editGroupSelectCustom');
             const group = state.groups.find(g => g.id === gId);
             const priority = getCustomSelectValue('editPriorityCustom');
+            const repeat = getCustomSelectValue('editRepeatCustom');
+            const repeatEndDate = document.getElementById('editRepeatEndDate').value || null;
 
             state.todos = state.todos.map(t => t.id===state.editingId ? {
                 ...t, text, notes: document.getElementById('editNotes').value.trim(),
@@ -3983,7 +4119,9 @@
                 groupName: group.name, groupColor: group.color,
                 date: document.getElementById('editTodoDate').value,
                 startTime: document.getElementById('editStartTime').value || null,
-                endTime: document.getElementById('editEndTime').value || null
+                endTime: document.getElementById('editEndTime').value || null,
+                repeat: repeat,
+                repeatEndDate: repeatEndDate
             } : t);
             save();
             closeModal('editModal');
@@ -8116,6 +8254,26 @@
 
             alert(`已永久删除 ${count} 个任务`);
         };
+
+        // --- 重复任务功能 ---
+        function initRepeatOptions() {
+            // 监听重复选项变化
+            const editRepeatCustom = document.getElementById('editRepeatCustom');
+            if (editRepeatCustom) {
+                const options = editRepeatCustom.querySelectorAll('.custom-select-option');
+                options.forEach(option => {
+                    option.addEventListener('click', () => {
+                        const value = option.dataset.value;
+                        const endDateContainer = document.getElementById('repeatEndDateContainer');
+                        if (value !== 'none') {
+                            endDateContainer.style.display = 'block';
+                        } else {
+                            endDateContainer.style.display = 'none';
+                        }
+                    });
+                });
+            }
+        }
 
         // --- 2. 批量操作功能 ---
         function initBatchMode() {
