@@ -3044,81 +3044,100 @@
 
         function initFinanceCategorySelect() {
             // 主分类选择器
-            const s = document.getElementById('transCategory');
-            const sCustom = document.getElementById('transCategoryCustom');
-            const sOptions = sCustom.querySelector('.custom-select-options');
-            const sTrigger = sCustom.querySelector('.custom-select-trigger');
-            s.innerHTML = '';
-            sOptions.innerHTML = '';
+            updateTransactionCategorySelector('transCategoryCustom', 'transCategory');
 
-            financeCats.forEach((c, index) => {
-                // 原生select
+            // 编辑分类选择器
+            updateTransactionCategorySelector('editTransCategoryCustom', 'editTransCategory');
+
+            // 监听类型变化，自动更新分类选项
+            const transTypeCustom = document.getElementById('transTypeCustom');
+            const editTransTypeCustom = document.getElementById('editTransTypeCustom');
+
+            if (transTypeCustom) {
+                const typeTrigger = transTypeCustom.querySelector('.custom-select-trigger');
+                const typeOptions = transTypeCustom.querySelectorAll('.custom-select-option');
+
+                typeOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        const type = option.dataset.value;
+                        updateTransactionCategorySelector('transCategoryCustom', 'transCategory', type);
+                    });
+                });
+            }
+
+            if (editTransTypeCustom) {
+                const editTypeOptions = editTransTypeCustom.querySelectorAll('.custom-select-option');
+
+                editTypeOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        const type = option.dataset.value;
+                        updateTransactionCategorySelector('editTransCategoryCustom', 'editTransCategory', type);
+                    });
+                });
+            }
+        }
+
+        // 根据类型更新分类选择器
+        function updateTransactionCategorySelector(customSelectId, selectId, type = 'expense') {
+            const customSelect = document.getElementById(customSelectId);
+            if (!customSelect) return;
+
+            const nativeSelect = document.getElementById(selectId);
+            const optionsContainer = customSelect.querySelector('.custom-select-options');
+            const trigger = customSelect.querySelector('.custom-select-trigger');
+
+            if (!nativeSelect || !optionsContainer || !trigger) return;
+
+            // 清空选项
+            nativeSelect.innerHTML = '';
+            optionsContainer.innerHTML = '';
+
+            // 根据类型获取对应的分类
+            const categories = getCategoriesByType(type);
+
+            // 保存当前选中的值
+            const currentValue = trigger.dataset.value;
+
+            categories.forEach((cat, index) => {
+                // 原生 select
                 const opt = document.createElement('option');
-                opt.value = c.name;
-                opt.innerText = c.name;
-                s.appendChild(opt);
+                opt.value = cat.name;
+                opt.innerText = cat.name;
+                nativeSelect.appendChild(opt);
 
                 // 自定义选项
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'custom-select-option';
-                optionDiv.dataset.value = c.name;
-                optionDiv.innerText = c.name;
-                if (index === 0) optionDiv.classList.add('selected');
+                optionDiv.dataset.value = cat.name;
+                optionDiv.innerHTML = `<i class="fas ${cat.icon}" style="color: ${cat.color}; margin-right: 5px;"></i> ${cat.name}`;
+
+                if (index === 0) {
+                    optionDiv.classList.add('selected');
+                }
+
                 optionDiv.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    sTrigger.innerText = c.name;
-                    sTrigger.dataset.value = c.name;
-                    s.value = c.name;
-                    sOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    trigger.innerText = cat.name;
+                    trigger.dataset.value = cat.name;
+                    nativeSelect.value = cat.name;
+                    optionsContainer.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
                     optionDiv.classList.add('selected');
-                    sCustom.classList.remove('open');
+                    customSelect.classList.remove('open');
                 });
-                sOptions.appendChild(optionDiv);
+
+                optionsContainer.appendChild(optionDiv);
             });
 
-            // 设置默认值
-            if (financeCats.length > 0) {
-                sTrigger.innerText = financeCats[0].name;
-                sTrigger.dataset.value = financeCats[0].name;
-                s.value = financeCats[0].name;
+            // 设置默认值或恢复之前的值
+            let defaultCat = categories[0];
+            if (currentValue) {
+                const exists = categories.find(cat => cat.name === currentValue);
+                if (exists) defaultCat = exists;
             }
 
-            // 编辑分类选择器
-            const es = document.getElementById('editTransCategory');
-            const esCustom = document.getElementById('editTransCategoryCustom');
-            const esOptions = esCustom.querySelector('.custom-select-options');
-            const esTrigger = esCustom.querySelector('.custom-select-trigger');
-            es.innerHTML = '';
-            esOptions.innerHTML = '';
-
-            financeCats.forEach((c, index) => {
-                const opt = document.createElement('option');
-                opt.value = c.name;
-                opt.innerText = c.name;
-                es.appendChild(opt);
-
-                const optionDiv = document.createElement('div');
-                optionDiv.className = 'custom-select-option';
-                optionDiv.dataset.value = c.name;
-                optionDiv.innerText = c.name;
-                if (index === 0) optionDiv.classList.add('selected');
-                optionDiv.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    esTrigger.innerText = c.name;
-                    esTrigger.dataset.value = c.name;
-                    es.value = c.name;
-                    esOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
-                    optionDiv.classList.add('selected');
-                    esCustom.classList.remove('open');
-                });
-                esOptions.appendChild(optionDiv);
-            });
-
-            if (financeCats.length > 0) {
-                esTrigger.innerText = financeCats[0].name;
-                esTrigger.dataset.value = financeCats[0].name;
-                es.value = financeCats[0].name;
-            }
+            trigger.innerHTML = `<i class="fas ${defaultCat.icon}" style="color: ${defaultCat.color}; margin-right: 5px;"></i> ${defaultCat.name}`;
+            trigger.dataset.value = defaultCat.name;
+            nativeSelect.value = defaultCat.name;
         }
 
         // --- 视图切换 ---
@@ -4631,6 +4650,233 @@
             state.editingTransId = null;
             renderFinance();
         };
+
+        // ========== 分类管理功能 ==========
+        let currentCategoryManagerType = 'expense'; // 'expense' or 'income'
+
+        // 打开分类管理器
+        window.openCategoryManager = () => {
+            currentCategoryManagerType = 'expense';
+            renderCategoryManager();
+            updateCategoryManagerButtons();
+            openModal('categoryManagerModal');
+        };
+
+        // 切换分类管理器类型
+        window.switchCategoryManagerType = (type) => {
+            currentCategoryManagerType = type;
+            renderCategoryManager();
+            updateCategoryManagerButtons();
+        };
+
+        // 更新按钮状态
+        function updateCategoryManagerButtons() {
+            const expenseBtn = document.getElementById('categoryTypeExpense');
+            const incomeBtn = document.getElementById('categoryTypeIncome');
+
+            if (currentCategoryManagerType === 'expense') {
+                expenseBtn.style.background = 'var(--danger-color)';
+                expenseBtn.style.color = 'white';
+                incomeBtn.style.background = 'var(--card-bg)';
+                incomeBtn.style.color = 'var(--text-main)';
+            } else {
+                incomeBtn.style.background = 'var(--success-color)';
+                incomeBtn.style.color = 'white';
+                expenseBtn.style.background = 'var(--card-bg)';
+                expenseBtn.style.color = 'var(--text-main)';
+            }
+        }
+
+        // 渲染分类列表
+        function renderCategoryManager() {
+            const categories = financeCats[currentCategoryManagerType];
+            const listContainer = document.getElementById('categoryManagerList');
+            listContainer.innerHTML = '';
+
+            categories.forEach((cat, index) => {
+                const div = document.createElement('div');
+                div.className = 'category-item';
+                div.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                    padding: 15px;
+                    background: var(--card-bg);
+                    border: 3px solid var(--border-color);
+                    border-radius: var(--radius);
+                    margin-bottom: 10px;
+                    transition: var(--transition);
+                `;
+
+                div.innerHTML = `
+                    <div style="
+                        width: 50px;
+                        height: 50px;
+                        border-radius: var(--radius);
+                        background: ${cat.color};
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 0;
+                        border: 2px solid ${cat.color};
+                    ">
+                        <i class="fas ${cat.icon || 'fa-tag'}" style="color: white; font-size: 1.2rem;"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 800; font-size: 1.1rem; text-transform: uppercase;">${cat.name}</div>
+                    </div>
+                    <button class="btn" onclick="deleteCategory(${index})" style="
+                        background: var(--danger-color);
+                        color: white;
+                        padding: 8px 15px;
+                        font-size: 0.85rem;
+                    ">
+                        <i class="fas fa-trash"></i> 删除
+                    </button>
+                `;
+
+                listContainer.appendChild(div);
+            });
+        }
+
+        // 添加新分类
+        window.addNewCategory = () => {
+            const name = document.getElementById('newCategoryName').value.trim();
+            const color = document.getElementById('newCategoryColor').value;
+            const icon = document.getElementById('newCategoryIcon').value;
+
+            if (!name) {
+                alert('请输入分类名称');
+                return;
+            }
+
+            // 检查是否重名
+            const categories = financeCats[currentCategoryManagerType];
+            if (categories.some(cat => cat.name === name)) {
+                alert('分类名称已存在');
+                return;
+            }
+
+            // 添加新分类
+            categories.push({
+                name: name,
+                color: color,
+                icon: icon
+            });
+
+            // 保存并重新渲染
+            saveCustomCategories();
+            renderCategoryManager();
+
+            // 清空输入
+            document.getElementById('newCategoryName').value = '';
+
+            // 更新记账界面的分类选择器
+            updateCategorySelectors();
+
+            showSyncToast('分类添加成功', 'success');
+        };
+
+        // 删除分类
+        window.deleteCategory = (index) => {
+            const categories = financeCats[currentCategoryManagerType];
+            const cat = categories[index];
+
+            if (categories.length <= 1) {
+                alert('至少需要保留一个分类');
+                return;
+            }
+
+            if (!confirm(`确定删除"${cat.name}"分类吗？`)) {
+                return;
+            }
+
+            categories.splice(index, 1);
+            saveCustomCategories();
+            renderCategoryManager();
+            updateCategorySelectors();
+
+            showSyncToast('分类已删除', 'success');
+        };
+
+        // 恢复默认分类
+        window.resetCategoriesToDefault = () => {
+            if (!confirm('确定要恢复默认分类吗？这将删除所有自定义分类。')) {
+                return;
+            }
+
+            financeCats.expense = JSON.parse(JSON.stringify(defaultFinanceCats.expense));
+            financeCats.income = JSON.parse(JSON.stringify(defaultFinanceCats.income));
+
+            saveCustomCategories();
+            renderCategoryManager();
+            updateCategorySelectors();
+
+            showSyncToast('已恢复默认分类', 'success');
+        };
+
+        // 更新记账界面的分类选择器
+        function updateCategorySelectors() {
+            // 更新添加交易的分类选择器
+            updateSingleCategorySelector('transCategoryCustom', 'transCategory');
+            updateSingleCategorySelector('editTransCategoryCustom', 'editTransCategory');
+            updateSingleCategorySelector('expenseFilterCategoryCustom', 'expenseFilterCategory');
+        }
+
+        function updateSingleCategorySelector(customId, selectId) {
+            const customSelect = document.getElementById(customId);
+            if (!customSelect) return;
+
+            const optionsContainer = customSelect.querySelector('.custom-select-options');
+            const trigger = customSelect.querySelector('.custom-select-trigger');
+            const select = document.getElementById(selectId);
+
+            if (!optionsContainer || !trigger || !select) return;
+
+            // 获取当前选中的值
+            const currentValue = trigger.dataset.value || '';
+
+            // 清空选项
+            optionsContainer.innerHTML = '';
+            select.innerHTML = '';
+
+            // 添加新选项
+            const categories = getAllCategories();
+            categories.forEach((cat, index) => {
+                // 原生 select
+                const opt = document.createElement('option');
+                opt.value = cat.name;
+                opt.innerText = cat.name;
+                select.appendChild(opt);
+
+                // 自定义选项
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = cat.name;
+                optionDiv.innerHTML = `<i class="fas ${cat.icon}" style="color: ${cat.color}; margin-right: 5px;"></i> ${cat.name}`;
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    trigger.innerText = cat.name;
+                    trigger.dataset.value = cat.name;
+                    select.value = cat.name;
+                    optionsContainer.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    customSelect.classList.remove('open');
+                });
+                optionsContainer.appendChild(optionDiv);
+            });
+
+            // 恢复选中状态
+            if (currentValue && categories.some(cat => cat.name === currentValue)) {
+                trigger.innerText = currentValue;
+                trigger.dataset.value = currentValue;
+                select.value = currentValue;
+            } else if (categories.length > 0) {
+                trigger.innerText = categories[0].name;
+                trigger.dataset.value = categories[0].name;
+                select.value = categories[0].name;
+            }
+        }
 
         // --- 通用 ---
         function renderAll() {
