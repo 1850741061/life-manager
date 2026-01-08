@@ -2149,6 +2149,7 @@
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-icon" id="searchBtn" title="搜索"><i class="fas fa-search"></i></button>
                     <button class="btn-icon" id="batchModeBtn" title="批量操作"><i class="fas fa-tasks"></i></button>
+                    <button class="btn-icon" id="archiveBtn" title="归档"><i class="fas fa-archive"></i></button>
                     <button class="btn-icon" id="templateBtn" title="任务模板"><i class="fas fa-file-alt"></i></button>
                     <button class="btn-icon" id="statsBtn" title="数据统计"><i class="fas fa-chart-bar"></i></button>
                     <button class="btn-icon" id="pomodoroBtn" title="番茄钟"><i class="fas fa-clock"></i></button>
@@ -2262,6 +2263,7 @@
                                 <button class="btn" onclick="selectAllTodos()"><i class="fas fa-check-double"></i> 全选</button>
                                 <button class="btn" onclick="deselectAllTodos()"><i class="fas fa-square"></i> 取消全选</button>
                                 <button class="btn" onclick="batchCompleteTodos()"><i class="fas fa-check"></i> 标记完成</button>
+                                <button class="btn" onclick="batchArchiveTodos()"><i class="fas fa-archive"></i> 归档</button>
                                 <button class="btn" onclick="batchMoveTodos()"><i class="fas fa-folder"></i> 移动分组</button>
                                 <button class="btn" style="color: var(--danger-color); border-color: var(--danger-color);" onclick="batchDeleteTodos()"><i class="fas fa-trash"></i> 删除</button>
                             </div>
@@ -3052,6 +3054,55 @@
         </div>
     </div>
 
+    <!-- 归档模态框 -->
+    <div class="modal-overlay" id="archiveModal">
+        <div class="modal" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;"><i class="fas fa-archive"></i> 归档任务</h2>
+                <button class="btn" onclick="closeModal('archiveModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- 统计信息 -->
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <div style="flex: 1; padding: 15px; background: var(--bg-color); border: 3px solid var(--border-color); border-radius: var(--radius); text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-color);" id="archiveCount">0</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">已归档任务</div>
+                </div>
+                <div style="flex: 1; padding: 15px; background: var(--bg-color); border: 3px solid var(--border-color); border-radius: var(--radius); text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 900; color: var(--success-color);" id="archiveCompletedCount">0</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">已完成</div>
+                </div>
+            </div>
+
+            <!-- 归档任务列表 -->
+            <div id="archiveList" style="max-height: 500px; overflow-y: auto;">
+                <!-- 归档任务将在这里动态显示 -->
+            </div>
+
+            <!-- 空状态提示 -->
+            <div id="archiveEmptyState" style="display: none; text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                <i class="fas fa-archive" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 10px;">暂无归档任务</div>
+                <div style="font-size: 0.9rem;">完成的任务可以归档到这里，保持主列表整洁</div>
+            </div>
+
+            <!-- 批量操作按钮 -->
+            <div id="archiveBatchActions" style="display: none; margin-top: 20px; padding: 15px; background: var(--bg-color); border: 3px solid var(--border-color); border-radius: var(--radius);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 700;">
+                        <i class="fas fa-check-square"></i> 已选择 <span id="archiveSelectedCount">0</span> 项
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" onclick="selectAllArchived()"><i class="fas fa-check-double"></i> 全选</button>
+                        <button class="btn" onclick="deselectAllArchived()"><i class="fas fa-square"></i> 取消全选</button>
+                        <button class="btn" onclick="batchRestoreArchived()"><i class="fas fa-undo"></i> 恢复</button>
+                        <button class="btn" style="color: var(--danger-color); border-color: var(--danger-color);" onclick="batchDeleteArchived()"><i class="fas fa-trash"></i> 永久删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Electron 窗口控制（仅在 Electron 环境中执行）---
         // --- 环境检测与标题栏控制 ---
@@ -3192,7 +3243,9 @@
             // 新增：子任务折叠状态 {todoId: boolean} true=展开, false=折叠
             expandedSubtasks: {},
             // 新增：待办视图模式 'list' | 'kanban'
-            todoViewMode: localStorage.getItem('todoViewMode') || 'list'
+            todoViewMode: localStorage.getItem('todoViewMode') || 'list',
+            // 新增：归档任务
+            archivedTodos: JSON.parse(localStorage.getItem('archivedTodos')) || []
         };
 
         // --- 初始化 ---
@@ -3209,6 +3262,7 @@
             initSearchFeature();
             initGlobalSearch();
             initBatchMode();
+            initArchive();
             initNotifications();
             initDragAndDrop();
             initTemplates();
@@ -5342,6 +5396,7 @@
             localStorage.setItem('groups', JSON.stringify(state.groups));
             localStorage.setItem('transactions', JSON.stringify(state.transactions));
             localStorage.setItem('templates', JSON.stringify(state.templates));
+            localStorage.setItem('archivedTodos', JSON.stringify(state.archivedTodos));
         }
 
         function animateValue(id, start, end, duration) {
@@ -5540,6 +5595,7 @@
                         state.transactions = data[0].transactions || [];
                         state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
                         state.templates = data[0].templates || [];
+                        state.archivedTodos = data[0].archivedTodos || [];
 
                         // 保存到本地
                         baseSave(); // 使用 baseSave 避免循环上传
@@ -5851,6 +5907,7 @@
                     transactions: state.transactions,
                     groups: state.groups,
                     templates: state.templates,
+                    archivedTodos: state.archivedTodos,
                     updated_at: new Date().toISOString()
                 };
 
@@ -5933,6 +5990,7 @@
                     state.transactions = data[0].transactions || [];
                     state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
                     state.templates = data[0].templates || [];
+                    state.archivedTodos = data[0].archivedTodos || [];
 
                     // 更新本地存储
                     baseSave();
@@ -7026,6 +7084,7 @@
                 todos: state.todos,
                 transactions: state.transactions,
                 groups: state.groups,
+                archivedTodos: state.archivedTodos,
                 exportDate: new Date().toISOString()
             };
 
@@ -7058,6 +7117,7 @@
                                 state.todos = data.todos;
                                 state.transactions = data.transactions;
                                 state.groups = data.groups;
+                                state.archivedTodos = data.archivedTodos || [];
                                 save();
                                 renderAll();
                                 showSyncToast('数据导入成功！');
@@ -7818,6 +7878,244 @@
                 setTimeout(() => applyTemplate(id), 100);
             }
         });
+
+        // --- 归档功能 ---
+        let selectedArchivedTodos = new Set();
+
+        function initArchive() {
+            const archiveBtn = document.getElementById('archiveBtn');
+            archiveBtn.onclick = () => {
+                openArchiveModal();
+            };
+        }
+
+        function openArchiveModal() {
+            renderArchiveList();
+            openModal('archiveModal');
+        }
+
+        // 批量归档选中的任务
+        window.batchArchiveTodos = function() {
+            if (state.selectedTodos.size === 0) {
+                alert('请先选择要归档的任务');
+                return;
+            }
+
+            if (!confirm(`确定要将选中的 ${state.selectedTodos.size} 个任务归档吗？`)) return;
+
+            // 将选中的任务移到归档
+            const tasksToArchive = state.todos.filter(t => state.selectedTodos.has(t.id));
+            tasksToArchive.forEach(task => {
+                task.archivedAt = new Date().toISOString();
+                state.archivedTodos.push(task);
+            });
+
+            // 从主列表中移除
+            state.todos = state.todos.filter(t => !state.selectedTodos.has(t.id));
+
+            // 清空选择
+            state.selectedTodos.clear();
+
+            save();
+            renderTodos();
+            renderStats();
+
+            // 退出批量模式
+            state.batchMode = false;
+            document.getElementById('batchModeBtn').style.background = '';
+            document.getElementById('batchToolbar').style.display = 'none';
+
+            alert(`已归档 ${tasksToArchive.length} 个任务`);
+        };
+
+        // 渲染归档任务列表
+        function renderArchiveList() {
+            const archiveList = document.getElementById('archiveList');
+            const emptyState = document.getElementById('archiveEmptyState');
+            const archiveCount = document.getElementById('archiveCount');
+            const archiveCompletedCount = document.getElementById('archiveCompletedCount');
+
+            // 更新统计
+            archiveCount.textContent = state.archivedTodos.length;
+            archiveCompletedCount.textContent = state.archivedTodos.filter(t => t.completed).length;
+
+            if (state.archivedTodos.length === 0) {
+                archiveList.innerHTML = '';
+                emptyState.style.display = 'block';
+                document.getElementById('archiveBatchActions').style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            // 按归档时间倒序排列
+            const sorted = [...state.archivedTodos].sort((a, b) =>
+                new Date(b.archivedAt) - new Date(a.archivedAt)
+            );
+
+            archiveList.innerHTML = sorted.map(todo => {
+                const isSelected = selectedArchivedTodos.has(todo.id);
+                const groupName = todo.groupName || '无分组';
+                const groupColor = todo.groupColor || '#6b7280';
+                const completedSubtasks = todo.subtasks ? todo.subtasks.filter(st => st.completed).length : 0;
+                const totalSubtasks = todo.subtasks ? todo.subtasks.length : 0;
+
+                return `
+                    <li class="todo-item ${todo.completed ? 'completed' : ''} ${isSelected ? 'selected' : ''}"
+                        style="border: 3px solid var(--border-color); border-radius: var(--radius); padding: 12px 15px; margin-bottom: 10px; background: var(--card-bg); box-shadow: var(--shadow); transition: var(--transition);"
+                        data-id="${todo.id}">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox"
+                                   class="archive-checkbox"
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="toggleArchiveSelection(${todo.id})"
+                                   style="margin-top: 5px; width: 18px; height: 18px; cursor: pointer;">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                    <span style="font-weight: 600; font-size: 1rem; flex: 1; word-break: break-word;">${todo.text}</span>
+                                    <span style="padding: 3px 8px; background: ${groupColor}; color: white; border-radius: 12px; font-size: 0.75rem; font-weight: 700; white-space: nowrap;">${groupName}</span>
+                                    ${todo.completed ? '<i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1.2rem;"></i>' : ''}
+                                </div>
+                                ${todo.notes ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${todo.notes}</div>` : ''}
+                                <div style="display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-secondary); flex-wrap: wrap;">
+                                    ${todo.date ? `<span><i class="fas fa-calendar"></i> ${todo.date}</span>` : ''}
+                                    ${todo.startTime && todo.endTime ? `<span><i class="fas fa-clock"></i> ${todo.startTime} - ${todo.endTime}</span>` : ''}
+                                    ${totalSubtasks > 0 ? `<span><i class="fas fa-tasks"></i> ${completedSubtasks}/${totalSubtasks}</span>` : ''}
+                                    <span><i class="fas fa-archive"></i> 归档于 ${new Date(todo.archivedAt).toLocaleDateString()}</span>
+                                </div>
+                                ${totalSubtasks > 0 ? `
+                                    <div style="margin-top: 8px; padding-left: 12px;">
+                                        ${todo.subtasks.map(sub => `
+                                            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 0.85rem;">
+                                                <i class="fas ${sub.completed ? 'fa-check-circle' : 'fa-circle'}" style="color: ${sub.completed ? 'var(--success-color)' : 'var(--text-secondary)'}; font-size: 0.7rem;"></i>
+                                                <span style="${sub.completed ? 'text-decoration: line-through; color: var(--text-secondary);' : ''}">${sub.text}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn-icon" onclick="restoreTodo(${todo.id})" title="恢复任务" style="padding: 6px 10px;">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                                <button class="btn-icon" onclick="deleteArchivedTodo(${todo.id})" title="永久删除" style="padding: 6px 10px; color: var(--danger-color);">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            }).join('');
+
+            // 显示/隐藏批量操作栏
+            const batchActions = document.getElementById('archiveBatchActions');
+            if (selectedArchivedTodos.size > 0) {
+                batchActions.style.display = 'block';
+                document.getElementById('archiveSelectedCount').textContent = selectedArchivedTodos.size;
+            } else {
+                batchActions.style.display = 'none';
+            }
+        }
+
+        // 切换归档任务选择状态
+        window.toggleArchiveSelection = function(id) {
+            if (selectedArchivedTodos.has(id)) {
+                selectedArchivedTodos.delete(id);
+            } else {
+                selectedArchivedTodos.add(id);
+            }
+            renderArchiveList();
+        };
+
+        // 全选归档任务
+        window.selectAllArchived = function() {
+            state.archivedTodos.forEach(t => selectedArchivedTodos.add(t.id));
+            renderArchiveList();
+        };
+
+        // 取消全选归档任务
+        window.deselectAllArchived = function() {
+            selectedArchivedTodos.clear();
+            renderArchiveList();
+        };
+
+        // 恢复单个归档任务
+        window.restoreTodo = function(id) {
+            const todo = state.archivedTodos.find(t => t.id === id);
+            if (!todo) return;
+
+            // 从归档中移除
+            state.archivedTodos = state.archivedTodos.filter(t => t.id !== id);
+            // 删除归档时间戳
+            delete todo.archivedAt;
+            // 添加回主列表
+            state.todos.unshift(todo);
+
+            save();
+            renderTodos();
+            renderArchiveList();
+            renderStats();
+        };
+
+        // 批量恢复归档任务
+        window.batchRestoreArchived = function() {
+            if (selectedArchivedTodos.size === 0) {
+                alert('请先选择要恢复的任务');
+                return;
+            }
+
+            if (!confirm(`确定要恢复选中的 ${selectedArchivedTodos.size} 个任务吗？`)) return;
+
+            const todosToRestore = state.archivedTodos.filter(t => selectedArchivedTodos.has(t.id));
+            todosToRestore.forEach(todo => {
+                delete todo.archivedAt;
+                state.todos.unshift(todo);
+            });
+
+            state.archivedTodos = state.archivedTodos.filter(t => !selectedArchivedTodos.has(t.id));
+            selectedArchivedTodos.clear();
+
+            save();
+            renderTodos();
+            renderArchiveList();
+            renderStats();
+
+            alert(`已恢复 ${todosToRestore.length} 个任务`);
+        };
+
+        // 删除单个归档任务
+        window.deleteArchivedTodo = function(id) {
+            if (!confirm('确定要永久删除此归档任务吗？此操作无法撤销！')) return;
+
+            state.archivedTodos = state.archivedTodos.filter(t => t.id !== id);
+            if (selectedArchivedTodos.has(id)) {
+                selectedArchivedTodos.delete(id);
+            }
+
+            save();
+            renderArchiveList();
+            renderStats();
+        };
+
+        // 批量删除归档任务
+        window.batchDeleteArchived = function() {
+            if (selectedArchivedTodos.size === 0) {
+                alert('请先选择要删除的任务');
+                return;
+            }
+
+            if (!confirm(`确定要永久删除选中的 ${selectedArchivedTodos.size} 个任务吗？此操作无法撤销！`)) return;
+
+            const count = selectedArchivedTodos.size;
+            state.archivedTodos = state.archivedTodos.filter(t => !selectedArchivedTodos.has(t.id));
+            selectedArchivedTodos.clear();
+
+            save();
+            renderArchiveList();
+            renderStats();
+
+            alert(`已永久删除 ${count} 个任务`);
+        };
 
         // --- 2. 批量操作功能 ---
         function initBatchMode() {
