@@ -2183,7 +2183,7 @@
                     <button class="btn-icon" id="refreshBtn" title="刷新数据"><i class="fas fa-sync-alt"></i></button>
                     <button class="btn-icon" id="importExportBtn" title="导入/导出"><i class="fas fa-exchange-alt"></i></button>
                     <button class="btn-icon" id="themeToggle" title="切换主题"><i class="fas fa-moon"></i></button>
-                    <button class="btn-icon" id="helpBtn" title="快捷键帮助"><i class="fas fa-keyboard"></i></button>
+                    <button class="btn-icon" id="helpBtn" title="帮助"><i class="fas fa-question-circle"></i></button>
                 </div>
             </div>
         </header>
@@ -2194,6 +2194,10 @@
                 <div class="sidebar-title">任务分组</div>
                 <ul class="group-list" id="groupList"></ul>
                 <button class="add-group-btn" id="addGroupBtn"><i class="fas fa-plus"></i> 新建分组</button>
+
+                <div class="sidebar-title" style="margin-top: 25px;">项目</div>
+                <ul class="group-list" id="projectListSidebar"></ul>
+                <button class="add-group-btn" onclick="openModal('projectModal')"><i class="fas fa-plus"></i> 管理项目</button>
             </div>
 
             <div class="content">
@@ -2275,6 +2279,22 @@
                                 <button class="view-tab" id="todoViewKanban" onclick="setTodoViewMode('kanban')"><i class="fas fa-th"></i> 看板</button>
                             </div>
                             <button class="btn" style="color:var(--danger-color); border-color:var(--danger-color);" onclick="clearCompleted()">清除</button>
+                        </div>
+                    </div>
+
+                    <!-- 项目筛选提示条 -->
+                    <div id="projectFilterBar" style="display: none; margin-bottom: 20px; padding: 12px 15px; background: var(--card-bg); border: 3px solid #8b5cf6; border-radius: var(--radius); box-shadow: var(--shadow);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-project-diagram" style="color: #8b5cf6; font-size: 1.2rem;"></i>
+                                <div>
+                                    <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary);">当前筛选</div>
+                                    <div style="font-weight: 600; color: #8b5cf6;" id="currentProjectName">项目名称</div>
+                                </div>
+                            </div>
+                            <button class="btn" style="padding: 5px 15px;" onclick="clearProjectFilter()">
+                                <i class="fas fa-times"></i> 清除筛选
+                            </button>
                         </div>
                     </div>
 
@@ -3892,6 +3912,58 @@
             updateGroupSelects();
         }
 
+        // 渲染侧边栏项目列表
+        function renderSidebarProjects() {
+            const l = document.getElementById('projectListSidebar');
+            if (!l) return;
+
+            l.innerHTML = '';
+
+            if (state.projects.length === 0) {
+                l.innerHTML = `<li style="padding: 12px 15px; color: var(--text-secondary); font-size: 0.9rem; text-align: center;">暂无项目</li>`;
+                return;
+            }
+
+            state.projects.forEach((p) => {
+                const li = document.createElement('li');
+                li.className = `group-item ${state.currentProjectId===p.id?'active':''}`;
+                li.innerHTML = `
+                    <div class="group-name">
+                        <div class="group-color" style="background:${p.color}"></div>
+                        <span>${p.name}</span>
+                    </div>
+                `;
+                li.onclick = () => selectProject(p.id);
+                l.appendChild(li);
+            });
+        }
+
+        window.selectProject = (id) => {
+            const project = state.projects.find(p => p.id === id);
+            if (!project) return;
+
+            // 设置当前项目过滤
+            state.currentProjectId = id;
+
+            // 显示项目筛选提示条
+            const filterBar = document.getElementById('projectFilterBar');
+            const projectNameEl = document.getElementById('currentProjectName');
+            filterBar.style.display = 'block';
+            projectNameEl.textContent = project.name;
+
+            // 更新UI
+            renderSidebarProjects();
+            renderTodos();
+
+            // 移动端：关闭侧边栏
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('mobileSidebarOverlay');
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+            }
+        };
+
         window.selectGroup = (id) => {
             state.currentGroupId = id;
             renderGroups();
@@ -4010,7 +4082,17 @@
             l.innerHTML = '';
 
             let list = state.todos;
-            if(state.currentGroupId !== 'all') list = list.filter(t => t.groupId === state.currentGroupId);
+
+            // 分组筛选
+            if(state.currentGroupId !== 'all') {
+                list = list.filter(t => t.groupId === state.currentGroupId);
+            }
+
+            // 项目筛选
+            if(state.currentProjectId) {
+                list = list.filter(t => t.projectId === state.currentProjectId);
+            }
+
             if(state.filter === 'active') list = list.filter(t => !t.completed);
             if(state.filter === 'completed') list = list.filter(t => t.completed);
 
@@ -5762,6 +5844,7 @@
         // --- 通用 ---
         function renderAll() {
             renderGroups();
+            renderSidebarProjects();
             renderTodos();
             renderCalendar();
             renderFinance();
@@ -6288,6 +6371,9 @@
                     groups: state.groups,
                     templates: state.templates,
                     archivedTodos: state.archivedTodos,
+                    habits: state.habits,
+                    habitRecords: state.habitRecords,
+                    projects: state.projects,
                     updated_at: new Date().toISOString()
                 };
 
@@ -6371,6 +6457,9 @@
                     state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
                     state.templates = data[0].templates || [];
                     state.archivedTodos = data[0].archivedTodos || [];
+                    state.habits = data[0].habits || [];
+                    state.habitRecords = data[0].habitRecords || {};
+                    state.projects = data[0].projects || [];
 
                     // 更新本地存储
                     baseSave();
@@ -6429,6 +6518,10 @@
                             const cloudTransactions = payload.new.transactions || [];
                             const cloudGroups = payload.new.groups || [];
                             const cloudTemplates = payload.new.templates || [];
+                            const cloudArchivedTodos = payload.new.archivedTodos || [];
+                            const cloudHabits = payload.new.habits || [];
+                            const cloudHabitRecords = payload.new.habitRecords || {};
+                            const cloudProjects = payload.new.projects || [];
 
                             // 比较是否有变化
                             const oldTodosJson = JSON.stringify(state.todos);
@@ -6440,6 +6533,10 @@
                                 state.transactions = cloudTransactions;
                                 state.groups = cloudGroups;
                                 state.templates = cloudTemplates;
+                                state.archivedTodos = cloudArchivedTodos;
+                                state.habits = cloudHabits;
+                                state.habitRecords = cloudHabitRecords;
+                                state.projects = cloudProjects;
 
                                 // 更新本地存储
                                 baseSave();
@@ -6454,12 +6551,20 @@
                             const cloudTransactions = payload.new.transactions || [];
                             const cloudGroups = payload.new.groups || [];
                             const cloudTemplates = payload.new.templates || [];
+                            const cloudArchivedTodos = payload.new.archivedTodos || [];
+                            const cloudHabits = payload.new.habits || [];
+                            const cloudHabitRecords = payload.new.habitRecords || {};
+                            const cloudProjects = payload.new.projects || [];
 
                             console.log('[Realtime] 检测到新数据，更新本地...');
                             state.todos = cloudTodos;
                             state.transactions = cloudTransactions;
                             state.groups = cloudGroups;
                             state.templates = cloudTemplates;
+                            state.archivedTodos = cloudArchivedTodos;
+                            state.habits = cloudHabits;
+                            state.habitRecords = cloudHabitRecords;
+                            state.projects = cloudProjects;
 
                             // 更新本地存储
                             baseSave();
@@ -8279,7 +8384,7 @@
 
             // 根据类型执行相应操作
             if (type === 'task') {
-                editTodo(id);
+                openEditTask(id);
             } else if (type === 'transaction') {
                 switchTab('finance');
                 setTimeout(() => openEditTransaction(id), 100);
@@ -8921,6 +9026,7 @@
             save();
             closeModal('addProjectModal');
             renderProjects();
+            renderSidebarProjects();
         };
 
         function renderProjects() {
@@ -9012,9 +9118,15 @@
                     </div>
                 `;
             }).join('');
+
+            // 同时更新侧边栏项目列表
+            renderSidebarProjects();
         }
 
         window.viewProjectTodos = function(projectId) {
+            const project = state.projects.find(p => p.id === projectId);
+            if (!project) return;
+
             // 设置当前项目过滤
             state.currentProjectId = projectId;
             closeModal('projectModal');
@@ -9022,10 +9134,23 @@
             // 切换到待办视图
             switchTab('todo');
 
+            // 显示项目筛选提示条
+            const filterBar = document.getElementById('projectFilterBar');
+            const projectNameEl = document.getElementById('currentProjectName');
+            filterBar.style.display = 'block';
+            projectNameEl.textContent = project.name;
+
             // 过滤并渲染任务
             renderTodos();
 
-            showSyncToast('已显示项目任务');
+            showSyncToast(`已显示"${project.name}"的任务`);
+        };
+
+        // 清除项目筛选
+        window.clearProjectFilter = function() {
+            state.currentProjectId = null;
+            document.getElementById('projectFilterBar').style.display = 'none';
+            renderTodos();
         };
 
         window.editProject = function(projectId) {
@@ -9055,6 +9180,7 @@
 
             save();
             renderProjects();
+            renderSidebarProjects();
         };
 
         // --- 2. 批量操作功能 ---
