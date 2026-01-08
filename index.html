@@ -2417,11 +2417,11 @@
 
     <!-- 分类管理模态框 -->
     <div class="modal-overlay" id="categoryManagerModal">
-        <div class="modal" style="max-width: 700px;">
+        <div class="modal" style="max-width: 800px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
                 <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-tags" style="color: var(--accent-color);"></i>
-                    分类管理
+                    分类与预算管理
                 </h2>
                 <button class="btn" onclick="closeModal('categoryManagerModal')"><i class="fas fa-times"></i></button>
             </div>
@@ -2436,8 +2436,14 @@
                 </button>
             </div>
 
+            <!-- 预算提示 -->
+            <div id="budgetTip" style="margin-bottom: 15px; padding: 12px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--border-color); display: none;">
+                <i class="fas fa-info-circle" style="color: var(--accent-color); margin-right: 8px;"></i>
+                <span style="font-size: 0.9rem;">为支出分类设置月度预算，帮助您更好地控制开支</span>
+            </div>
+
             <!-- 分类列表 -->
-            <div id="categoryManagerList" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+            <div id="categoryManagerList" style="max-height: 450px; overflow-y: auto; margin-bottom: 20px;">
                 <!-- 动态生成 -->
             </div>
 
@@ -2541,7 +2547,10 @@
 
                 <!-- 分类统计 -->
                 <div style="margin-bottom: 20px;">
-                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">分类统计</h3>
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">
+                        <i class="fas fa-chart-bar" style="color: var(--accent-color); margin-right: 8px;"></i>
+                        分类统计与预算
+                    </h3>
                     <div id="monthCategoryStats" style="display: grid; gap: 10px;"></div>
                 </div>
 
@@ -4579,19 +4588,66 @@
 
             Object.entries(catStats).forEach(([cat, stats]) => {
                 const div = document.createElement('div');
-                div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: var(--radius);';
+                div.style.cssText = 'padding: 12px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: var(--radius);';
 
                 const catObj = getAllCategories().find(c => c.name === cat);
                 const color = catObj ? catObj.color : stats.color;
 
+                // 检查是否有预算设置（仅支出分类）
+                const budget = catObj && catObj.budget ? catObj.budget : null;
+                const hasBudget = budget && stats.expense > 0;
+                const budgetPercent = hasBudget ? (stats.expense / budget * 100) : 0;
+                const isOverBudget = hasBudget && budgetPercent > 100;
+                const isNearBudget = hasBudget && budgetPercent >= 80 && budgetPercent <= 100;
+
+                // 预算进度条颜色
+                let progressColor = 'var(--success-color)';
+                if (isOverBudget) progressColor = 'var(--danger-color)';
+                else if (isNearBudget) progressColor = '#f59e0b';
+
                 div.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="cat-badge" style="background: ${color}; border-color: ${color}; color: var(--card-bg);">${cat}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: ${hasBudget ? '10px' : '0'};">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="cat-badge" style="background: ${color}; border-color: ${color}; color: var(--card-bg);">${cat}</span>
+                        </div>
+                        <div style="display: flex; gap: 15px; font-size: 0.85rem;">
+                            ${stats.income > 0 ? `<span style="color: var(--success-color);">收入 ¥${stats.income.toFixed(2)}</span>` : ''}
+                            ${stats.expense > 0 ? `<span style="color: var(--danger-color);">支出 ¥${stats.expense.toFixed(2)}</span>` : ''}
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 15px; font-size: 0.85rem;">
-                        ${stats.income > 0 ? `<span style="color: var(--success-color);">收入 ¥${stats.income.toFixed(2)}</span>` : ''}
-                        ${stats.expense > 0 ? `<span style="color: var(--danger-color);">支出 ¥${stats.expense.toFixed(2)}</span>` : ''}
-                    </div>
+                    ${hasBudget ? `
+                        <div style="margin-top: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.8rem;">
+                                <span style="color: var(--text-secondary);">
+                                    <i class="fas fa-wallet" style="margin-right: 5px;"></i>
+                                    预算: ¥${budget.toFixed(0)}
+                                </span>
+                                <span style="color: ${progressColor}; font-weight: 700;">
+                                    ${isOverBudget ? '⚠️ ' : ''}${budgetPercent.toFixed(1)}%
+                                </span>
+                            </div>
+                            <div style="
+                                width: 100%;
+                                height: 8px;
+                                background: var(--bg-color);
+                                border: 2px solid var(--border-color);
+                                border-radius: 4px;
+                                overflow: hidden;
+                            ">
+                                <div style="
+                                    width: ${Math.min(budgetPercent, 100)}%;
+                                    height: 100%;
+                                    background: ${progressColor};
+                                    transition: width 0.3s ease;
+                                "></div>
+                            </div>
+                            ${isOverBudget ? `
+                                <div style="margin-top: 5px; font-size: 0.8rem; color: var(--danger-color); font-weight: 600;">
+                                    <i class="fas fa-exclamation-triangle"></i> 超出预算 ¥${(stats.expense - budget).toFixed(2)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
                 `;
                 catStatsContainer.appendChild(div);
             });
@@ -4837,17 +4893,20 @@
         function updateCategoryManagerButtons() {
             const expenseBtn = document.getElementById('categoryTypeExpense');
             const incomeBtn = document.getElementById('categoryTypeIncome');
+            const budgetTip = document.getElementById('budgetTip');
 
             if (currentCategoryManagerType === 'expense') {
                 expenseBtn.style.background = 'var(--danger-color)';
                 expenseBtn.style.color = 'white';
                 incomeBtn.style.background = 'var(--card-bg)';
                 incomeBtn.style.color = 'var(--text-main)';
+                budgetTip.style.display = 'block';
             } else {
                 incomeBtn.style.background = 'var(--success-color)';
                 incomeBtn.style.color = 'white';
                 expenseBtn.style.background = 'var(--card-bg)';
                 expenseBtn.style.color = 'var(--text-main)';
+                budgetTip.style.display = 'none';
             }
         }
 
@@ -4872,6 +4931,10 @@
                     transition: var(--transition);
                 `;
 
+                // 判断是否显示预算设置（仅支出分类显示）
+                const isExpense = currentCategoryManagerType === 'expense';
+                const budgetValue = cat.budget || '';
+
                 div.innerHTML = `
                     <div style="
                         width: 50px;
@@ -4887,7 +4950,20 @@
                         <i class="fas ${cat.icon || 'fa-tag'}" style="color: white; font-size: 1.2rem;"></i>
                     </div>
                     <div style="flex: 1;">
-                        <div style="font-weight: 800; font-size: 1.1rem; text-transform: uppercase;">${cat.name}</div>
+                        <div style="font-weight: 800; font-size: 1.1rem; text-transform: uppercase; margin-bottom: 5px;">${cat.name}</div>
+                        ${isExpense ? `
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-wallet" style="color: var(--text-secondary); font-size: 0.9rem;"></i>
+                                <input type="number"
+                                    id="budget_${cat.name}"
+                                    value="${budgetValue}"
+                                    placeholder="设置月度预算"
+                                    onchange="updateCategoryBudget('${cat.name}', this.value)"
+                                    style="width: 150px; padding: 6px 10px; font-size: 0.9rem;"
+                                    min="0" step="100">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">元/月</span>
+                            </div>
+                        ` : ''}
                     </div>
                     <button class="btn" onclick="deleteCategory(${index})" style="
                         background: var(--danger-color);
@@ -4902,6 +4978,18 @@
                 listContainer.appendChild(div);
             });
         }
+
+        // 更新分类预算
+        window.updateCategoryBudget = (catName, value) => {
+            const categories = financeCats[currentCategoryManagerType];
+            const cat = categories.find(c => c.name === catName);
+
+            if (cat) {
+                cat.budget = value ? parseFloat(value) : null;
+                saveCustomCategories();
+                showSyncToast(`${catName} 预算已更新`, 'success');
+            }
+        };
 
         // 添加新分类
         window.addNewCategory = () => {

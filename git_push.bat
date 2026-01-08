@@ -1,6 +1,6 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "fix: improve modal layout with scrollable dropdowns and better sizing"
+git commit -m "feat: add budget management for expense categories with progress bars"
 git push origin main
 pause
