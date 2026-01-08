@@ -2174,6 +2174,7 @@
                     <button class="btn-icon" id="batchModeBtn" title="批量操作"><i class="fas fa-tasks"></i></button>
                     <button class="btn-icon" id="archiveBtn" title="归档"><i class="fas fa-archive"></i></button>
                     <button class="btn-icon" id="habitBtn" title="习惯打卡"><i class="fas fa-calendar-check"></i></button>
+                    <button class="btn-icon" id="projectBtn" title="项目管理"><i class="fas fa-project-diagram"></i></button>
                     <button class="btn-icon" id="templateBtn" title="任务模板"><i class="fas fa-file-alt"></i></button>
                     <button class="btn-icon" id="statsBtn" title="数据统计"><i class="fas fa-chart-bar"></i></button>
                     <button class="btn-icon" id="pomodoroBtn" title="番茄钟"><i class="fas fa-clock"></i></button>
@@ -3233,6 +3234,72 @@
         </div>
     </div>
 
+    <!-- 项目管理模态框 -->
+    <div class="modal-overlay" id="projectModal">
+        <div class="modal" style="max-width: 900px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;"><i class="fas fa-project-diagram"></i> 项目管理</h2>
+                <button class="btn" onclick="closeModal('projectModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- 添加项目按钮 -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="openAddProjectModal()" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-plus"></i> 添加新项目
+                </button>
+            </div>
+
+            <!-- 项目列表 -->
+            <div id="projectList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+                <!-- 项目卡片将在这里动态显示 -->
+            </div>
+
+            <!-- 空状态提示 -->
+            <div id="projectEmptyState" style="display: none; text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                <i class="fas fa-project-diagram" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                <div style="font-size: 1.2rem; font-weight: 700; margin-bottom: 10px;">暂无项目</div>
+                <div style="font-size: 0.9rem;">点击上方按钮创建您的第一个项目</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑项目模态框 -->
+    <div class="modal-overlay" id="addProjectModal">
+        <div class="modal" style="max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;" id="projectModalTitle">添加项目</h2>
+                <button class="btn" onclick="closeModal('addProjectModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">项目名称</label>
+                <input type="text" id="projectNameInput" placeholder="例如：网站改版、产品发布..." style="width: 100%; padding: 10px;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">描述（可选）</label>
+                <textarea id="projectDescription" style="width: 100%; min-height: 80px; padding: 10px;" placeholder="描述项目目标、范围等..."></textarea>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">截止日期（可选）</label>
+                <input type="date" id="projectDeadline" style="width: 100%; padding: 10px;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">颜色标记</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="projectColorGrid">
+                    <!-- 颜色选择 -->
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn" onclick="closeModal('addProjectModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveProject()">保存</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Electron 窗口控制（仅在 Electron 环境中执行）---
         // --- 环境检测与标题栏控制 ---
@@ -3378,7 +3445,9 @@
             archivedTodos: JSON.parse(localStorage.getItem('archivedTodos')) || [],
             // 新增：习惯打卡
             habits: JSON.parse(localStorage.getItem('habits')) || [],
-            habitRecords: JSON.parse(localStorage.getItem('habitRecords')) || {} // {habitId: {date: timestamp}}
+            habitRecords: JSON.parse(localStorage.getItem('habitRecords')) || {}, // {habitId: {date: timestamp}}
+            // 新增：项目管理
+            projects: JSON.parse(localStorage.getItem('projects')) || []
         };
 
         // --- 初始化 ---
@@ -3398,6 +3467,7 @@
             initArchive();
             initRepeatOptions();
             initHabits();
+            initProjects();
             initNotifications();
             initDragAndDrop();
             initTemplates();
@@ -5643,6 +5713,7 @@
             localStorage.setItem('archivedTodos', JSON.stringify(state.archivedTodos));
             localStorage.setItem('habits', JSON.stringify(state.habits));
             localStorage.setItem('habitRecords', JSON.stringify(state.habitRecords));
+            localStorage.setItem('projects', JSON.stringify(state.projects));
         }
 
         function animateValue(id, start, end, duration) {
@@ -8667,6 +8738,218 @@
 
             save();
             renderHabits();
+        };
+
+        // --- 项目管理功能 ---
+        let editingProjectId = null;
+        let selectedProjectColor = '#3b82f6';
+
+        function initProjects() {
+            const projectBtn = document.getElementById('projectBtn');
+            projectBtn.onclick = () => {
+                openModal('projectModal');
+                renderProjects();
+            };
+        }
+
+        function openAddProjectModal() {
+            editingProjectId = null;
+            selectedProjectColor = '#3b82f6';
+
+            document.getElementById('projectModalTitle').textContent = '添加项目';
+            document.getElementById('projectNameInput').value = '';
+            document.getElementById('projectDescription').value = '';
+            document.getElementById('projectDeadline').value = '';
+
+            renderProjectColors();
+
+            openModal('addProjectModal');
+        }
+
+        function renderProjectColors() {
+            const grid = document.getElementById('projectColorGrid');
+            grid.innerHTML = colors.slice(0, 12).map(color => `
+                <div class="project-color-option ${color === selectedProjectColor ? 'selected' : ''}"
+                     onclick="selectProjectColor('${color}')"
+                     style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+                            border: 3px solid ${color === selectedProjectColor ? color : 'var(--border-color)'};
+                            background: ${color}; transition: var(--transition);">
+                </div>
+            `).join('');
+        }
+
+        function selectProjectColor(color) {
+            selectedProjectColor = color;
+            renderProjectColors();
+        }
+
+        window.saveProject = function() {
+            const name = document.getElementById('projectNameInput').value.trim();
+            if (!name) {
+                alert('请输入项目名称');
+                return;
+            }
+
+            const description = document.getElementById('projectDescription').value.trim();
+            const deadline = document.getElementById('projectDeadline').value;
+
+            if (editingProjectId) {
+                const project = state.projects.find(p => p.id === editingProjectId);
+                if (project) {
+                    project.name = name;
+                    project.description = description;
+                    project.deadline = deadline;
+                    project.color = selectedProjectColor;
+                }
+            } else {
+                const newProject = {
+                    id: Date.now(),
+                    name,
+                    description,
+                    deadline,
+                    color: selectedProjectColor,
+                    createdAt: new Date().toISOString()
+                };
+                state.projects.push(newProject);
+            }
+
+            save();
+            closeModal('addProjectModal');
+            renderProjects();
+        };
+
+        function renderProjects() {
+            const container = document.getElementById('projectList');
+            const emptyState = document.getElementById('projectEmptyState');
+
+            if (state.projects.length === 0) {
+                container.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            container.innerHTML = state.projects.map(project => {
+                const projectTodos = state.todos.filter(t => t.projectId === project.id);
+                const totalTodos = projectTodos.length;
+                const completedTodos = projectTodos.filter(t => t.completed).length;
+                const progress = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
+
+                // 截止日期状态
+                let deadlineStatus = '';
+                if (project.deadline) {
+                    const today = new Date();
+                    const deadline = new Date(project.deadline);
+                    const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+
+                    if (daysLeft < 0) {
+                        deadlineStatus = `<span style="color: var(--danger-color); font-weight: 700;">已逾期 ${Math.abs(daysLeft)} 天</span>`;
+                    } else if (daysLeft === 0) {
+                        deadlineStatus = `<span style="color: var(--warning-color); font-weight: 700;">今天截止</span>`;
+                    } else if (daysLeft <= 3) {
+                        deadlineStatus = `<span style="color: var(--warning-color); font-weight: 700;">还剩 ${daysLeft} 天</span>`;
+                    } else {
+                        deadlineStatus = `<span style="color: var(--success-color);">还剩 ${daysLeft} 天</span>`;
+                    }
+                }
+
+                return `
+                    <div style="background: var(--card-bg); border: 3px solid ${project.color}; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 5px;">${project.name}</div>
+                                ${deadlineStatus ? `<div style="font-size: 0.85rem; margin-bottom: 8px;">${deadlineStatus}</div>` : ''}
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn-icon" onclick="editProject(${project.id})" title="编辑" style="padding: 6px 10px;">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <button class="btn-icon" onclick="deleteProject(${project.id})" title="删除" style="padding: 6px 10px; color: var(--danger-color);">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        ${project.description ? `<div style="margin-bottom: 15px; font-size: 0.9rem; color: var(--text-secondary);">${project.description}</div>` : ''}
+
+                        <!-- 进度条 -->
+                        <div style="margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem;">
+                                <span>进度</span>
+                                <span style="font-weight: 700;">${progress}%</span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: var(--bg-color); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${progress}%; height: 100%; background: ${project.color}; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+
+                        <!-- 统计信息 -->
+                        <div style="display: flex; gap: 15px; padding-top: 15px; border-top: 2px solid var(--border-color);">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 1.5rem; font-weight: 900; color: ${project.color};">${totalTodos}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">任务总数</div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 1.5rem; font-weight: 900; color: var(--success-color);">${completedTodos}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">已完成</div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 1.5rem; font-weight: 900; color: var(--warning-color);">${totalTodos - completedTodos}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">进行中</div>
+                            </div>
+                        </div>
+
+                        <!-- 查看任务按钮 -->
+                        <button class="btn" onclick="viewProjectTodos(${project.id})" style="width: 100%; margin-top: 15px; justify-content: center;">
+                            <i class="fas fa-tasks"></i> 查看项目任务
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.viewProjectTodos = function(projectId) {
+            // 设置当前项目过滤
+            state.currentProjectId = projectId;
+            closeModal('projectModal');
+
+            // 切换到待办视图
+            switchTab('todo');
+
+            // 过滤并渲染任务
+            renderTodos();
+
+            showSyncToast('已显示项目任务');
+        };
+
+        window.editProject = function(projectId) {
+            const project = state.projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            editingProjectId = projectId;
+            selectedProjectColor = project.color;
+
+            document.getElementById('projectModalTitle').textContent = '编辑项目';
+            document.getElementById('projectNameInput').value = project.name;
+            document.getElementById('projectDescription').value = project.description || '';
+            document.getElementById('projectDeadline').value = project.deadline || '';
+
+            renderProjectColors();
+
+            openModal('addProjectModal');
+        };
+
+        window.deleteProject = function(projectId) {
+            if (!confirm('确定要删除这个项目吗？关联的任务不会被删除。')) return;
+
+            state.projects = state.projects.filter(p => p.id !== projectId);
+
+            // 移除任务的关联
+            state.todos = state.todos.map(t => t.projectId === projectId ? {...t, projectId: null} : t);
+
+            save();
+            renderProjects();
         };
 
         // --- 2. 批量操作功能 ---
