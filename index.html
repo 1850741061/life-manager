@@ -609,7 +609,27 @@
             box-shadow: 6px 6px 0 0 var(--border-color);
             z-index: 1000;
             display: none;
-            overflow: hidden;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        /* 自定义滚动条样式 */
+        .custom-select-options::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-select-options::-webkit-scrollbar-track {
+            background: var(--bg-color);
+            border-radius: var(--radius);
+        }
+
+        .custom-select-options::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: var(--radius);
+        }
+
+        .custom-select-options::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
         }
 
         .custom-select.open .custom-select-options {
@@ -2347,8 +2367,11 @@
 
     <!-- 编辑记账模态框 -->
     <div class="modal-overlay" id="transModal">
-        <div class="modal">
-            <h2>编辑记录</h2>
+        <div class="modal" style="max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">编辑记录</h2>
+                <button class="btn" onclick="closeModal('transModal')"><i class="fas fa-times"></i></button>
+            </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div>
                     <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">类型</label>
@@ -2476,54 +2499,57 @@
 
     <!-- 月份详情模态框 -->
     <div class="modal-overlay" id="monthDetailModal">
-        <div class="modal" style="max-width: 800px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="modal" style="max-width: 850px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
                 <h2 style="margin: 0;" id="monthDetailTitle">月份详情</h2>
                 <button class="btn" onclick="closeModal('monthDetailModal')"><i class="fas fa-times"></i></button>
             </div>
 
-            <!-- 月度统计卡片 -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <div class="finance-card" style="padding: 15px;">
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">结余</div>
-                    <div class="amount" id="monthDetailBalance" style="font-size: 1.2rem;">¥0.00</div>
-                </div>
-                <div class="finance-card income" style="padding: 15px;">
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">收入</div>
-                    <div class="amount" id="monthDetailIncome" style="font-size: 1.2rem;">¥0.00</div>
-                </div>
-                <div class="finance-card expense" style="padding: 15px;">
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">支出</div>
-                    <div class="amount" id="monthDetailExpense" style="font-size: 1.2rem;">¥0.00</div>
-                </div>
-            </div>
-
-            <!-- 支出分类饼图 -->
-            <div style="margin-bottom: 25px;">
-                <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">
-                    <i class="fas fa-chart-pie" style="color: var(--accent-color); margin-right: 8px;"></i>
-                    支出分类占比
-                </h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
-                    <!-- 饼图 -->
-                    <div style="display: flex; justify-content: center;">
-                        <svg id="expensePieChart" width="250" height="250" viewBox="-1 -1 2 2" style="transform: rotate(-90deg); max-width: 100%;"></svg>
+            <!-- 可滚动内容区 -->
+            <div style="overflow-y: auto; flex: 1; padding-right: 10px;">
+                <!-- 月度统计卡片 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                    <div class="finance-card" style="padding: 15px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">结余</div>
+                        <div class="amount" id="monthDetailBalance" style="font-size: 1.2rem;">¥0.00</div>
                     </div>
-                    <!-- 图例 -->
-                    <div id="pieChartLegend" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;"></div>
+                    <div class="finance-card income" style="padding: 15px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">收入</div>
+                        <div class="amount" id="monthDetailIncome" style="font-size: 1.2rem;">¥0.00</div>
+                    </div>
+                    <div class="finance-card expense" style="padding: 15px;">
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">支出</div>
+                        <div class="amount" id="monthDetailExpense" style="font-size: 1.2rem;">¥0.00</div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- 分类统计 -->
-            <div style="margin-bottom: 20px;">
-                <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">分类统计</h3>
-                <div id="monthCategoryStats" style="display: grid; gap: 10px;"></div>
-            </div>
+                <!-- 支出分类饼图 -->
+                <div style="margin-bottom: 25px;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">
+                        <i class="fas fa-chart-pie" style="color: var(--accent-color); margin-right: 8px;"></i>
+                        支出分类占比
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+                        <!-- 饼图 -->
+                        <div style="display: flex; justify-content: center;">
+                            <svg id="expensePieChart" width="250" height="250" viewBox="-1 -1 2 2" style="transform: rotate(-90deg); max-width: 100%;"></svg>
+                        </div>
+                        <!-- 图例 -->
+                        <div id="pieChartLegend" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;"></div>
+                    </div>
+                </div>
 
-            <!-- 交易列表 -->
-            <div>
-                <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">交易记录</h3>
-                <div id="monthDetailTransactions" style="max-height: 300px; overflow-y: auto;"></div>
+                <!-- 分类统计 -->
+                <div style="margin-bottom: 20px;">
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">分类统计</h3>
+                    <div id="monthCategoryStats" style="display: grid; gap: 10px;"></div>
+                </div>
+
+                <!-- 交易列表 -->
+                <div>
+                    <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">交易记录</h3>
+                    <div id="monthDetailTransactions" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
             </div>
         </div>
     </div>

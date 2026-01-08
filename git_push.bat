@@ -1,6 +1,6 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "feat: add monthly expense category pie chart visualization"
+git commit -m "fix: improve modal layout with scrollable dropdowns and better sizing"
 git push origin main
 pause
