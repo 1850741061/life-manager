@@ -2126,6 +2126,19 @@
             .content-view { padding: 12px 8px; }
             .modal { margin: 10px 5px; }
         }
+
+        /* 高亮脉冲动画 */
+        @keyframes highlight-pulse {
+            0%, 100% {
+                background-color: var(--card-bg);
+                transform: scale(1);
+            }
+            50% {
+                background-color: rgba(255, 215, 0, 0.3);
+                transform: scale(1.02);
+                box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            }
+        }
     </style>
 </head>
 <body>
@@ -2263,6 +2276,16 @@
                             <div class="custom-select-options"></div>
                             <select id="groupSelect" class="native-select-hidden"></select>
                         </div>
+
+                        <!-- 项目选择器 - 自定义下拉 -->
+                        <div class="custom-select" id="projectSelectCustom" style="margin-top: 10px;">
+                            <div class="custom-select-trigger" data-value="">选择项目（可选）</div>
+                            <div class="custom-select-options"></div>
+                            <select id="projectSelect" class="native-select-hidden">
+                                <option value="">无项目</option>
+                            </select>
+                        </div>
+
                         <textarea id="todoNotes" placeholder="备注（可选）" style="resize: vertical; min-height: 50px; margin-top: 15px;"></textarea>
                     </div>
                     
@@ -2454,6 +2477,25 @@
     </div>
 
     <!-- 编辑任务模态框 -->
+    <!-- 任务详情查看模态框 -->
+    <div class="modal-overlay" id="viewTodoModal">
+        <div class="modal">
+            <h2 style="display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fas fa-eye" style="color: var(--accent-color);"></i> 任务详情</span>
+                <button class="btn-icon" onclick="closeModal('viewTodoModal')" style="background: none; border: none; font-size: 1.5rem;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </h2>
+            <div id="viewTodoContent" style="padding: 20px 0;">
+                <!-- 动态内容 -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
+                <button class="btn" onclick="closeModal('viewTodoModal')">关闭</button>
+                <button class="btn btn-primary" id="viewTodoEditBtn"><i class="fas fa-pen"></i> 编辑</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="editModal">
         <div class="modal">
             <h2>编辑任务</h2>
@@ -4039,6 +4081,10 @@
             const endTime = document.getElementById('todoEndTime').value;
             const priority = getCustomSelectValue('prioritySelectCustom');
 
+            // 读取项目选择器
+            const projectId = getCustomSelectValue('projectSelectCustom') || null;
+            const project = projectId ? state.projects.find(p => p.id == projectId) : null;
+
             state.todos.unshift({
                 id: Date.now(),
                 text, notes: document.getElementById('todoNotes').value.trim(),
@@ -4047,6 +4093,9 @@
                 date: dateStr,
                 startTime: startTime || null,
                 endTime: endTime || null,
+                projectId: projectId,
+                projectName: project ? project.name : null,
+                projectColor: project ? project.color : null,
                 subtasks: [],
                 createdAt: new Date().toISOString()
             });
@@ -4058,6 +4107,7 @@
             document.getElementById('todoEndTime').value = '';
             save();
             renderTodos();
+            renderProjects(); // 更新项目统计
         }
 
         function renderTodos() {
@@ -4383,6 +4433,121 @@
             showSyncToast('任务已归档');
         };
 
+        // 查看任务详情（只读）
+        window.viewTodo = (id) => {
+            const t = state.todos.find(x => x.id === id);
+            if(!t) return;
+
+            const priorityLabels = { low: '低', medium: '中', high: '高' };
+            const priorityColors = { low: 'var(--success-color)', medium: 'var(--warning-color)', high: 'var(--danger-color)' };
+
+            // 构建详情内容
+            let content = `
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">任务内容</div>
+                    <div style="font-size: 1.2rem; font-weight: 600; line-height: 1.6;">${t.text}</div>
+                </div>
+            `;
+
+            if (t.notes) {
+                content += `
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">备注</div>
+                        <div style="background: var(--bg-color); padding: 15px; border-radius: var(--radius); border: 2px solid var(--border-color); line-height: 1.6;">${t.notes}</div>
+                    </div>
+                `;
+            }
+
+            content += `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">日期</div>
+                        <div style="font-size: 1rem; font-weight: 600;"><i class="far fa-calendar"></i> ${t.date || '未设置'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">优先级</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: ${priorityColors[t.priority] || 'var(--text-primary)'};">
+                            <i class="fas fa-flag"></i> ${priorityLabels[t.priority] || '中'}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (t.startTime || t.endTime) {
+                content += `
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">时间段</div>
+                        <div style="font-size: 1rem; font-weight: 600;"><i class="far fa-clock"></i> ${t.startTime || '--:--'} - ${t.endTime || '--:--'}</div>
+                    </div>
+                `;
+            }
+
+            content += `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div>
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">分组</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="group-color" style="width: 12px; height: 12px; border-radius: 2px; border: 2px solid var(--border-color); background: ${t.groupColor}; flex-shrink: 0;"></span>
+                            <span style="font-weight: 600;">${t.groupName || '默认'}</span>
+                        </div>
+                    </div>
+            `;
+
+            if (t.projectName) {
+                content += `
+                    <div>
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">项目</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="group-color" style="width: 12px; height: 12px; border-radius: 2px; border: 2px solid var(--border-color); background: ${t.projectColor}; flex-shrink: 0;"></span>
+                            <span style="font-weight: 600;">${t.projectName}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            content += `</div>`;
+
+            if (t.repeat && t.repeat !== 'none') {
+                const repeatLabels = { daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' };
+                content += `
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">重复</div>
+                        <div style="font-size: 1rem; font-weight: 600;"><i class="fas fa-redo"></i> ${repeatLabels[t.repeat]}</div>
+                        ${t.repeatEndDate ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px;">至 ${t.repeatEndDate}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            if (t.subtasks && t.subtasks.length > 0) {
+                const completedCount = t.subtasks.filter(st => st.completed).length;
+                content += `
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">
+                            <i class="fas fa-tasks"></i> 子任务 (${completedCount}/${t.subtasks.length})
+                        </div>
+                        <div style="background: var(--bg-color); padding: 15px; border-radius: var(--radius); border: 2px solid var(--border-color);">
+                            ${t.subtasks.map(st => `
+                                <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; ${st.completed ? 'opacity: 0.6;' : ''}">
+                                    <i class="fas ${st.completed ? 'fa-check-circle' : 'fa-circle'}" style="color: ${st.completed ? 'var(--success-color)' : 'var(--text-secondary)'};"></i>
+                                    <span style="${st.completed ? 'text-decoration: line-through;' : ''}">${st.text}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('viewTodoContent').innerHTML = content;
+
+            // 设置编辑按钮的点击事件
+            document.getElementById('viewTodoEditBtn').onclick = () => {
+                closeModal('viewTodoModal');
+                openEditTask(id);
+            };
+
+            openModal('viewTodoModal');
+        };
+
         window.openEditTask = (id) => {
             const t = state.todos.find(x => x.id === id);
             if(!t) return;
@@ -4447,6 +4612,7 @@
             save();
             closeModal('editModal');
             renderTodos();
+            renderProjects(); // 更新项目统计
         };
 
         window.clearCompleted = () => {
@@ -4800,8 +4966,59 @@
                 editGroupOptions.appendChild(optionDiv);
             });
 
-            // 重新初始化这两个选择器的点击事件
-            initCustomSelect();
+            // 更新项目选择器（添加任务）
+            const projectCustom = document.getElementById('projectSelectCustom');
+            const projectNative = document.getElementById('projectSelect');
+            const projectOptions = projectCustom.querySelector('.custom-select-options');
+            const projectTrigger = projectCustom.querySelector('.custom-select-trigger');
+
+            projectOptions.innerHTML = '';
+            projectNative.innerHTML = '<option value="">无项目</option>';
+
+            // 添加"无项目"选项
+            const noProjectOption = document.createElement('div');
+            noProjectOption.className = 'custom-select-option selected';
+            noProjectOption.dataset.value = '';
+            noProjectOption.textContent = '无项目';
+            noProjectOption.addEventListener('click', (e) => {
+                e.stopPropagation();
+                projectTrigger.innerHTML = '无项目';
+                projectTrigger.dataset.value = '';
+                projectNative.value = '';
+                projectOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                noProjectOption.classList.add('selected');
+                projectCustom.classList.remove('open');
+            });
+            projectOptions.appendChild(noProjectOption);
+
+            state.projects.forEach(p => {
+                // 更新原生select
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.innerText = p.name;
+                projectNative.appendChild(opt);
+
+                // 更新自定义选项
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = p.id;
+                optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${p.color};flex-shrink:0;"></span>${p.name}</span>`;
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    projectTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${p.color};flex-shrink:0;"></span>${p.name}</span>`;
+                    projectTrigger.dataset.value = p.id;
+                    projectNative.value = p.id;
+                    projectOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    projectCustom.classList.remove('open');
+                });
+                projectOptions.appendChild(optionDiv);
+            });
+
+            // 重新初始化这三个选择器的点击事件
+            initCustomSelect('groupSelectCustom');
+            initCustomSelect('projectSelectCustom');
+            initCustomSelect('editGroupSelectCustom');
         }
 
         // 初始化单个自定义选择器
@@ -5125,6 +5342,7 @@
 
                 const div = document.createElement('div');
                 div.className = `transaction-item`;
+                div.dataset.id = t.id; // 添加ID以便高亮
 
                 // 动态设置左侧边框颜色
                 div.style.borderLeftColor = color;
@@ -8372,6 +8590,31 @@
             `;
         }
 
+        // 高亮显示记账记录
+        function highlightTransaction(id) {
+            const items = document.querySelectorAll('.transaction-item');
+            items.forEach(item => {
+                if (parseInt(item.dataset.id) === id) {
+                    // 高亮效果
+                    item.style.animation = 'none';
+                    item.offsetHeight; // 触发重绘
+                    item.style.animation = 'highlight-pulse 1s ease-in-out 3';
+                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    // 其他项变暗
+                    item.style.opacity = '0.3';
+                }
+            });
+
+            // 3秒后恢复
+            setTimeout(() => {
+                items.forEach(item => {
+                    item.style.opacity = '';
+                    item.style.animation = '';
+                });
+            }, 3000);
+        }
+
         // 处理搜索结果点击
         document.addEventListener('click', (e) => {
             const searchItem = e.target.closest('.search-result-item');
@@ -8384,10 +8627,10 @@
 
             // 根据类型执行相应操作
             if (type === 'task') {
-                openEditTask(id);
+                viewTodo(id);
             } else if (type === 'transaction') {
                 switchTab('finance');
-                setTimeout(() => openEditTransaction(id), 100);
+                setTimeout(() => highlightTransaction(id), 100);
             } else if (type === 'template') {
                 switchTab('todo');
                 setTimeout(() => applyTemplate(id), 100);
