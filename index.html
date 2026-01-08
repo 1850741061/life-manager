@@ -2476,7 +2476,7 @@
 
     <!-- 月份详情模态框 -->
     <div class="modal-overlay" id="monthDetailModal">
-        <div class="modal" style="max-width: 600px;">
+        <div class="modal" style="max-width: 800px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0;" id="monthDetailTitle">月份详情</h2>
                 <button class="btn" onclick="closeModal('monthDetailModal')"><i class="fas fa-times"></i></button>
@@ -2495,6 +2495,22 @@
                 <div class="finance-card expense" style="padding: 15px;">
                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">支出</div>
                     <div class="amount" id="monthDetailExpense" style="font-size: 1.2rem;">¥0.00</div>
+                </div>
+            </div>
+
+            <!-- 支出分类饼图 -->
+            <div style="margin-bottom: 25px;">
+                <h3 style="font-size: 0.9rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px;">
+                    <i class="fas fa-chart-pie" style="color: var(--accent-color); margin-right: 8px;"></i>
+                    支出分类占比
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+                    <!-- 饼图 -->
+                    <div style="display: flex; justify-content: center;">
+                        <svg id="expensePieChart" width="250" height="250" viewBox="-1 -1 2 2" style="transform: rotate(-90deg); max-width: 100%;"></svg>
+                    </div>
+                    <!-- 图例 -->
+                    <div id="pieChartLegend" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;"></div>
                 </div>
             </div>
 
@@ -4528,6 +4544,9 @@
                 }
             });
 
+            // 生成饼图
+            renderExpensePieChart(catStats);
+
             // 渲染分类统计
             const catStatsContainer = document.getElementById('monthCategoryStats');
             catStatsContainer.innerHTML = '';
@@ -4653,6 +4672,125 @@
 
         // ========== 分类管理功能 ==========
         let currentCategoryManagerType = 'expense'; // 'expense' or 'income'
+
+        // 生成支出分类饼图
+        function renderExpensePieChart(catStats) {
+            const svg = document.getElementById('expensePieChart');
+            const legend = document.getElementById('pieChartLegend');
+
+            if (!svg || !legend) return;
+
+            // 清空
+            svg.innerHTML = '';
+            legend.innerHTML = '';
+
+            // 过滤出有支出的分类
+            const expenseCategories = Object.entries(catStats)
+                .filter(([cat, stats]) => stats.expense > 0)
+                .sort((a, b) => b[1].expense - a[1].expense);
+
+            if (expenseCategories.length === 0) {
+                // 如果没有支出数据，显示空圆
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', '0');
+                circle.setAttribute('cy', '0');
+                circle.setAttribute('r', '1');
+                circle.setAttribute('fill', 'none');
+                circle.setAttribute('stroke', 'var(--border-color)');
+                circle.setAttribute('stroke-width', '0.1');
+                svg.appendChild(circle);
+
+                legend.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 20px;">本月暂无支出记录</div>';
+                return;
+            }
+
+            // 计算总支出
+            const totalExpense = expenseCategories.reduce((sum, [cat, stats]) => sum + stats.expense, 0);
+
+            // 生成饼图切片
+            let cumulativePercent = 0;
+
+            expenseCategories.forEach(([cat, stats], index) => {
+                const percent = stats.expense / totalExpense;
+                const startPercent = cumulativePercent;
+                const endPercent = cumulativePercent + percent;
+
+                // 计算弧度
+                const startX = Math.cos(2 * Math.PI * startPercent);
+                const startY = Math.sin(2 * Math.PI * startPercent);
+                const endX = Math.cos(2 * Math.PI * endPercent);
+                const endY = Math.sin(2 * Math.PI * endPercent);
+
+                // 判断是否是大角度弧（超过50%）
+                const largeArcFlag = percent > 0.5 ? 1 : 0;
+
+                // 获取分类颜色
+                const catObj = getAllCategories().find(c => c.name === cat);
+                const color = catObj ? catObj.color : stats.color;
+
+                // 创建路径
+                const pathData = `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', color);
+                path.setAttribute('stroke', 'white');
+                path.setAttribute('stroke-width', '0.02');
+                path.style.cursor = 'pointer';
+
+                // 添加hover效果
+                path.addEventListener('mouseenter', () => {
+                    path.setAttribute('opacity', '0.8');
+                    path.setAttribute('transform', 'scale(1.05)');
+                });
+                path.addEventListener('mouseleave', () => {
+                    path.setAttribute('opacity', '1');
+                    path.setAttribute('transform', 'scale(1)');
+                });
+                path.addEventListener('click', () => {
+                    alert(`${cat}: ¥${stats.expense.toFixed(2)} (${(percent * 100).toFixed(1)}%)`);
+                });
+
+                svg.appendChild(path);
+
+                // 添加图例
+                const legendItem = document.createElement('div');
+                legendItem.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px;
+                    background: var(--card-bg);
+                    border: 2px solid var(--border-color);
+                    border-radius: var(--radius);
+                    cursor: pointer;
+                    transition: var(--transition);
+                `;
+                legendItem.addEventListener('mouseenter', () => {
+                    legendItem.style.transform = 'scale(1.05)';
+                    legendItem.style.boxShadow = '2px 2px 0 0 var(--border-color)';
+                });
+                legendItem.addEventListener('mouseleave', () => {
+                    legendItem.style.transform = 'scale(1)';
+                    legendItem.style.boxShadow = 'none';
+                });
+                legendItem.addEventListener('click', () => {
+                    alert(`${cat}: ¥${stats.expense.toFixed(2)} (${(percent * 100).toFixed(1)}%)`);
+                });
+
+                legendItem.innerHTML = `
+                    <div style="width: 20px; height: 20px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cat}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">¥${stats.expense.toFixed(2)} (${(percent * 100).toFixed(1)}%)</div>
+                    </div>
+                `;
+
+                legend.appendChild(legendItem);
+
+                cumulativePercent += percent;
+            });
+        }
 
         // 打开分类管理器
         window.openCategoryManager = () => {
