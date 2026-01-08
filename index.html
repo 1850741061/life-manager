@@ -2513,6 +2513,15 @@
                 <input type="date" id="editRepeatEndDate" placeholder="留空表示永久重复">
                 <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">留空表示任务会一直重复</p>
             </div>
+            <!-- 项目关联 -->
+            <div style="margin-bottom: 20px;">
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
+                    <i class="fas fa-project-diagram"></i> 关联项目
+                </label>
+                <select id="editProjectSelect" style="width: 100%; padding: 10px;">
+                    <option value="">无项目</option>
+                </select>
+            </div>
             <div style="display: flex; justify-content: space-between; gap: 10px;">
                 <button class="btn" onclick="saveAsTemplate()" style="background: var(--warning-color); border-color: var(--warning-color);"><i class="fas fa-save"></i> 保存为模板</button>
                 <div style="display: flex; gap: 10px;">
@@ -3027,6 +3036,26 @@
                 </div>
             </div>
 
+            <!-- 新功能统计卡片 -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid #ec4899; box-shadow: var(--shadow); text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 900; color: #ec4899;" id="statHabits">0</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">习惯总数</div>
+                </div>
+                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid #8b5cf6; box-shadow: var(--shadow); text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 900; color: #8b5cf6;" id="statProjects">0</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">项目总数</div>
+                </div>
+                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid #f59e0b; box-shadow: var(--shadow); text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 900; color: #f59e0b;" id="statCheckIns">0</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">今日打卡</div>
+                </div>
+                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid #10b981; box-shadow: var(--shadow); text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 900; color: #10b981;" id="statArchived">0</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">已归档</div>
+                </div>
+            </div>
+
             <!-- 图表区域 -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
@@ -3201,14 +3230,14 @@
 
             <div style="margin-bottom: 20px;">
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">图标</label>
-                <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px;" id="habitIconGrid">
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;" id="habitIconGrid">
                     <!-- 图标选择 -->
                 </div>
             </div>
 
             <div style="margin-bottom: 20px;">
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">颜色</label>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;" id="habitColorGrid">
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;" id="habitColorGrid">
                     <!-- 颜色选择 -->
                 </div>
             </div>
@@ -4093,6 +4122,7 @@
                     ${subtasksHtml}
                     <div class="todo-actions">
                         <i class="fas fa-grip-vertical action-icon drag-handle" title="拖拽排序" style="cursor: grab; color: var(--text-secondary);"></i>
+                        <i class="fas fa-archive action-icon" onclick="archiveTodo(${t.id})" title="归档任务" style="color: var(--warning-color);"></i>
                         <i class="fas fa-pen action-icon" onclick="openEditTask(${t.id})"></i>
                         <i class="fas fa-trash action-icon" onclick="deleteTodo(${t.id})" style="color:var(--danger-color)"></i>
                     </div>
@@ -4249,6 +4279,28 @@
             save(); renderTodos();
         };
 
+        // 归档单个任务
+        window.archiveTodo = (id) => {
+            const task = state.todos.find(t => t.id === id);
+            if(!task) return;
+
+            if(!confirm(`确定要归档"${task.text}"吗？`)) return;
+
+            // 添加到归档列表
+            task.archivedAt = new Date().toISOString();
+            state.archivedTodos.push(task);
+
+            // 从主列表移除
+            state.todos = state.todos.filter(t => t.id !== id);
+
+            save();
+            renderTodos();
+            renderGroups();
+            renderStats();
+
+            showSyncToast('任务已归档');
+        };
+
         window.openEditTask = (id) => {
             const t = state.todos.find(x => x.id === id);
             if(!t) return;
@@ -4275,6 +4327,12 @@
                 endDateContainer.style.display = 'none';
             }
 
+            // 设置项目关联
+            const projectSelect = document.getElementById('editProjectSelect');
+            projectSelect.innerHTML = '<option value="">无项目</option>' +
+                state.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            projectSelect.value = t.projectId || '';
+
             openModal('editModal');
         };
 
@@ -4287,6 +4345,8 @@
             const priority = getCustomSelectValue('editPriorityCustom');
             const repeat = getCustomSelectValue('editRepeatCustom');
             const repeatEndDate = document.getElementById('editRepeatEndDate').value || null;
+            const projectId = document.getElementById('editProjectSelect').value || null;
+            const project = state.projects.find(p => p.id == projectId);
 
             state.todos = state.todos.map(t => t.id===state.editingId ? {
                 ...t, text, notes: document.getElementById('editNotes').value.trim(),
@@ -4297,7 +4357,10 @@
                 startTime: document.getElementById('editStartTime').value || null,
                 endTime: document.getElementById('editEndTime').value || null,
                 repeat: repeat,
-                repeatEndDate: repeatEndDate
+                repeatEndDate: repeatEndDate,
+                projectId: projectId,
+                projectName: project ? project.name : null,
+                projectColor: project ? project.color : null
             } : t);
             save();
             closeModal('editModal');
@@ -8022,14 +8085,15 @@
                 const results = {
                     todos: searchTodos(query),
                     transactions: searchTransactions(query),
-                    templates: searchTemplates(query)
+                    templates: searchTemplates(query),
+                    projects: searchProjects(query)
                 };
 
                 // 渲染搜索结果
                 renderGlobalSearchResults(results, query);
 
                 // 显示/隐藏无结果提示
-                const totalResults = results.todos.length + results.transactions.length + results.templates.length;
+                const totalResults = results.todos.length + results.transactions.length + results.templates.length + results.projects.length;
                 noResultsDiv.style.display = totalResults === 0 ? 'block' : 'none';
             };
 
@@ -8100,6 +8164,22 @@
             }));
         }
 
+        // 搜索项目
+        function searchProjects(query) {
+            return state.projects.filter(project => {
+                return project.name.toLowerCase().includes(query) ||
+                       (project.description && project.description.toLowerCase().includes(query));
+            }).map(project => ({
+                type: 'project',
+                id: project.id,
+                title: project.name,
+                subtitle: `项目 · ${project.description ? project.description.substring(0, 30) + '...' : '无描述'}`,
+                notes: project.description || '',
+                icon: 'fa-project-diagram',
+                color: project.color
+            }));
+        }
+
         // 渲染全局搜索结果
         function renderGlobalSearchResults(results, query) {
             const container = document.getElementById('globalSearchResults');
@@ -8140,6 +8220,19 @@
                             <h3 style="margin: 0; font-size: 1.1rem;">模板 (${results.templates.length})</h3>
                         </div>
                         ${results.templates.map(item => createSearchResultItem(item, query)).join('')}
+                    </div>
+                `;
+            }
+
+            // 渲染项目结果
+            if (results.projects.length > 0) {
+                html += `
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 3px solid var(--border-color);">
+                            <i class="fas fa-project-diagram" style="color: #8b5cf6; font-size: 1.2rem;"></i>
+                            <h3 style="margin: 0; font-size: 1.1rem;">项目 (${results.projects.length})</h3>
+                        </div>
+                        ${results.projects.map(item => createSearchResultItem(item, query)).join('')}
                     </div>
                 `;
             }
@@ -8193,6 +8286,18 @@
             } else if (type === 'template') {
                 switchTab('todo');
                 setTimeout(() => applyTemplate(id), 100);
+            } else if (type === 'project') {
+                // 打开项目模态框并定位到该项目
+                openModal('projectModal');
+                renderProjects();
+                setTimeout(() => {
+                    // 高亮显示该项目
+                    const projectCards = document.querySelectorAll('#projectList > div');
+                    projectCards.forEach(card => {
+                        card.style.border = '3px solid var(--border-color)';
+                        card.style.transform = '';
+                    });
+                }, 100);
             }
         });
 
@@ -9717,6 +9822,21 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             document.getElementById('statCompleted').textContent = completed;
             document.getElementById('statPending').textContent = pending;
             document.getElementById('statCompletionRate').textContent = completionRate + '%';
+
+            // 新功能统计
+            document.getElementById('statHabits').textContent = state.habits.length;
+            document.getElementById('statProjects').textContent = state.projects.length;
+
+            // 计算今日打卡数
+            const today = new Date().toISOString().split('T')[0];
+            let todayCheckIns = 0;
+            Object.values(state.habitRecords).forEach(records => {
+                if (records[today]) todayCheckIns++;
+            });
+            document.getElementById('statCheckIns').textContent = todayCheckIns;
+
+            // 归档任务数
+            document.getElementById('statArchived').textContent = state.archivedTodos.length;
         }
 
         // 渲染分组任务分布饼图
@@ -9972,6 +10092,11 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
 
         // ========== 键盘快捷键 ==========
         function initKeyboardShortcuts() {
+            // 绑定帮助按钮
+            document.getElementById('helpBtn').onclick = () => {
+                showKeyboardShortcutsHelp();
+            };
+
             document.addEventListener('keydown', (e) => {
                 // Ctrl+N: 快速添加任务
                 if ((e.ctrlKey || e.metaKey) && e.key === 'n' && state.view === 'todo') {
@@ -10023,20 +10148,54 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
 
         // 显示快捷键帮助
         function showKeyboardShortcutsHelp() {
-            const shortcuts = `
-📌 ProLife 键盘快捷键
+            const helpContent = `
+📌 ProLife 功能帮助
 
-⌨️ 基础操作：
+⌨️ 快捷键：
   Ctrl+N        快速添加任务
   Ctrl+F        打开全局搜索
   Ctrl+S        云端同步
   Ctrl+B        切换批量操作
   Ctrl+/        显示此帮助
-  ESC          关闭弹窗/退出
-
-📝 任务操作：
+  ESC          关闭弹窗
   Enter        快速保存任务
-  Delete      删除选中任务
+
+🎯 功能说明：
+
+【任务管理】
+• 点击任务左侧圆圈完成/取消完成
+• 拖拽任务可重新排序
+• 点击编辑图标修改任务
+• 可添加子任务、设置优先级、日期
+• 支持任务分组和项目关联
+
+【归档功能】
+• 批量选中任务后点击"归档"按钮
+• 或在归档界面管理已完成任务
+• 可恢复或永久删除归档任务
+
+【重复任务】
+• 编辑任务时可设置重复周期
+• 支持：每天/每周/每月/每年
+• 完成后自动创建下一次
+• 可设置重复结束日期
+
+【习惯打卡】
+• 点击习惯打卡按钮添加习惯
+• 每天点击"今日打卡"记录
+• 查看连续打卡天数统计
+• 最近7天记录可视化
+
+【项目管理】
+• 点击项目管理按钮创建项目
+• 编辑任务时可关联到项目
+• 查看项目进度和任务统计
+• 支持项目截止日期提醒
+
+【全局搜索】
+• 搜索任务、记账、模板
+• 点击结果直接跳转
+• 支持关键词高亮
 
 💡 提示：
   Mac 用户请使用 Cmd 代替 Ctrl
@@ -10045,22 +10204,22 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
 
             const overlay = createDialogOverlay();
             const dialog = createDialog(`
-                <div style="text-align: left;">
+                <div style="text-align: left; max-height: 70vh; overflow-y: auto;">
                     <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-keyboard" style="color: var(--accent-color); font-size: 1.5rem;"></i>
-                        ProLife 快捷键帮助
+                        <i class="fas fa-question-circle" style="color: var(--accent-color); font-size: 1.5rem;"></i>
+                        ProLife 使用帮助
                     </h3>
                     <div style="
                         white-space: pre-wrap;
-                        font-family: monospace;
+                        font-family: inherit;
                         font-size: 0.9rem;
                         line-height: 1.8;
                         color: var(--text-secondary);
                         background: var(--bg-color);
-                        padding: 15px;
+                        padding: 20px;
                         border-radius: var(--radius);
                         border: 2px solid var(--border-color);
-                    ">${shortcuts}</div>
+                    ">${helpContent}</div>
                 </div>
             `);
 

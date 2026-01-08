@@ -1,6 +1,6 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "feat: add project management with progress tracking and deadline monitoring"
+git commit -m "fix: improve UX with project search, task archiving, and better help"
 git push origin main
 pause
