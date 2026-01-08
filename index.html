@@ -1276,6 +1276,27 @@
                 font-size: 1.2rem !important;
             }
 
+            /* 全局搜索模态框移动端优化 */
+            #globalSearchModal .modal {
+                max-width: calc(100% - 20px) !important;
+                margin: 10px;
+                max-height: calc(100vh - 20px);
+            }
+            #globalSearchInput {
+                font-size: 1rem !important;
+                padding: 12px 40px 12px 15px !important;
+            }
+            #globalSearchResults {
+                max-height: calc(100vh - 250px) !important;
+            }
+            .search-result-item {
+                padding: 10px 12px !important;
+                margin-bottom: 8px !important;
+            }
+            .search-result-item i {
+                font-size: 1.1rem !important;
+            }
+
             /* 显示移动端底部导航 */
             .mobile-bottom-nav { display: block; }
 
@@ -2135,7 +2156,8 @@
                     <button class="btn-icon" id="cloudSyncBtn" title="云端同步"><i class="fas fa-cloud"></i></button>
                     <button class="btn-icon" id="refreshBtn" title="刷新数据"><i class="fas fa-sync-alt"></i></button>
                     <button class="btn-icon" id="importExportBtn" title="导入/导出"><i class="fas fa-exchange-alt"></i></button>
-                    <button class="btn-icon" id="themeToggle"><i class="fas fa-moon"></i></button>
+                    <button class="btn-icon" id="themeToggle" title="切换主题"><i class="fas fa-moon"></i></button>
+                    <button class="btn-icon" id="helpBtn" title="快捷键帮助"><i class="fas fa-keyboard"></i></button>
                 </div>
             </div>
         </header>
@@ -3000,6 +3022,36 @@
         </div>
     </div>
 
+    <!-- 全局搜索模态框 -->
+    <div class="modal-overlay" id="globalSearchModal">
+        <div class="modal" style="max-width: 700px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;"><i class="fas fa-search"></i> 全局搜索</h2>
+                <button class="btn" onclick="closeModal('globalSearchModal')"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- 搜索输入框 -->
+            <div style="margin-bottom: 20px;">
+                <div style="position: relative;">
+                    <input type="text" id="globalSearchInput" placeholder="搜索任务、记账记录、模板..." style="width: 100%; padding: 12px 40px 12px 15px; font-size: 1rem; border: 3px solid var(--border-color); border-radius: var(--radius);">
+                    <i class="fas fa-search" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                </div>
+            </div>
+
+            <!-- 搜索结果区域 -->
+            <div id="globalSearchResults" style="max-height: 500px; overflow-y: auto;">
+                <!-- 搜索结果将在这里动态显示 -->
+            </div>
+
+            <!-- 无结果提示 -->
+            <div id="globalSearchNoResults" style="display: none; text-align: center; padding: 40px; color: var(--text-secondary);">
+                <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                <div>未找到相关结果</div>
+                <div style="font-size: 0.9rem; margin-top: 5px;">请尝试其他关键词</div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Electron 窗口控制（仅在 Electron 环境中执行）---
         // --- 环境检测与标题栏控制 ---
@@ -3155,6 +3207,7 @@
             updateTodoFilterUI();
             // 新增功能初始化
             initSearchFeature();
+            initGlobalSearch();
             initBatchMode();
             initNotifications();
             initDragAndDrop();
@@ -5349,6 +5402,11 @@
             localStorage.setItem('theme', isD?'dark':'light');
             document.getElementById('themeToggle').innerHTML = isD?'<i class="fas fa-sun"></i>':'<i class="fas fa-moon"></i>';
         };
+
+        // 快捷键帮助按钮
+        document.getElementById('helpBtn').onclick = () => {
+            showKeyboardShortcutsHelp();
+        };
     </script>
 
     <!-- Service Worker 注册 -->
@@ -7512,30 +7570,19 @@
             const searchInput = document.getElementById('searchInput');
             const clearBtn = document.getElementById('clearSearchBtn');
 
-            // 点击搜索按钮切换搜索框显示
+            // 点击搜索按钮打开全局搜索模态框
             searchBtn.onclick = () => {
-                // 移动端使用专用搜索框
-                if (window.innerWidth <= 768) {
-                    const mobileSearchContainer = document.getElementById('mobileSearchContainer');
-                    const mobileSearchInput = document.getElementById('mobileSearchInput');
-                    const currentDisplay = window.getComputedStyle(mobileSearchContainer).display;
-                    const isVisible = currentDisplay !== 'none';
-                    mobileSearchContainer.style.display = isVisible ? 'none' : 'block';
-                    if (!isVisible) {
-                        setTimeout(() => mobileSearchInput.focus(), 100);
-                    }
-                } else {
-                    // 桌面端使用原搜索框
-                    const currentDisplay = window.getComputedStyle(searchBox).display;
-                    const isVisible = currentDisplay !== 'none';
-                    searchBox.style.display = isVisible ? 'none' : 'block';
-                    if (!isVisible) {
-                        setTimeout(() => searchInput.focus(), 100);
-                    }
-                }
+                openModal('globalSearchModal');
+                setTimeout(() => {
+                    const globalSearchInput = document.getElementById('globalSearchInput');
+                    globalSearchInput.value = '';
+                    globalSearchInput.focus();
+                    document.getElementById('globalSearchResults').innerHTML = '';
+                    document.getElementById('globalSearchNoResults').style.display = 'none';
+                }, 100);
             };
 
-            // 实时搜索
+            // 实时搜索（保留原有功能用于任务列表内搜索）
             searchInput.oninput = (e) => {
                 state.searchQuery = e.target.value.toLowerCase();
                 renderTodos();
@@ -7577,6 +7624,200 @@
                 }
             };
         }
+
+        // --- 全局搜索功能 ---
+        function initGlobalSearch() {
+            const globalSearchInput = document.getElementById('globalSearchInput');
+
+            // 实时搜索
+            globalSearchInput.oninput = (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                const resultsContainer = document.getElementById('globalSearchResults');
+                const noResultsDiv = document.getElementById('globalSearchNoResults');
+
+                if (!query) {
+                    resultsContainer.innerHTML = '';
+                    noResultsDiv.style.display = 'none';
+                    return;
+                }
+
+                // 搜索所有模块
+                const results = {
+                    todos: searchTodos(query),
+                    transactions: searchTransactions(query),
+                    templates: searchTemplates(query)
+                };
+
+                // 渲染搜索结果
+                renderGlobalSearchResults(results, query);
+
+                // 显示/隐藏无结果提示
+                const totalResults = results.todos.length + results.transactions.length + results.templates.length;
+                noResultsDiv.style.display = totalResults === 0 ? 'block' : 'none';
+            };
+
+            // 支持 Ctrl+F 快捷键打开全局搜索
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    e.preventDefault();
+                    openModal('globalSearchModal');
+                    setTimeout(() => {
+                        globalSearchInput.value = '';
+                        globalSearchInput.focus();
+                        document.getElementById('globalSearchResults').innerHTML = '';
+                        document.getElementById('globalSearchNoResults').style.display = 'none';
+                    }, 100);
+                }
+            });
+        }
+
+        // 搜索任务
+        function searchTodos(query) {
+            return state.todos.filter(todo => {
+                return todo.text.toLowerCase().includes(query) ||
+                       (todo.notes && todo.notes.toLowerCase().includes(query)) ||
+                       (todo.groupName && todo.groupName.toLowerCase().includes(query));
+            }).map(todo => ({
+                type: 'task',
+                id: todo.id,
+                title: todo.text,
+                subtitle: todo.groupName || '无分组',
+                notes: todo.notes || '',
+                completed: todo.completed,
+                icon: todo.completed ? 'fa-check-circle' : 'fa-circle',
+                color: todo.completed ? 'var(--success-color)' : todo.groupColor || 'var(--accent-color)'
+            }));
+        }
+
+        // 搜索记账记录
+        function searchTransactions(query) {
+            return state.transactions.filter(trans => {
+                return trans.category.toLowerCase().includes(query) ||
+                       (trans.note && trans.note.toLowerCase().includes(query) ||
+                        trans.amount.toString().includes(query));
+            }).map(trans => ({
+                type: 'transaction',
+                id: trans.id,
+                title: `${trans.category} - ¥${trans.amount}`,
+                subtitle: `${trans.type === 'expense' ? '支出' : '收入'} · ${trans.date}`,
+                notes: trans.note || '',
+                icon: trans.type === 'expense' ? 'fa-arrow-down' : 'fa-arrow-up',
+                color: trans.type === 'expense' ? 'var(--danger-color)' : 'var(--success-color)'
+            }));
+        }
+
+        // 搜索模板
+        function searchTemplates(query) {
+            return state.templates.filter(template => {
+                return template.text.toLowerCase().includes(query) ||
+                       (template.notes && template.notes.toLowerCase().includes(query)) ||
+                       (template.groupName && template.groupName.toLowerCase().includes(query));
+            }).map(template => ({
+                type: 'template',
+                id: template.id,
+                title: template.text,
+                subtitle: `模板 · ${template.groupName || '无分组'}`,
+                notes: template.notes || '',
+                icon: 'fa-clone',
+                color: 'var(--warning-color)'
+            }));
+        }
+
+        // 渲染全局搜索结果
+        function renderGlobalSearchResults(results, query) {
+            const container = document.getElementById('globalSearchResults');
+            let html = '';
+
+            // 渲染任务结果
+            if (results.todos.length > 0) {
+                html += `
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 3px solid var(--border-color);">
+                            <i class="fas fa-tasks" style="color: var(--accent-color); font-size: 1.2rem;"></i>
+                            <h3 style="margin: 0; font-size: 1.1rem;">任务 (${results.todos.length})</h3>
+                        </div>
+                        ${results.todos.map(item => createSearchResultItem(item, query)).join('')}
+                    </div>
+                `;
+            }
+
+            // 渲染记账结果
+            if (results.transactions.length > 0) {
+                html += `
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 3px solid var(--border-color);">
+                            <i class="fas fa-wallet" style="color: var(--success-color); font-size: 1.2rem;"></i>
+                            <h3 style="margin: 0; font-size: 1.1rem;">记账 (${results.transactions.length})</h3>
+                        </div>
+                        ${results.transactions.map(item => createSearchResultItem(item, query)).join('')}
+                    </div>
+                `;
+            }
+
+            // 渲染模板结果
+            if (results.templates.length > 0) {
+                html += `
+                    <div style="margin-bottom: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 3px solid var(--border-color);">
+                            <i class="fas fa-clone" style="color: var(--warning-color); font-size: 1.2rem;"></i>
+                            <h3 style="margin: 0; font-size: 1.1rem;">模板 (${results.templates.length})</h3>
+                        </div>
+                        ${results.templates.map(item => createSearchResultItem(item, query)).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // 创建搜索结果项
+        function createSearchResultItem(item, query) {
+            // 高亮搜索关键词
+            const highlightText = (text) => {
+                if (!text) return '';
+                const regex = new RegExp(`(${query})`, 'gi');
+                return text.replace(regex, '<mark style="background: var(--warning-color); padding: 2px 4px; border-radius: 3px;">$1</mark>');
+            };
+
+            return `
+                <div class="search-result-item"
+                     data-type="${item.type}"
+                     data-id="${item.id}"
+                     style="padding: 12px 15px; margin-bottom: 10px; background: var(--card-bg); border: 3px solid var(--border-color); border-radius: var(--radius); cursor: pointer; transition: var(--transition); display: flex; align-items: flex-start; gap: 12px;"
+                     onmouseover="this.style.transform = 'translate(-2px, -2px)'; this.style.boxShadow = 'var(--shadow)';"
+                     onmouseout="this.style.transform = ''; this.style.boxShadow = '';">
+                    <i class="fas ${item.icon}" style="color: ${item.color}; font-size: 1.3rem; margin-top: 2px;"></i>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 600; font-size: 1rem; margin-bottom: 4px; word-break: break-word;">${highlightText(item.title)}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">${item.subtitle}</div>
+                        ${item.notes ? `<div style="font-size: 0.85rem; color: var(--text-secondary); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${highlightText(item.notes)}</div>` : ''}
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 5px;"></i>
+                </div>
+            `;
+        }
+
+        // 处理搜索结果点击
+        document.addEventListener('click', (e) => {
+            const searchItem = e.target.closest('.search-result-item');
+            if (!searchItem) return;
+
+            const type = searchItem.dataset.type;
+            const id = parseInt(searchItem.dataset.id);
+
+            closeModal('globalSearchModal');
+
+            // 根据类型执行相应操作
+            if (type === 'task') {
+                editTodo(id);
+            } else if (type === 'transaction') {
+                switchTab('finance');
+                setTimeout(() => openEditTransaction(id), 100);
+            } else if (type === 'template') {
+                switchTab('todo');
+                setTimeout(() => applyTemplate(id), 100);
+            }
+        });
 
         // --- 2. 批量操作功能 ---
         function initBatchMode() {
@@ -8570,16 +8811,6 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                     document.getElementById('todoInput').focus();
                 }
 
-                // Ctrl+F: 打开搜索
-                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-                    e.preventDefault();
-                    const searchBtn = document.getElementById('searchBtn');
-                    searchBtn.click();
-                    setTimeout(() => {
-                        document.getElementById('searchInput')?.focus();
-                    }, 100);
-                }
-
                 // Ctrl+/: 显示快捷键帮助
                 if ((e.ctrlKey || e.metaKey) && e.key === '/') {
                     e.preventDefault();
@@ -8627,21 +8858,45 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             const shortcuts = `
 📌 ProLife 键盘快捷键
 
-基础操作：
+⌨️ 基础操作：
   Ctrl+N        快速添加任务
-  Ctrl+F        打开搜索
+  Ctrl+F        打开全局搜索
   Ctrl+S        云端同步
-  Ctrl+B        切换批量模式
+  Ctrl+B        切换批量操作
   Ctrl+/        显示此帮助
-  ESC           关闭弹窗
+  ESC          关闭弹窗/退出
 
-任务操作：
-  Enter         快速保存任务
+📝 任务操作：
+  Enter        快速保存任务
+  Delete      删除选中任务
 
-提示：Mac 用户请使用 Cmd 代替 Ctrl
+💡 提示：
+  Mac 用户请使用 Cmd 代替 Ctrl
+  快捷键在任务输入框外生效
             `.trim();
 
-            alert(shortcuts);
+            const overlay = createDialogOverlay();
+            const dialog = createDialog(`
+                <div style="text-align: left;">
+                    <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-keyboard" style="color: var(--accent-color); font-size: 1.5rem;"></i>
+                        ProLife 快捷键帮助
+                    </h3>
+                    <div style="
+                        white-space: pre-wrap;
+                        font-family: monospace;
+                        font-size: 0.9rem;
+                        line-height: 1.8;
+                        color: var(--text-secondary);
+                        background: var(--bg-color);
+                        padding: 15px;
+                        border-radius: var(--radius);
+                        border: 2px solid var(--border-color);
+                    ">${shortcuts}</div>
+                </div>
+            `);
+
+            setupDialogButtons(overlay, dialog, '知道了', null);
         }
 
         // ========== 子任务展开/折叠 ==========
