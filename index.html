@@ -2271,16 +2271,6 @@
                             <input type="time" id="todoEndTime" title="结束时间" style="flex: 1;">
                         </div>
 
-                        <!-- 分组/项目切换 -->
-                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <button class="btn" id="todoTaskTypeGroup" onclick="setTodoTaskType('group')" style="flex: 1; padding: 8px;">
-                                <i class="fas fa-grip-vertical"></i> 分组
-                            </button>
-                            <button class="btn" id="todoTaskTypeProject" onclick="setTodoTaskType('project')" style="flex: 1; padding: 8px;">
-                                <i class="fas fa-project-diagram"></i> 项目
-                            </button>
-                        </div>
-
                         <!-- 分组选择器 - 自定义下拉 -->
                         <div class="custom-select" id="groupSelectCustom">
                             <div class="custom-select-trigger" data-value="default">选择分组</div>
@@ -2289,8 +2279,8 @@
                         </div>
 
                         <!-- 项目选择器 - 自定义下拉 -->
-                        <div class="custom-select" id="projectSelectCustom" style="margin-top: 10px; display: none;">
-                            <div class="custom-select-trigger" data-value="">选择项目</div>
+                        <div class="custom-select" id="projectSelectCustom" style="margin-top: 10px;">
+                            <div class="custom-select-trigger" data-value="">选择项目（可选）</div>
                             <div class="custom-select-options"></div>
                             <select id="projectSelect" class="native-select-hidden">
                                 <option value="">无项目</option>
@@ -2550,17 +2540,7 @@
                 </div>
             </div>
 
-            <!-- 分组/项目切换 -->
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <button class="btn" id="editTaskTypeGroup" onclick="setEditTaskType('group')" style="flex: 1; padding: 8px;">
-                    <i class="fas fa-grip-vertical"></i> 分组
-                </button>
-                <button class="btn" id="editTaskTypeProject" onclick="setEditTaskType('project')" style="flex: 1; padding: 8px;">
-                    <i class="fas fa-project-diagram"></i> 项目
-                </button>
-            </div>
-
-            <div id="editGroupSelectWrapper" style="margin-bottom: 20px;">
+            <div style="margin-bottom: 20px;">
                  <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">分组</label>
                 <div class="custom-select" id="editGroupSelectCustom">
                     <div class="custom-select-trigger" data-value="default">选择分组</div>
@@ -2599,9 +2579,10 @@
                 <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">留空表示任务会一直重复</p>
             </div>
 
-            <div id="editProjectSelectWrapper" style="margin-bottom: 20px; display: none;">
+            <!-- 项目关联 -->
+            <div style="margin-bottom: 20px;">
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
-                    <i class="fas fa-project-diagram"></i> 选择项目
+                    <i class="fas fa-project-diagram"></i> 关联项目（可选）
                 </label>
                 <select id="editProjectSelect" style="width: 100%; padding: 10px;">
                     <option value="">无项目</option>
@@ -4007,8 +3988,9 @@
             const project = state.projects.find(p => p.id === id);
             if (!project) return;
 
-            // 设置当前项目过滤
+            // 点击项目时，清除分组选择
             state.currentProjectId = id;
+            state.currentGroupId = 'all';
 
             // 显示项目筛选提示条
             const filterBar = document.getElementById('projectFilterBar');
@@ -4017,6 +3999,7 @@
             projectNameEl.textContent = project.name;
 
             // 更新UI
+            renderGroups();
             renderSidebarProjects();
             renderTodos();
 
@@ -4030,8 +4013,13 @@
         };
 
         window.selectGroup = (id) => {
+            // 点击分组时，清除项目选择
             state.currentGroupId = id;
+            state.currentProjectId = null;
+            document.getElementById('projectFilterBar').style.display = 'none';
+
             renderGroups();
+            renderSidebarProjects();
             renderTodos();
 
             // 联动：自动切换添加任务的分组选择器
@@ -4039,7 +4027,7 @@
                 setCustomSelectValue('groupSelectCustom', id);
             }
 
-            // 移动端：关闭侧边栏并更新按钮文本
+            // 移动端：关闭侧边栏
             if (window.innerWidth <= 768) {
                 const sidebar = document.querySelector('.sidebar');
                 const overlay = document.getElementById('mobileSidebarOverlay');
@@ -4086,38 +4074,6 @@
             renderGroups();
         };
 
-        // --- 待办任务类型切换（分组/项目）---
-        let todoTaskType = 'group'; // 'group' 或 'project'
-
-        window.setTodoTaskType = (type) => {
-            todoTaskType = type;
-
-            const groupBtn = document.getElementById('todoTaskTypeGroup');
-            const projectBtn = document.getElementById('todoTaskTypeProject');
-            const groupSelect = document.getElementById('groupSelectCustom');
-            const projectSelect = document.getElementById('projectSelectCustom');
-
-            if (type === 'group') {
-                groupBtn.style.background = 'var(--accent-color)';
-                groupBtn.style.color = 'white';
-                groupBtn.style.borderColor = 'var(--accent-color)';
-                projectBtn.style.background = '';
-                projectBtn.style.color = '';
-                projectBtn.style.borderColor = 'var(--border-color)';
-                groupSelect.style.display = 'block';
-                projectSelect.style.display = 'none';
-            } else {
-                projectBtn.style.background = '#8b5cf6';
-                projectBtn.style.color = 'white';
-                projectBtn.style.borderColor = '#8b5cf6';
-                groupBtn.style.background = '';
-                groupBtn.style.color = '';
-                groupBtn.style.borderColor = 'var(--border-color)';
-                groupSelect.style.display = 'none';
-                projectSelect.style.display = 'block';
-            }
-        };
-
         // --- 待办逻辑 ---
         document.getElementById('addBtn').onclick = addTodo;
         document.getElementById('todoInput').onkeypress = e => { if(e.key==='Enter') addTodo(); };
@@ -4129,54 +4085,31 @@
             const dateInput = document.getElementById('todoDate').value;
             const dateStr = dateInput ? dateInput : new Date().toISOString().split('T')[0];
 
+            const gId = getCustomSelectValue('groupSelectCustom');
+            const group = state.groups.find(g => g.id === gId) || state.groups[0];
+
             const startTime = document.getElementById('todoStartTime').value;
             const endTime = document.getElementById('todoEndTime').value;
             const priority = getCustomSelectValue('prioritySelectCustom');
 
-            let newTask = {
+            // 读取项目选择器
+            const projectId = getCustomSelectValue('projectSelectCustom') || null;
+            const project = projectId ? state.projects.find(p => p.id == projectId) : null;
+
+            state.todos.unshift({
                 id: Date.now(),
                 text, notes: document.getElementById('todoNotes').value.trim(),
                 completed: false, priority: priority,
+                groupId: gId, groupName: group.name, groupColor: group.color,
                 date: dateStr,
                 startTime: startTime || null,
                 endTime: endTime || null,
+                projectId: projectId,
+                projectName: project ? project.name : null,
+                projectColor: project ? project.color : null,
                 subtasks: [],
                 createdAt: new Date().toISOString()
-            };
-
-            // 根据任务类型添加分组或项目信息
-            if (todoTaskType === 'group') {
-                const gId = getCustomSelectValue('groupSelectCustom');
-                const group = state.groups.find(g => g.id === gId) || state.groups[0];
-                newTask.groupId = gId;
-                newTask.groupName = group.name;
-                newTask.groupColor = group.color;
-                newTask.projectId = null;
-                newTask.projectName = null;
-                newTask.projectColor = null;
-            } else {
-                const projectId = getCustomSelectValue('projectSelectCustom');
-                const project = state.projects.find(p => p.id == projectId);
-                if (project) {
-                    newTask.projectId = projectId;
-                    newTask.projectName = project.name;
-                    newTask.projectColor = project.color;
-                    newTask.groupId = null;
-                    newTask.groupName = null;
-                    newTask.groupColor = null;
-                } else {
-                    // 如果没有选择项目，默认使用第一个分组
-                    const group = state.groups[0];
-                    newTask.groupId = group.id;
-                    newTask.groupName = group.name;
-                    newTask.groupColor = group.color;
-                    newTask.projectId = null;
-                    newTask.projectName = null;
-                    newTask.projectColor = null;
-                }
-            }
-
-            state.todos.unshift(newTask);
+            });
 
             document.getElementById('todoInput').value = '';
             document.getElementById('todoNotes').value = '';
@@ -4211,18 +4144,14 @@
 
             let list = state.todos;
 
-            // 分组筛选
-            if(state.currentGroupId !== 'all') {
-                list = list.filter(t => t.groupId === state.currentGroupId);
-            } else {
-                // 当查看"全部任务"时，只显示非项目任务（属于分组的任务）
-                list = list.filter(t => !t.projectId);
-            }
-
-            // 项目筛选
+            // 项目视图：显示该项目的所有任务（不管分组）
             if(state.currentProjectId) {
                 list = list.filter(t => t.projectId === state.currentProjectId);
+            } else if(state.currentGroupId !== 'all') {
+                // 分组视图：只显示该分组且不属于项目的任务
+                list = list.filter(t => t.groupId === state.currentGroupId && !t.projectId);
             }
+            // "全部任务"：只显示不属于任何项目的任务
 
             if(state.filter === 'active') list = list.filter(t => !t.completed);
             if(state.filter === 'completed') list = list.filter(t => t.completed);
@@ -6218,11 +6147,6 @@
             const isD = document.body.classList.contains('dark-mode');
             localStorage.setItem('theme', isD?'dark':'light');
             document.getElementById('themeToggle').innerHTML = isD?'<i class="fas fa-sun"></i>':'<i class="fas fa-moon"></i>';
-        };
-
-        // 快捷键帮助按钮
-        document.getElementById('helpBtn').onclick = () => {
-            showKeyboardShortcutsHelp();
         };
     </script>
 
@@ -8679,7 +8603,7 @@
                     // 高亮效果
                     item.style.animation = 'none';
                     item.offsetHeight; // 触发重绘
-                    item.style.animation = 'highlight-pulse 1s ease-in-out 3';
+                    item.style.animation = 'highlight-pulse 1s ease-in-out 2';
                     item.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 } else {
                     // 其他项变暗
@@ -8687,13 +8611,13 @@
                 }
             });
 
-            // 3秒后恢复
+            // 2秒后恢复
             setTimeout(() => {
                 items.forEach(item => {
                     item.style.opacity = '';
                     item.style.animation = '';
                 });
-            }, 3000);
+            }, 2000);
         }
 
         // 处理搜索结果点击
