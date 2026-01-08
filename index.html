@@ -4358,7 +4358,7 @@
                 if(t.type==='income') inc+=parseFloat(t.amount); else exp+=parseFloat(t.amount);
 
                 // 获取分类颜色对象
-                const catObj = financeCats.find(c => c.name === t.category);
+                const catObj = getAllCategories().find(c => c.name === t.category);
                 const color = catObj ? catObj.color : '#ccc'; // 兼容旧数据
 
                 const div = document.createElement('div');
@@ -4454,7 +4454,7 @@
                 transactions
                     .sort((a,b) => new Date(b.date) - new Date(a.date))
                     .forEach(t => {
-                        const catObj = financeCats.find(c => c.name === t.category);
+                        const catObj = getAllCategories().find(c => c.name === t.category);
                         const color = catObj ? catObj.color : '#ccc';
 
                         const div = document.createElement('div');
@@ -4536,7 +4536,7 @@
                 const div = document.createElement('div');
                 div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: var(--radius);';
 
-                const catObj = financeCats.find(c => c.name === cat);
+                const catObj = getAllCategories().find(c => c.name === cat);
                 const color = catObj ? catObj.color : stats.color;
 
                 div.innerHTML = `
@@ -4558,7 +4558,7 @@
             monthTransactions
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
                 .forEach(t => {
-                    const catObj = financeCats.find(c => c.name === t.category);
+                    const catObj = getAllCategories().find(c => c.name === t.category);
                     const color = catObj ? catObj.color : '#ccc';
 
                     const div = document.createElement('div');
@@ -4593,7 +4593,7 @@
             if(!cat || !amt || !date) return alert('请填写完整');
 
             // 获取对应颜色
-            const catObj = financeCats.find(c => c.name === cat);
+            const catObj = getAllCategories().find(c => c.name === cat);
 
             state.transactions.unshift({id:Date.now(), type, date, category:cat, amount:amt, note, catColor: catObj.color});
             save();
@@ -4630,7 +4630,7 @@
             if(!category || !amount || !date) return alert('请填写完整');
 
             // 更新颜色
-            const catObj = financeCats.find(c => c.name === category);
+            const catObj = getAllCategories().find(c => c.name === category);
 
             state.transactions = state.transactions.map(t => t.id === state.editingTransId ? {
                 ...t, type, date, category, amount, note, catColor: catObj.color
