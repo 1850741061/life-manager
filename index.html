@@ -2270,6 +2270,17 @@
                             <span style="font-weight: 700; color: var(--text-secondary);">至</span>
                             <input type="time" id="todoEndTime" title="结束时间" style="flex: 1;">
                         </div>
+
+                        <!-- 分组/项目切换 -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <button class="btn" id="todoTaskTypeGroup" onclick="setTodoTaskType('group')" style="flex: 1; padding: 8px;">
+                                <i class="fas fa-grip-vertical"></i> 分组
+                            </button>
+                            <button class="btn" id="todoTaskTypeProject" onclick="setTodoTaskType('project')" style="flex: 1; padding: 8px;">
+                                <i class="fas fa-project-diagram"></i> 项目
+                            </button>
+                        </div>
+
                         <!-- 分组选择器 - 自定义下拉 -->
                         <div class="custom-select" id="groupSelectCustom">
                             <div class="custom-select-trigger" data-value="default">选择分组</div>
@@ -2278,8 +2289,8 @@
                         </div>
 
                         <!-- 项目选择器 - 自定义下拉 -->
-                        <div class="custom-select" id="projectSelectCustom" style="margin-top: 10px;">
-                            <div class="custom-select-trigger" data-value="">选择项目（可选）</div>
+                        <div class="custom-select" id="projectSelectCustom" style="margin-top: 10px; display: none;">
+                            <div class="custom-select-trigger" data-value="">选择项目</div>
                             <div class="custom-select-options"></div>
                             <select id="projectSelect" class="native-select-hidden">
                                 <option value="">无项目</option>
@@ -2538,7 +2549,18 @@
                     <input type="time" id="editEndTime" style="flex: 1;">
                 </div>
             </div>
-            <div style="margin-bottom: 20px;">
+
+            <!-- 分组/项目切换 -->
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button class="btn" id="editTaskTypeGroup" onclick="setEditTaskType('group')" style="flex: 1; padding: 8px;">
+                    <i class="fas fa-grip-vertical"></i> 分组
+                </button>
+                <button class="btn" id="editTaskTypeProject" onclick="setEditTaskType('project')" style="flex: 1; padding: 8px;">
+                    <i class="fas fa-project-diagram"></i> 项目
+                </button>
+            </div>
+
+            <div id="editGroupSelectWrapper" style="margin-bottom: 20px;">
                  <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">分组</label>
                 <div class="custom-select" id="editGroupSelectCustom">
                     <div class="custom-select-trigger" data-value="default">选择分组</div>
@@ -2546,6 +2568,7 @@
                     <select id="editGroupSelect" class="native-select-hidden"></select>
                 </div>
             </div>
+
             <!-- 重复设置 -->
             <div style="margin-bottom: 20px;">
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
@@ -2575,10 +2598,10 @@
                 <input type="date" id="editRepeatEndDate" placeholder="留空表示永久重复">
                 <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">留空表示任务会一直重复</p>
             </div>
-            <!-- 项目关联 -->
-            <div style="margin-bottom: 20px;">
+
+            <div id="editProjectSelectWrapper" style="margin-bottom: 20px; display: none;">
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
-                    <i class="fas fa-project-diagram"></i> 关联项目
+                    <i class="fas fa-project-diagram"></i> 选择项目
                 </label>
                 <select id="editProjectSelect" style="width: 100%; padding: 10px;">
                     <option value="">无项目</option>
@@ -4063,6 +4086,38 @@
             renderGroups();
         };
 
+        // --- 待办任务类型切换（分组/项目）---
+        let todoTaskType = 'group'; // 'group' 或 'project'
+
+        window.setTodoTaskType = (type) => {
+            todoTaskType = type;
+
+            const groupBtn = document.getElementById('todoTaskTypeGroup');
+            const projectBtn = document.getElementById('todoTaskTypeProject');
+            const groupSelect = document.getElementById('groupSelectCustom');
+            const projectSelect = document.getElementById('projectSelectCustom');
+
+            if (type === 'group') {
+                groupBtn.style.background = 'var(--accent-color)';
+                groupBtn.style.color = 'white';
+                groupBtn.style.borderColor = 'var(--accent-color)';
+                projectBtn.style.background = '';
+                projectBtn.style.color = '';
+                projectBtn.style.borderColor = 'var(--border-color)';
+                groupSelect.style.display = 'block';
+                projectSelect.style.display = 'none';
+            } else {
+                projectBtn.style.background = '#8b5cf6';
+                projectBtn.style.color = 'white';
+                projectBtn.style.borderColor = '#8b5cf6';
+                groupBtn.style.background = '';
+                groupBtn.style.color = '';
+                groupBtn.style.borderColor = 'var(--border-color)';
+                groupSelect.style.display = 'none';
+                projectSelect.style.display = 'block';
+            }
+        };
+
         // --- 待办逻辑 ---
         document.getElementById('addBtn').onclick = addTodo;
         document.getElementById('todoInput').onkeypress = e => { if(e.key==='Enter') addTodo(); };
@@ -4074,31 +4129,54 @@
             const dateInput = document.getElementById('todoDate').value;
             const dateStr = dateInput ? dateInput : new Date().toISOString().split('T')[0];
 
-            const gId = getCustomSelectValue('groupSelectCustom');
-            const group = state.groups.find(g => g.id === gId) || state.groups[0];
-
             const startTime = document.getElementById('todoStartTime').value;
             const endTime = document.getElementById('todoEndTime').value;
             const priority = getCustomSelectValue('prioritySelectCustom');
 
-            // 读取项目选择器
-            const projectId = getCustomSelectValue('projectSelectCustom') || null;
-            const project = projectId ? state.projects.find(p => p.id == projectId) : null;
-
-            state.todos.unshift({
+            let newTask = {
                 id: Date.now(),
                 text, notes: document.getElementById('todoNotes').value.trim(),
                 completed: false, priority: priority,
-                groupId: gId, groupName: group.name, groupColor: group.color,
                 date: dateStr,
                 startTime: startTime || null,
                 endTime: endTime || null,
-                projectId: projectId,
-                projectName: project ? project.name : null,
-                projectColor: project ? project.color : null,
                 subtasks: [],
                 createdAt: new Date().toISOString()
-            });
+            };
+
+            // 根据任务类型添加分组或项目信息
+            if (todoTaskType === 'group') {
+                const gId = getCustomSelectValue('groupSelectCustom');
+                const group = state.groups.find(g => g.id === gId) || state.groups[0];
+                newTask.groupId = gId;
+                newTask.groupName = group.name;
+                newTask.groupColor = group.color;
+                newTask.projectId = null;
+                newTask.projectName = null;
+                newTask.projectColor = null;
+            } else {
+                const projectId = getCustomSelectValue('projectSelectCustom');
+                const project = state.projects.find(p => p.id == projectId);
+                if (project) {
+                    newTask.projectId = projectId;
+                    newTask.projectName = project.name;
+                    newTask.projectColor = project.color;
+                    newTask.groupId = null;
+                    newTask.groupName = null;
+                    newTask.groupColor = null;
+                } else {
+                    // 如果没有选择项目，默认使用第一个分组
+                    const group = state.groups[0];
+                    newTask.groupId = group.id;
+                    newTask.groupName = group.name;
+                    newTask.groupColor = group.color;
+                    newTask.projectId = null;
+                    newTask.projectName = null;
+                    newTask.projectColor = null;
+                }
+            }
+
+            state.todos.unshift(newTask);
 
             document.getElementById('todoInput').value = '';
             document.getElementById('todoNotes').value = '';
@@ -4136,6 +4214,9 @@
             // 分组筛选
             if(state.currentGroupId !== 'all') {
                 list = list.filter(t => t.groupId === state.currentGroupId);
+            } else {
+                // 当查看"全部任务"时，只显示非项目任务（属于分组的任务）
+                list = list.filter(t => !t.projectId);
             }
 
             // 项目筛选
@@ -8629,10 +8710,10 @@
             if (type === 'task') {
                 viewTodo(id);
             } else if (type === 'transaction') {
-                switchTab('finance');
+                switchView('finance');
                 setTimeout(() => highlightTransaction(id), 100);
             } else if (type === 'template') {
-                switchTab('todo');
+                switchView('todo');
                 setTimeout(() => applyTemplate(id), 100);
             } else if (type === 'project') {
                 // 打开项目模态框并定位到该项目
