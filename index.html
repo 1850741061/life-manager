@@ -1350,6 +1350,151 @@
                 transform: scale(0.95);
             }
 
+            /* 月度详情模态框移动端优化 */
+            #monthDetailModal .modal {
+                max-width: 100% !important;
+                margin: 10px;
+                max-height: calc(100vh - 20px) !important;
+            }
+
+            #monthDetailModal .modal h2 {
+                font-size: 1.1rem !important;
+            }
+
+            /* 月度统计卡片 - 移动端改为垂直排列 */
+            .month-stats-cards {
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
+            }
+
+            .month-stats-cards .finance-card {
+                padding: 12px !important;
+            }
+
+            .month-stats-cards .amount {
+                font-size: 1.3rem !important;
+            }
+
+            /* 饼图容器 - 移动端改为垂直排列 */
+            .pie-chart-container {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+
+            .pie-chart-container svg {
+                max-width: 200px !important;
+                height: auto !important;
+            }
+
+            #pieChartLegend {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 8px !important;
+            }
+
+            #pieChartLegend div {
+                font-size: 0.85rem !important;
+                padding: 6px !important;
+            }
+
+            #pieChartLegend div div:last-child {
+                font-size: 0.8rem !important;
+            }
+
+            /* 分类统计卡片移动端优化 */
+            #monthCategoryStats > div {
+                padding: 10px !important;
+                font-size: 0.85rem !important;
+            }
+
+            #monthCategoryStats .cat-badge {
+                font-size: 0.8rem !important;
+                padding: 3px 8px !important;
+            }
+
+            /* 预算进度条移动端 */
+            #monthCategoryStats [style*="height: 8px"] {
+                height: 6px !important;
+            }
+
+            #monthCategoryStats [style*="font-size: 0.8rem"] {
+                font-size: 0.75rem !important;
+            }
+
+            /* 月份列表卡片移动端优化 */
+            .month-group {
+                margin-bottom: 15px !important;
+            }
+
+            .month-header {
+                padding: 12px !important;
+                font-size: 0.9rem !important;
+            }
+
+            .month-title {
+                font-size: 1rem !important;
+            }
+
+            .month-summary {
+                gap: 10px !important;
+                padding: 10px !important;
+            }
+
+            .summary-item {
+                font-size: 0.75rem !important;
+            }
+
+            .summary-amount {
+                font-size: 1.1rem !important;
+            }
+
+            .month-transactions {
+                max-height: 250px !important;
+            }
+
+            .transaction-item {
+                padding: 10px !important;
+                font-size: 0.85rem !important;
+            }
+
+            .transaction-item .t-amount {
+                font-size: 1rem !important;
+            }
+
+            .transaction-item .cat-badge {
+                font-size: 0.75rem !important;
+                padding: 3px 8px !important;
+            }
+
+            /* 记账输入区域移动端优化 */
+            .finance-cards {
+                gap: 10px !important;
+                margin-bottom: 15px !important;
+            }
+
+            .finance-card {
+                padding: 12px !important;
+            }
+
+            .finance-card .amount {
+                font-size: 1.2rem !important;
+            }
+
+            /* 财务筛选栏移动端 */
+            .finance-filter-bar {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+                padding: 10px !important;
+            }
+
+            .filter-btn {
+                font-size: 0.8rem !important;
+                padding: 6px 12px !important;
+            }
+
+            .view-tab:active, .filter-btn:active {
+                transform: scale(0.95);
+            }
+
             .kanban-card:active {
                 transform: scale(0.98);
                 box-shadow: 2px 2px 0 0 var(--border-color);
@@ -2507,14 +2652,14 @@
     <div class="modal-overlay" id="monthDetailModal">
         <div class="modal" style="max-width: 850px; max-height: 90vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;">
-                <h2 style="margin: 0;" id="monthDetailTitle">月份详情</h2>
+                <h2 style="margin: 0; font-size: 1.3rem;" id="monthDetailTitle">月份详情</h2>
                 <button class="btn" onclick="closeModal('monthDetailModal')"><i class="fas fa-times"></i></button>
             </div>
 
             <!-- 可滚动内容区 -->
             <div style="overflow-y: auto; flex: 1; padding-right: 10px;">
                 <!-- 月度统计卡片 -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div class="month-stats-cards" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
                     <div class="finance-card" style="padding: 15px;">
                         <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px;">结余</div>
                         <div class="amount" id="monthDetailBalance" style="font-size: 1.2rem;">¥0.00</div>
@@ -2535,7 +2680,7 @@
                         <i class="fas fa-chart-pie" style="color: var(--accent-color); margin-right: 8px;"></i>
                         支出分类占比
                     </h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+                    <div class="pie-chart-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
                         <!-- 饼图 -->
                         <div style="display: flex; justify-content: center;">
                             <svg id="expensePieChart" width="250" height="250" viewBox="-1 -1 2 2" style="transform: rotate(-90deg); max-width: 100%;"></svg>
