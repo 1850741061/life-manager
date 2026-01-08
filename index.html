@@ -791,6 +791,31 @@
             border-bottom-right-radius: var(--radius);
         }
 
+        /* 项目任务 - 更紧凑的显示 */
+        .todo-item.project-task {
+            padding: 12px;
+            gap: 8px;
+        }
+
+        .todo-item.project-task .todo-text {
+            font-size: 0.95rem;
+        }
+
+        .todo-item.project-task .todo-notes {
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+
+        .todo-item.project-task .todo-attributes {
+            gap: 6px;
+            margin-top: 3px;
+        }
+
+        .todo-item.project-task .attribute-badge {
+            padding: 3px 6px;
+            font-size: 0.7rem;
+        }
+
         /* 时间段样式 */
         .todo-time-range {
             display: flex;
@@ -3983,12 +4008,26 @@
             }
 
             state.projects.forEach((p) => {
+                // 计算项目统计
+                const projectTasks = state.todos.filter(t => t.projectId === p.id);
+                const totalTasks = projectTasks.length;
+                const completedTasks = projectTasks.filter(t => t.completed).length;
+                const activeTasks = totalTasks - completedTasks;
+                const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
                 const li = document.createElement('li');
                 li.className = `group-item ${state.currentProjectId===p.id?'active':''}`;
                 li.innerHTML = `
-                    <div class="group-name">
-                        <div class="group-color" style="background:${p.color}"></div>
-                        <span>${p.name}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: start; width: 100%;">
+                        <div class="group-name">
+                            <div class="group-color" style="background:${p.color}"></div>
+                            <span style="font-weight: 700;">${p.name}</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); text-align: right;">
+                            <div>总: ${totalTasks}</div>
+                            <div>进行: ${activeTasks}</div>
+                            <div>${completionRate}%</div>
+                        </div>
                     </div>
                 `;
                 li.onclick = () => selectProject(p.id);
@@ -4000,8 +4039,9 @@
             const project = state.projects.find(p => p.id === id);
             if (!project) return;
 
-            // 项目独立，不干扰分组选择
+            // 点击项目时，清除分组选择（不高亮任何分组）
             state.currentProjectId = id;
+            state.currentGroupId = 'all'; // 重置但不显示高亮
 
             // 显示项目筛选提示条
             const filterBar = document.getElementById('projectFilterBar');
@@ -4009,7 +4049,8 @@
             filterBar.style.display = 'block';
             projectNameEl.textContent = project.name;
 
-            // 更新UI - 只重新渲染项目列表和任务
+            // 更新UI - 重新渲染分组列表（全部不高亮）和项目列表
+            renderGroups();
             renderSidebarProjects();
             renderTodos();
 
@@ -4215,7 +4256,8 @@
 
             list.forEach((t, index) => {
                 const li = document.createElement('li');
-                li.className = `todo-item ${t.completed?'completed':''} fade-in`;
+                const isProjectTask = state.currentProjectId !== null;
+                li.className = `todo-item ${t.completed?'completed':''} ${isProjectTask?'project-task':''} fade-in`;
                 li.style.setProperty('--group-color', t.groupColor);
                 li.style.animationDelay = `${index * 0.03}s`;
 
@@ -4950,7 +4992,7 @@
         }
 
         function updateGroupSelects() {
-            // 更新主分组选择器（添加任务）
+            // 更新主分组选择器（添加任务）- 包含分组和项目
             const groupCustom = document.getElementById('groupSelectCustom');
             const groupNative = document.getElementById('groupSelect');
             const groupOptions = groupCustom.querySelector('.custom-select-options');
@@ -4960,6 +5002,7 @@
             groupOptions.innerHTML = '';
             groupNative.innerHTML = '';
 
+            // 添加分组选项
             state.groups.forEach(g => {
                 // 更新原生select
                 const opt = document.createElement('option');
@@ -4971,6 +5014,7 @@
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'custom-select-option';
                 optionDiv.dataset.value = g.id;
+                optionDiv.dataset.type = 'group';
                 optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
                 optionDiv.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -4983,6 +5027,41 @@
                 });
                 groupOptions.appendChild(optionDiv);
             });
+
+            // 添加分界线（如果有项目）
+            if (state.projects.length > 0) {
+                const divider = document.createElement('div');
+                divider.style.borderTop = '1px solid var(--border-color)';
+                divider.style.margin = '8px 0';
+                divider.style.pointerEvents = 'none';
+                groupOptions.appendChild(divider);
+
+                // 添加项目选项
+                state.projects.forEach(p => {
+                    // 更新原生select
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.innerText = p.name;
+                    groupNative.appendChild(opt);
+
+                    // 更新自定义选项
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'custom-select-option';
+                    optionDiv.dataset.value = p.id;
+                    optionDiv.dataset.type = 'project';
+                    optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${p.color};flex-shrink:0;"></span>${p.name}</span>`;
+                    optionDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        groupTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${p.color};flex-shrink:0;"></span>${p.name}</span>`;
+                        groupTrigger.dataset.value = p.id;
+                        groupNative.value = p.id;
+                        groupOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                        optionDiv.classList.add('selected');
+                        groupCustom.classList.remove('open');
+                    });
+                    groupOptions.appendChild(optionDiv);
+                });
+            }
 
             // 恢复选中状态
             if(state.groups.find(g => g.id === currentGroupValue)) {
@@ -5022,58 +5101,8 @@
                 editGroupOptions.appendChild(optionDiv);
             });
 
-            // 更新项目选择器（添加任务）
-            const projectCustom = document.getElementById('projectSelectCustom');
-            const projectNative = document.getElementById('projectSelect');
-            const projectOptions = projectCustom.querySelector('.custom-select-options');
-            const projectTrigger = projectCustom.querySelector('.custom-select-trigger');
-
-            projectOptions.innerHTML = '';
-            projectNative.innerHTML = '<option value="">无项目</option>';
-
-            // 添加"无项目"选项
-            const noProjectOption = document.createElement('div');
-            noProjectOption.className = 'custom-select-option selected';
-            noProjectOption.dataset.value = '';
-            noProjectOption.textContent = '无项目';
-            noProjectOption.addEventListener('click', (e) => {
-                e.stopPropagation();
-                projectTrigger.innerHTML = '无项目';
-                projectTrigger.dataset.value = '';
-                projectNative.value = '';
-                projectOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
-                noProjectOption.classList.add('selected');
-                projectCustom.classList.remove('open');
-            });
-            projectOptions.appendChild(noProjectOption);
-
-            state.projects.forEach(p => {
-                // 更新原生select
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.innerText = p.name;
-                projectNative.appendChild(opt);
-
-                // 更新自定义选项
-                const optionDiv = document.createElement('div');
-                optionDiv.className = 'custom-select-option';
-                optionDiv.dataset.value = p.id;
-                optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${p.color};flex-shrink:0;"></span>${p.name}</span>`;
-                optionDiv.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    projectTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${p.color};flex-shrink:0;"></span>${p.name}</span>`;
-                    projectTrigger.dataset.value = p.id;
-                    projectNative.value = p.id;
-                    projectOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
-                    optionDiv.classList.add('selected');
-                    projectCustom.classList.remove('open');
-                });
-                projectOptions.appendChild(optionDiv);
-            });
-
-            // 重新初始化这三个选择器的点击事件
+            // 重新初始化选择器
             initCustomSelect('groupSelectCustom');
-            initCustomSelect('projectSelectCustom');
             initCustomSelect('editGroupSelectCustom');
         }
 
