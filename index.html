@@ -931,6 +931,29 @@
         }
         .todo-item:hover .todo-actions { opacity: 1; }
 
+        /* 拖拽手柄样式 */
+        .drag-handle {
+            cursor: grab !important;
+            transition: var(--transition);
+        }
+        .drag-handle:hover {
+            color: var(--accent-color) !important;
+            transform: scale(1.1);
+        }
+        .drag-handle:active {
+            cursor: grabbing !important;
+            transform: scale(0.95);
+        }
+        /* 移动端隐藏拖拽手柄 */
+        @media (max-width: 768px) {
+            .drag-handle {
+                display: none;
+            }
+            .todo-item {
+                cursor: default !important;
+            }
+        }
+
         /* --- 日历样式 --- */
         .calendar-controls {
             display: flex; justify-content: space-between; align-items: center;
@@ -3917,6 +3940,7 @@
                     ${t.notes ? `<div class="todo-notes">${t.notes}</div>` : ''}
                     ${subtasksHtml}
                     <div class="todo-actions">
+                        <i class="fas fa-grip-vertical action-icon drag-handle" title="拖拽排序" style="cursor: grab; color: var(--text-secondary);"></i>
                         <i class="fas fa-pen action-icon" onclick="openEditTask(${t.id})"></i>
                         <i class="fas fa-trash action-icon" onclick="deleteTodo(${t.id})" style="color:var(--danger-color)"></i>
                     </div>
@@ -8683,7 +8707,10 @@
             e.dataTransfer.setData('text/plain', todoId);
 
             // 添加拖拽样式
-            e.target.style.opacity = '0.5';
+            const todoItem = e.currentTarget;
+            todoItem.style.opacity = '0.5';
+            todoItem.style.transform = 'scale(1.02)';
+            todoItem.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
 
             // 高亮所有可拖拽区域
             document.querySelectorAll('.group-item').forEach(item => {
@@ -8693,12 +8720,22 @@
 
         // 任务拖拽结束
         window.onTodoDragEnd = function(e) {
-            e.target.style.opacity = '1';
+            const todoItem = e.currentTarget;
+            todoItem.style.opacity = '1';
+            todoItem.style.transform = '';
+            todoItem.style.boxShadow = '';
+            todoItem.style.borderTop = '';
             state.draggedTodoId = null;
 
             // 移除高亮
             document.querySelectorAll('.group-item').forEach(item => {
                 item.style.background = '';
+            });
+
+            // 移除所有任务的拖拽指示线
+            document.querySelectorAll('.todo-item').forEach(item => {
+                item.style.borderTop = '';
+                item.style.borderBottom = '';
             });
         };
 
@@ -8707,22 +8744,33 @@
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
 
-            // 添加高亮效果
+            if (!state.draggedTodoId || state.draggedTodoId === targetTodoId) return;
+
             const targetElement = e.currentTarget;
-            if (state.draggedTodoId && state.draggedTodoId !== targetTodoId) {
-                targetElement.style.borderTop = '3px solid var(--accent-color)';
+            const rect = targetElement.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+
+            // 根据鼠标位置决定插入到上方还是下方
+            if (e.clientY < midY) {
+                targetElement.style.borderTop = '4px solid var(--accent-color)';
+                targetElement.style.borderBottom = '';
+            } else {
+                targetElement.style.borderBottom = '4px solid var(--accent-color)';
+                targetElement.style.borderTop = '';
             }
         };
 
         // 离开拖拽目标
         window.onTodoDragLeave = function(e) {
             e.currentTarget.style.borderTop = '';
+            e.currentTarget.style.borderBottom = '';
         };
 
         // 在任务位置放下
         window.onTodoDrop = function(e, targetTodoId) {
             e.preventDefault();
             e.currentTarget.style.borderTop = '';
+            e.currentTarget.style.borderBottom = '';
 
             if (!state.draggedTodoId || state.draggedTodoId === targetTodoId) return;
 
@@ -8732,9 +8780,20 @@
 
             if (draggedIndex === -1 || targetIndex === -1) return;
 
+            // 判断是插入到目标上方还是下方
+            const rect = e.currentTarget.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const insertAfter = e.clientY >= midY;
+
             // 移动元素
-            const draggedTodo = state.todos.splice(draggedIndex, 1)[0];
-            state.todos.splice(targetIndex, 0, draggedTodo);
+            const [draggedTodo] = state.todos.splice(draggedIndex, 1);
+
+            // 如果是插入到下方，目标索引需要+1（因为已经删除了被拖拽的元素）
+            const finalIndex = insertAfter && targetIndex > draggedIndex
+                ? targetIndex
+                : targetIndex + (insertAfter ? 1 : 0);
+
+            state.todos.splice(finalIndex, 0, draggedTodo);
 
             save();
             renderTodos();
