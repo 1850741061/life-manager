@@ -4179,10 +4179,12 @@
             // 根据选择的类型设置分组或项目信息
             if (categoryType === 'project' && categoryId) {
                 const project = state.projects.find(p => p.id == categoryId);  // 使用 == 比较
+                console.log('[addTodo] 找到项目:', project);
                 if (project) {
                     newTask.projectId = String(project.id);
                     newTask.projectName = project.name;
                     newTask.projectColor = project.color;
+                    console.log('[addTodo] 设置项目信息:', newTask.projectId, newTask.projectName);
                 }
             } else if (categoryType === 'group' && categoryId) {
                 const group = state.groups.find(g => g.id == categoryId);  // 使用 == 比较
@@ -4201,6 +4203,7 @@
                 }
             }
 
+            console.log('[addTodo] 最终任务:', newTask);
             state.todos.unshift(newTask);
 
             document.getElementById('todoInput').value = '';
@@ -4351,7 +4354,10 @@
                                 ${timeRangeHtml ? `<span class="attribute-badge" style="color:var(--accent-color); border-color:var(--accent-color);"><i class="far fa-clock"></i> ${t.startTime || '--'} - ${t.endTime || '--'}</span>` : ''}
                                 ${t.repeat && t.repeat !== 'none' ? `<span class="attribute-badge" style="color:var(--warning-color); border-color:var(--warning-color);"><i class="fas fa-redo"></i> ${getRepeatLabel(t.repeat)}</span>` : ''}
                                 <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
-                                <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
+                                ${t.projectId
+                                    ? `<span class="attribute-badge" style="color:${t.projectColor}; border-color:${t.projectColor};"><i class="fas fa-project-diagram"></i> ${t.projectName}</span>`
+                                    : `<span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor};">${t.groupName}</span>`
+                                }
                             </div>
                         </div>
                     </div>
@@ -9596,26 +9602,25 @@
         }
 
         window.viewProjectTodos = function(projectId) {
-            const project = state.projects.find(p => p.id === projectId);
+            const project = state.projects.find(p => p.id == projectId);
             if (!project) return;
 
             // 设置当前项目过滤
-            state.currentProjectId = projectId;
+            state.currentProjectId = String(projectId);
+            state.currentGroupId = null;
+
             closeModal('projectModal');
 
             // 切换到待办视图
-            switchTab('todo');
+            switchView('todo');
 
-            // 显示项目筛选提示条
-            const filterBar = document.getElementById('projectFilterBar');
-            const projectNameEl = document.getElementById('currentProjectName');
-            filterBar.style.display = 'block';
-            projectNameEl.textContent = project.name;
-
-            // 过滤并渲染任务
+            // 更新UI
+            renderGroups();
+            renderSidebarProjects();
             renderTodos();
+            updateStats();
 
-            showSyncToast(`已显示"${project.name}"的任务`);
+            showSyncToast(`已切换到项目"${project.name}"`);
         };
 
         // 清除项目筛选
