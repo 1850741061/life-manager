@@ -1056,6 +1056,13 @@
             width: 8px; height: 8px; border-radius: 2px; border: 1px solid var(--border-color);
             display: inline-block; margin-right: 4px; margin-bottom: 4px;
         }
+
+        .day-task-project-label {
+            width: 14px; height: 14px; border-radius: 2px; border: 1px solid var(--border-color);
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-right: 3px; margin-bottom: 3px;
+            font-size: 0.6rem; font-weight: 900; color: white; text-transform: uppercase;
+        }
         
         .calendar-detail-view {
             margin-top: 30px;
@@ -4303,7 +4310,8 @@
             list.forEach((t, index) => {
                 const li = document.createElement('li');
                 li.className = `todo-item ${t.completed?'completed':''} ${t.projectId?'project-task':''} fade-in`;
-                li.style.setProperty('--group-color', t.groupColor);
+                // 项目任务使用项目颜色，分组任务使用分组颜色
+                li.style.setProperty('--group-color', t.projectId ? t.projectColor : t.groupColor);
                 li.style.animationDelay = `${index * 0.03}s`;
 
                 // 添加拖拽属性
@@ -5357,6 +5365,17 @@
                 // 收集分组任务的颜色（去重）
                 const groupColors = [...new Set(groupTasks.map(t => t.groupColor))];
 
+                // 收集有任务的项目
+                const projectsWithTasks = {};
+                projectTasks.forEach(t => {
+                    if (!projectsWithTasks[t.projectId]) {
+                        projectsWithTasks[t.projectId] = {
+                            name: t.projectName,
+                            color: t.projectColor
+                        };
+                    }
+                });
+
                 const div = document.createElement('div');
                 const isSelected = state.selectedDate === dStr;
                 div.className = `calendar-day ${isSelected ? 'selected' : ''}`;
@@ -5366,13 +5385,11 @@
                 groupColors.slice(0, 5).forEach(color => {
                     dotsHtml += `<div class="day-task-dot" style="background:${color}"></div>`;
                 });
-                // 项目任务显示方块标记
-                if (projectTasks.length > 0) {
-                    const projectColors = [...new Set(projectTasks.map(t => t.projectColor))];
-                    projectColors.slice(0, 2).forEach(color => {
-                        dotsHtml += `<div class="day-task-project" style="background:${color}"></div>`;
-                    });
-                }
+                // 项目任务显示项目名称缩写
+                Object.values(projectsWithTasks).slice(0, 3).forEach(project => {
+                    const shortName = project.name.substring(0, 2);
+                    dotsHtml += `<div class="day-task-project-label" style="background:${project.color}">${shortName}</div>`;
+                });
 
                 div.innerHTML = `<div class="day-number">${i}</div>` + dotsHtml;
                 div.onclick = () => selectCalendarDay(dStr);
@@ -9700,16 +9717,66 @@
         };
 
         window.deleteProject = function(projectId) {
-            if (!confirm('确定要删除这个项目吗？关联的任务不会被删除。')) return;
+            const project = state.projects.find(p => p.id === projectId);
+            if (!project) return;
 
+            // 检查该项目下是否有任务
+            const projectTasks = state.todos.filter(t => t.projectId == projectId);
+
+            if (projectTasks.length > 0) {
+                // 有任务，询问如何处理
+                const choice = confirm(
+                    `项目"${project.name}"下有 ${projectTasks.length} 个任务。\n\n` +
+                    `点击"确定"将这些任务移至默认分组\n` +
+                    `点击"取消"将这些任务释放（不归属任何分组）`
+                );
+
+                if (!choice) {
+                    // 用户点击取消 - 释放任务（移除项目关联但不设为默认分组）
+                    state.todos = state.todos.map(t => {
+                        if (t.projectId == projectId) {
+                            return {...t, projectId: null, projectName: null, projectColor: null};
+                        }
+                        return t;
+                    });
+                } else {
+                    // 用户点击确定 - 移至默认分组
+                    const defaultGroup = state.groups[0];
+                    if (defaultGroup) {
+                        state.todos = state.todos.map(t => {
+                            if (t.projectId == projectId) {
+                                return {
+                                    ...t,
+                                    projectId: null,
+                                    projectName: null,
+                                    projectColor: null,
+                                    groupId: defaultGroup.id,
+                                    groupName: defaultGroup.name,
+                                    groupColor: defaultGroup.color
+                                };
+                            }
+                            return t;
+                        });
+                    } else {
+                        // 没有默认分组，释放任务
+                        state.todos = state.todos.map(t => {
+                            if (t.projectId == projectId) {
+                                return {...t, projectId: null, projectName: null, projectColor: null};
+                            }
+                            return t;
+                        });
+                    }
+                }
+            }
+
+            // 删除项目
             state.projects = state.projects.filter(p => p.id !== projectId);
-
-            // 移除任务的关联
-            state.todos = state.todos.map(t => t.projectId === projectId ? {...t, projectId: null} : t);
 
             save();
             renderProjects();
             renderSidebarProjects();
+            renderTodos();
+            updateStats();
         };
 
         // --- 2. 批量操作功能 ---
