@@ -9718,8 +9718,8 @@
         function initProjects() {
             const projectBtn = document.getElementById('projectBtn');
             projectBtn.onclick = () => {
-                openModal('projectModal');
-                renderProjects();
+                renderProjects();  // 先渲染项目列表
+                openModal('projectModal');  // 再打开模态框
             };
         }
 
