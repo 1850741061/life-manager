@@ -3450,9 +3450,8 @@
                 <h3 id="confirmTitle" style="margin: 0 0 10px 0; font-size: 1.3rem;">确认</h3>
                 <p id="confirmMessage" style="margin: 0; color: var(--text-secondary); line-height: 1.6;"></p>
             </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn" id="confirmCancelBtn">取消</button>
-                <button class="btn btn-primary" id="confirmOkBtn">确定</button>
+            <div id="confirmButtons" style="display: flex; gap: 10px; justify-content: flex-end; flex-direction: column;">
+                <!-- 按钮将动态生成 -->
             </div>
         </div>
     </div>
@@ -3636,42 +3635,42 @@
         // --- 自定义确认框 ---
         let confirmResolve = null;
 
-        function showConfirm(title, message) {
+        function showConfirm(title, message, options = ['取消', '确定']) {
             return new Promise((resolve) => {
                 confirmResolve = resolve;
                 const titleEl = document.getElementById('confirmTitle');
                 const messageEl = document.getElementById('confirmMessage');
+                const buttonsContainer = document.getElementById('confirmButtons');
                 const dialog = document.getElementById('confirmDialog');
 
                 titleEl.textContent = title;
                 // 处理消息中的换行符
                 messageEl.innerHTML = message.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
 
+                // 清空旧按钮
+                buttonsContainer.innerHTML = '';
+
+                // 创建新按钮
+                options.forEach((optionText, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = index === options.length - 1 ? 'btn btn-primary' : 'btn';
+                    btn.textContent = optionText;
+                    btn.style.width = '100%';
+                    btn.style.justifyContent = 'center';
+                    btn.style.marginBottom = index < options.length - 1 ? '10px' : '0';
+
+                    btn.onclick = () => {
+                        dialog.classList.remove('active');
+                        setTimeout(() => dialog.style.display = 'none', 300);
+                        resolve(index);
+                    };
+
+                    buttonsContainer.appendChild(btn);
+                });
+
                 // 显示确认框（添加active类以触发淡入动画）
                 dialog.style.display = 'flex';
                 setTimeout(() => dialog.classList.add('active'), 10);
-
-                // 绑定按钮事件
-                const okBtn = document.getElementById('confirmOkBtn');
-                const cancelBtn = document.getElementById('confirmCancelBtn');
-
-                // 移除旧的事件监听器
-                const newOkBtn = okBtn.cloneNode(true);
-                const newCancelBtn = cancelBtn.cloneNode(true);
-                okBtn.parentNode.replaceChild(newOkBtn, okBtn);
-                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-
-                newOkBtn.onclick = () => {
-                    dialog.classList.remove('active');
-                    setTimeout(() => dialog.style.display = 'none', 300);
-                    resolve(true);
-                };
-
-                newCancelBtn.onclick = () => {
-                    dialog.classList.remove('active');
-                    setTimeout(() => dialog.style.display = 'none', 300);
-                    resolve(false);
-                };
             });
         }
 
@@ -9881,25 +9880,29 @@
 
                 // 检查该项目下是否有任务
                 const projectTasks = state.todos.filter(t => t.projectId == projectId);
+                const defaultGroup = state.groups[0];
 
                 if (projectTasks.length > 0) {
-                    // 有任务，询问如何处理
-                    const choice = await showConfirm(
+                    // 有任务，询问如何处理 - 提供三个选项
+                    const action = await showConfirm(
                         `删除项目"${project.name}"`,
-                        `该项目下有 ${projectTasks.length} 个任务。\n\n点击"确定"将这些任务移至默认分组\n点击"取消"将这些任务释放（不归属任何分组）`
+                        `该项目下有 ${projectTasks.length} 个任务，请选择处理方式：`,
+                        ['取消删除', '释放任务（不归属任何分组）', `移至默认分组"${defaultGroup ? defaultGroup.name : '无'}"`]
                     );
 
-                    if (!choice) {
-                        // 用户点击取消 - 释放任务（移除项目关联但不设为默认分组）
+                    if (action === 0) {
+                        // 用户选择取消删除 - 直接返回
+                        return;
+                    } else if (action === 1) {
+                        // 用户选择释放任务（移除项目关联）
                         state.todos = state.todos.map(t => {
                             if (t.projectId == projectId) {
                                 return {...t, projectId: null, projectName: null, projectColor: null};
                             }
                             return t;
                         });
-                    } else {
-                        // 用户点击确定 - 移至默认分组
-                        const defaultGroup = state.groups[0];
+                    } else if (action === 2) {
+                        // 用户选择移至默认分组
                         if (defaultGroup) {
                             state.todos = state.todos.map(t => {
                                 if (t.projectId == projectId) {
@@ -9916,7 +9919,8 @@
                                 return t;
                             });
                         } else {
-                            // 没有默认分组，释放任务
+                            // 没有默认分组，提示用户并释放任务
+                            alert('没有默认分组，任务将被释放');
                             state.todos = state.todos.map(t => {
                                 if (t.projectId == projectId) {
                                     return {...t, projectId: null, projectName: null, projectColor: null};
@@ -9925,16 +9929,33 @@
                             });
                         }
                     }
+                } else {
+                    // 没有任务，简单确认删除
+                    const confirmed = await showConfirm(
+                        `删除项目"${project.name}"`,
+                        '确定要删除这个项目吗？',
+                        ['取消', '删除']
+                    );
+
+                    if (confirmed === 0) return; // 取消删除
                 }
 
                 // 删除项目
                 state.projects = state.projects.filter(p => p.id !== projectId);
+
+                // 清除当前项目选择（如果删除的是当前选中的项目）
+                if (state.currentProjectId == projectId) {
+                    state.currentProjectId = null;
+                }
 
                 save();
                 renderProjects();
                 renderSidebarProjects();
                 renderTodos();
                 updateStats();
+
+                // 显示成功提示
+                showSyncToast(`项目"${project.name}"已删除`);
             } catch (error) {
                 console.error('删除项目时出错:', error);
                 alert('删除项目失败，请重试');
