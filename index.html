@@ -3639,20 +3639,37 @@
         function showConfirm(title, message) {
             return new Promise((resolve) => {
                 confirmResolve = resolve;
-                document.getElementById('confirmTitle').textContent = title;
-                document.getElementById('confirmMessage').textContent = message;
-
+                const titleEl = document.getElementById('confirmTitle');
+                const messageEl = document.getElementById('confirmMessage');
                 const dialog = document.getElementById('confirmDialog');
+
+                titleEl.textContent = title;
+                // 处理消息中的换行符
+                messageEl.innerHTML = message.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+
+                // 显示确认框（添加active类以触发淡入动画）
                 dialog.style.display = 'flex';
+                setTimeout(() => dialog.classList.add('active'), 10);
 
                 // 绑定按钮事件
-                document.getElementById('confirmOkBtn').onclick = () => {
-                    dialog.style.display = 'none';
+                const okBtn = document.getElementById('confirmOkBtn');
+                const cancelBtn = document.getElementById('confirmCancelBtn');
+
+                // 移除旧的事件监听器
+                const newOkBtn = okBtn.cloneNode(true);
+                const newCancelBtn = cancelBtn.cloneNode(true);
+                okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+                newOkBtn.onclick = () => {
+                    dialog.classList.remove('active');
+                    setTimeout(() => dialog.style.display = 'none', 300);
                     resolve(true);
                 };
 
-                document.getElementById('confirmCancelBtn').onclick = () => {
-                    dialog.style.display = 'none';
+                newCancelBtn.onclick = () => {
+                    dialog.classList.remove('active');
+                    setTimeout(() => dialog.style.display = 'none', 300);
                     resolve(false);
                 };
             });
@@ -5102,8 +5119,10 @@
             tasks.forEach((t, index) => {
                 const card = document.createElement('div');
                 card.className = 'kanban-card slide-in';
-                card.style.setProperty('--group-color', t.groupColor);
-                card.style.borderLeftColor = t.groupColor;
+                // 项目任务使用项目颜色，分组任务使用分组颜色
+                const cardColor = t.projectId ? t.projectColor : t.groupColor;
+                card.style.setProperty('--group-color', cardColor);
+                card.style.borderLeftColor = cardColor;
                 card.style.animationDelay = `${index * 0.05}s`;
                 card.draggable = true;
                 card.dataset.todoId = t.id;
@@ -5115,11 +5134,16 @@
                 const pLabel = pMap[t.priority] || '中';
                 const dateDisplay = t.date ? t.date.substring(5) : '无日期';
 
+                // 根据是否项目任务显示不同的标签
+                const categoryBadge = t.projectId
+                    ? `<span class="attribute-badge" style="color:${t.projectColor}; border-color:${t.projectColor};"><i class="fas fa-project-diagram"></i> ${t.projectName}</span>`
+                    : `<span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor};">${t.groupName}</span>`;
+
                 // 构建元数据HTML
                 let metaHtml = `
                     <span class="attribute-badge" style="background:var(--bg-color);"><i class="far fa-calendar"></i> ${dateDisplay}</span>
                     <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
-                    <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
+                    ${categoryBadge}
                 `;
 
                 if (t.startTime || t.endTime) {
