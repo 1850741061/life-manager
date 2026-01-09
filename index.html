@@ -5197,40 +5197,8 @@
                 setCustomSelectValue('categorySelectCustom', state.projects[0].id);
             }
 
-            // 更新编辑模态框分组选择器（保持不变）
-            const editGroupCustom = document.getElementById('editGroupSelectCustom');
-            const editGroupNative = document.getElementById('editGroupSelect');
-            const editGroupOptions = editGroupCustom.querySelector('.custom-select-options');
-            const editGroupTrigger = editGroupCustom.querySelector('.custom-select-trigger');
-
-            editGroupOptions.innerHTML = '';
-            editGroupNative.innerHTML = '';
-
-            state.groups.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g.id;
-                opt.innerText = g.name;
-                editGroupNative.appendChild(opt);
-
-                const optionDiv = document.createElement('div');
-                optionDiv.className = 'custom-select-option';
-                optionDiv.dataset.value = g.id;
-                optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
-                optionDiv.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    editGroupTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
-                    editGroupTrigger.dataset.value = g.id;
-                    editGroupNative.value = g.id;
-                    editGroupOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
-                    optionDiv.classList.add('selected');
-                    editGroupCustom.classList.remove('open');
-                });
-                editGroupOptions.appendChild(optionDiv);
-            });
-
             // 重新初始化选择器的点击事件
             initCustomSelect('categorySelectCustom');
-            initCustomSelect('editGroupSelectCustom');
         }
 
         // 初始化单个自定义选择器
