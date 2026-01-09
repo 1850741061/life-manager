@@ -11089,13 +11089,42 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
   快捷键在任务输入框外生效
             `.trim();
 
-            const overlay = createDialogOverlay();
-            const dialog = createDialog(`
-                <div style="text-align: left; max-height: 70vh; overflow-y: auto;">
-                    <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-question-circle" style="color: var(--accent-color); font-size: 1.5rem;"></i>
+            // 使用自定义确认框样式显示帮助
+            const helpDialog = document.createElement('div');
+            helpDialog.className = 'modal-overlay active';
+            helpDialog.id = 'helpDialog';
+            helpDialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+                opacity: 1;
+                visibility: visible;
+            `;
+
+            helpDialog.innerHTML = `
+                <div class="modal" style="
+                    background: var(--card-bg);
+                    padding: 30px;
+                    border: 3px solid var(--border-color);
+                    border-radius: var(--radius);
+                    box-shadow: 10px 10px 0 0 var(--border-color);
+                    width: 90%;
+                    max-width: 600px;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    transform: scale(1);
+                ">
+                    <h2 style="margin: 0 0 20px 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-question-circle" style="color: var(--accent-color);"></i>
                         ProLife 使用帮助
-                    </h3>
+                    </h2>
                     <div style="
                         white-space: pre-wrap;
                         font-family: inherit;
@@ -11107,10 +11136,31 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                         border-radius: var(--radius);
                         border: 2px solid var(--border-color);
                     ">${helpContent}</div>
+                    <button class="btn btn-primary" id="helpCloseBtn" style="width: 100%; margin-top: 20px; justify-content: center;">
+                        <i class="fas fa-check"></i> 知道了
+                    </button>
                 </div>
-            `);
+            `;
 
-            setupDialogButtons(overlay, dialog, '知道了', null);
+            document.body.appendChild(helpDialog);
+
+            // 关闭按钮事件
+            document.getElementById('helpCloseBtn').onclick = () => {
+                helpDialog.classList.remove('active');
+                setTimeout(() => {
+                    helpDialog.remove();
+                }, 300);
+            };
+
+            // 点击遮罩关闭
+            helpDialog.addEventListener('click', (e) => {
+                if (e.target === helpDialog) {
+                    helpDialog.classList.remove('active');
+                    setTimeout(() => {
+                        helpDialog.remove();
+                    }, 300);
+                }
+            });
         }
 
         // ========== 子任务展开/折叠 ==========
