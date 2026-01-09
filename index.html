@@ -4292,8 +4292,17 @@
                     newTask.groupColor = group.color;
                 }
             } else {
-                // 默认使用第一个分组
-                if (state.groups.length > 0) {
+                // 如果当前在项目视图，默认使用当前项目
+                if (state.currentProjectId) {
+                    const currentProject = state.projects.find(p => p.id == state.currentProjectId);
+                    if (currentProject) {
+                        newTask.projectId = String(currentProject.id);
+                        newTask.projectName = currentProject.name;
+                        newTask.projectColor = currentProject.color;
+                    }
+                }
+                // 否则使用第一个分组
+                else if (state.groups.length > 0) {
                     const defaultGroup = state.groups[0];
                     newTask.groupId = defaultGroup.id;
                     newTask.groupName = defaultGroup.name;
@@ -4356,7 +4365,8 @@
                 list = list.filter(t =>
                     t.text.toLowerCase().includes(state.searchQuery) ||
                     (t.notes && t.notes.toLowerCase().includes(state.searchQuery)) ||
-                    t.groupName.toLowerCase().includes(state.searchQuery)
+                    (t.groupName && t.groupName.toLowerCase().includes(state.searchQuery)) ||
+                    (t.projectName && t.projectName.toLowerCase().includes(state.searchQuery))
                 );
             }
 
@@ -5082,14 +5092,24 @@
         function renderKanban() {
             // 获取并过滤任务列表
             let list = state.todos;
-            if(state.currentGroupId !== 'all') list = list.filter(t => t.groupId === state.currentGroupId);
+
+            // 根据当前视图过滤：项目视图或分组视图
+            if(state.currentProjectId) {
+                list = list.filter(t => t.projectId == state.currentProjectId);
+            } else if(state.currentGroupId !== 'all') {
+                list = list.filter(t => t.groupId === state.currentGroupId && !t.projectId);
+            } else {
+                // "全部任务"：只显示不属于项目的任务
+                list = list.filter(t => !t.projectId);
+            }
 
             // 搜索过滤
             if(state.searchQuery) {
                 list = list.filter(t =>
                     t.text.toLowerCase().includes(state.searchQuery) ||
                     (t.notes && t.notes.toLowerCase().includes(state.searchQuery)) ||
-                    t.groupName.toLowerCase().includes(state.searchQuery)
+                    (t.groupName && t.groupName.toLowerCase().includes(state.searchQuery)) ||
+                    (t.projectName && t.projectName.toLowerCase().includes(state.searchQuery))
                 );
             }
 
@@ -8907,16 +8927,17 @@
             return state.todos.filter(todo => {
                 return todo.text.toLowerCase().includes(query) ||
                        (todo.notes && todo.notes.toLowerCase().includes(query)) ||
-                       (todo.groupName && todo.groupName.toLowerCase().includes(query));
+                       (todo.groupName && todo.groupName.toLowerCase().includes(query)) ||
+                       (todo.projectName && todo.projectName.toLowerCase().includes(query));
             }).map(todo => ({
                 type: 'task',
                 id: todo.id,
                 title: todo.text,
-                subtitle: todo.groupName || '无分组',
+                subtitle: todo.projectName ? `<i class="fas fa-project-diagram"></i> ${todo.projectName}` : (todo.groupName || '无分组'),
                 notes: todo.notes || '',
                 completed: todo.completed,
                 icon: todo.completed ? 'fa-check-circle' : 'fa-circle',
-                color: todo.completed ? 'var(--success-color)' : todo.groupColor || 'var(--accent-color)'
+                color: todo.completed ? 'var(--success-color)' : (todo.projectColor || todo.groupColor || 'var(--accent-color)')
             }));
         }
 
@@ -10106,9 +10127,18 @@
             }
 
             const count = state.selectedTodos.size;
+            // 移动到分组时，清除项目字段（项目与分组互斥）
             state.todos = state.todos.map(t =>
                 state.selectedTodos.has(t.id)
-                    ? {...t, groupId: targetGroup.id, groupName: targetGroup.name, groupColor: targetGroup.color}
+                    ? {
+                        ...t,
+                        groupId: targetGroup.id,
+                        groupName: targetGroup.name,
+                        groupColor: targetGroup.color,
+                        projectId: null,
+                        projectName: null,
+                        projectColor: null
+                    }
                     : t
             );
 
@@ -10483,10 +10513,18 @@
             const group = state.groups.find(g => g.id === groupId);
             if (!group) return;
 
-            // 更新任务的分组
+            // 更新任务的分组，同时清除项目字段（项目与分组互斥）
             state.todos = state.todos.map(t =>
                 t.id === state.draggedTodoId
-                    ? {...t, groupId: group.id, groupName: group.name, groupColor: group.color}
+                    ? {
+                        ...t,
+                        groupId: group.id,
+                        groupName: group.name,
+                        groupColor: group.color,
+                        projectId: null,
+                        projectName: null,
+                        projectColor: null
+                    }
                     : t
             );
 
@@ -10744,17 +10782,16 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 groupChart.destroy();
             }
 
-            // 统计每个分组的任务数
+            // 统计每个分组和项目的任务数
             const groupCounts = {};
             state.groups.forEach(g => {
                 groupCounts[g.id] = 0;
             });
 
+            // 只统计分组任务（不包含项目任务）
             state.todos.forEach(t => {
-                if (groupCounts.hasOwnProperty(t.groupId)) {
+                if (!t.projectId && groupCounts.hasOwnProperty(t.groupId)) {
                     groupCounts[t.groupId]++;
-                } else {
-                    groupCounts[t.groupId] = 1;
                 }
             });
 
@@ -10762,6 +10799,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             const data = [];
             const colors = [];
 
+            // 添加分组数据
             state.groups.forEach(g => {
                 if (groupCounts[g.id] > 0) {
                     labels.push(g.name);
@@ -10769,6 +10807,14 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                     colors.push(g.color);
                 }
             });
+
+            // 添加项目任务统计
+            const projectTasksCount = state.todos.filter(t => t.projectId).length;
+            if (projectTasksCount > 0) {
+                labels.push('项目任务');
+                data.push(projectTasksCount);
+                colors.push('#8b5cf6'); // 紫色表示项目任务
+            }
 
             groupChart = new Chart(ctx, {
                 type: 'doughnut',
