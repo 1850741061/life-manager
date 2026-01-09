@@ -3058,16 +3058,16 @@
     <div class="modal-overlay" id="batchMoveModal">
         <div class="modal" style="max-width: 400px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0;">移动到分组</h2>
+                <h2 style="margin: 0;">批量移动</h2>
                 <button class="btn" onclick="closeModal('batchMoveModal')"><i class="fas fa-times"></i></button>
             </div>
 
             <div style="margin-bottom: 20px;">
-                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">选择目标分组</label>
-                <div class="custom-select" id="batchMoveGroupSelectCustom">
-                    <div class="custom-select-trigger" data-value="default">选择分组</div>
+                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">选择移动目标</label>
+                <div class="custom-select" id="batchMoveCategorySelectCustom">
+                    <div class="custom-select-trigger" data-value="">选择分组或项目</div>
                     <div class="custom-select-options"></div>
-                    <select id="batchMoveGroupSelect" class="native-select-hidden"></select>
+                    <select id="batchMoveCategorySelect" class="native-select-hidden"></select>
                 </div>
             </div>
 
@@ -4067,7 +4067,14 @@
                 li.ondragend = (e) => onGroupDragEnd(e);
                 li.ondragover = (e) => onGroupDragOver(e, index);
                 li.ondragleave = (e) => onGroupDragLeave(e);
-                li.ondrop = (e) => onGroupDropReorder(e, index);
+                // 处理任务拖拽到分组
+                li.addEventListener('drop', (e) => {
+                    if (state.draggedTodoId) {
+                        onGroupDrop(e, g.id);
+                    } else {
+                        onGroupDropReorder(e, index);
+                    }
+                });
 
                 l.appendChild(li);
             });
@@ -4625,18 +4632,20 @@
             return nextDate;
         }
 
-        window.deleteTodo = (id) => {
-            if(!confirm('删除？')) return;
+        window.deleteTodo = async (id) => {
+            const confirmed = await showConfirm('删除任务', '确定要删除这个任务吗？', ['取消', '删除']);
+            if (confirmed === 0) return;
             state.todos = state.todos.filter(t => t.id !== id);
             save(); renderTodos();
         };
 
         // 归档单个任务
-        window.archiveTodo = (id) => {
+        window.archiveTodo = async (id) => {
             const task = state.todos.find(t => t.id === id);
             if(!task) return;
 
-            if(!confirm(`确定要归档"${task.text}"吗？`)) return;
+            const confirmed = await showConfirm('归档任务', `确定要归档"${task.text}"吗？`, ['取消', '归档']);
+            if (confirmed === 0) return;
 
             // 添加到归档列表
             task.archivedAt = new Date().toISOString();
@@ -9213,8 +9222,11 @@
 
             archiveList.innerHTML = sorted.map(todo => {
                 const isSelected = selectedArchivedTodos.has(todo.id);
-                const groupName = todo.groupName || '无分组';
-                const groupColor = todo.groupColor || '#6b7280';
+                // 根据是否项目任务显示不同的标签
+                const categoryLabel = todo.projectName
+                    ? `<i class="fas fa-project-diagram"></i> ${todo.projectName}`
+                    : (todo.groupName || '无分组');
+                const categoryColor = todo.projectColor || todo.groupColor || '#6b7280';
                 const completedSubtasks = todo.subtasks ? todo.subtasks.filter(st => st.completed).length : 0;
                 const totalSubtasks = todo.subtasks ? todo.subtasks.length : 0;
 
@@ -9231,7 +9243,7 @@
                             <div style="flex: 1; min-width: 0;">
                                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
                                     <span style="font-weight: 600; font-size: 1rem; flex: 1; word-break: break-word;">${todo.text}</span>
-                                    <span style="padding: 3px 8px; background: ${groupColor}; color: white; border-radius: 12px; font-size: 0.75rem; font-weight: 700; white-space: nowrap;">${groupName}</span>
+                                    <span style="padding: 3px 8px; background: ${categoryColor}; color: white; border-radius: 12px; font-size: 0.75rem; font-weight: 700; white-space: nowrap;">${categoryLabel}</span>
                                     ${todo.completed ? '<i class="fas fa-check-circle" style="color: var(--success-color); font-size: 1.2rem;"></i>' : ''}
                                 </div>
                                 ${todo.notes ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${todo.notes}</div>` : ''}
@@ -10051,13 +10063,18 @@
         };
 
         // 批量删除
-        window.batchDeleteTodos = () => {
+        window.batchDeleteTodos = async () => {
             if (state.selectedTodos.size === 0) {
                 alert('请先选择任务');
                 return;
             }
 
-            if (!confirm(`确定删除选中的 ${state.selectedTodos.size} 项任务？`)) return;
+            const confirmed = await showConfirm(
+                '批量删除任务',
+                `确定删除选中的 ${state.selectedTodos.size} 项任务？`,
+                ['取消', '删除']
+            );
+            if (confirmed === 0) return;
 
             const count = state.selectedTodos.size;
             state.todos = state.todos.filter(t => !state.selectedTodos.has(t.id));
@@ -10074,79 +10091,152 @@
                 return;
             }
 
-            // 更新批量移动模态框的分组选择器
-            updateBatchMoveGroupSelect();
+            // 更新批量移动模态框的分类选择器（包含分组和项目）
+            updateBatchMoveCategorySelect();
             openModal('batchMoveModal');
         };
 
-        // 更新批量移动模态框的分组选择器
-        function updateBatchMoveGroupSelect() {
-            const groupCustom = document.getElementById('batchMoveGroupSelectCustom');
-            const groupNative = document.getElementById('batchMoveGroupSelect');
-            const groupOptions = groupCustom.querySelector('.custom-select-options');
-            const groupTrigger = groupCustom.querySelector('.custom-select-trigger');
+        // 更新批量移动模态框的分类选择器
+        function updateBatchMoveCategorySelect() {
+            const customSelect = document.getElementById('batchMoveCategorySelectCustom');
+            const nativeSelect = document.getElementById('batchMoveCategorySelect');
+            const optionsContainer = customSelect.querySelector('.custom-select-options');
+            const trigger = customSelect.querySelector('.custom-select-trigger');
 
-            groupOptions.innerHTML = '';
-            groupNative.innerHTML = '';
+            optionsContainer.innerHTML = '';
+            nativeSelect.innerHTML = '';
 
+            let html = '';
+
+            // 添加分组分隔符和分组
+            html += `<div class="custom-select-divider">分组</div>`;
             state.groups.forEach(g => {
                 const opt = document.createElement('option');
                 opt.value = g.id;
+                opt.dataset.type = 'group';
                 opt.innerText = g.name;
-                groupNative.appendChild(opt);
+                nativeSelect.appendChild(opt);
 
                 const optionDiv = document.createElement('div');
                 optionDiv.className = 'custom-select-option';
                 optionDiv.dataset.value = g.id;
+                optionDiv.dataset.type = 'group';
                 optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
                 optionDiv.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    groupTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
-                    groupTrigger.dataset.value = g.id;
-                    groupNative.value = g.id;
-                    groupOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                    trigger.dataset.value = g.id;
+                    trigger.dataset.type = 'group';
+                    nativeSelect.value = g.id;
+                    optionsContainer.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
                     optionDiv.classList.add('selected');
-                    groupCustom.classList.remove('open');
+                    customSelect.classList.remove('open');
                 });
-                groupOptions.appendChild(optionDiv);
+                optionsContainer.appendChild(optionDiv);
             });
 
+            // 添加项目分隔符和项目
+            html += `<div class="custom-select-divider">项目</div>`;
+            state.projects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.dataset.type = 'project';
+                opt.innerText = p.name;
+                nativeSelect.appendChild(opt);
+
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'custom-select-option';
+                optionDiv.dataset.value = p.id;
+                optionDiv.dataset.type = 'project';
+                optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span>`;
+                optionDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span>`;
+                    trigger.dataset.value = p.id;
+                    trigger.dataset.type = 'project';
+                    nativeSelect.value = p.id;
+                    optionsContainer.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                    optionDiv.classList.add('selected');
+                    customSelect.classList.remove('open');
+                });
+                optionsContainer.appendChild(optionDiv);
+            });
+
+            // 初始化：默认选择第一个分组
             if (state.groups.length > 0) {
-                setCustomSelectValue('batchMoveGroupSelectCustom', state.groups[0].id);
+                const firstGroup = state.groups[0];
+                trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${firstGroup.color};flex-shrink:0;"></span>${firstGroup.name}</span>`;
+                trigger.dataset.value = firstGroup.id;
+                trigger.dataset.type = 'group';
+                nativeSelect.value = firstGroup.id;
             }
+
+            // 初始化自定义下拉框
+            initCustomSelects();
         }
 
         // 确认批量移动
         window.confirmBatchMove = () => {
-            const targetGroupId = getCustomSelectValue('batchMoveGroupSelectCustom');
-            const targetGroup = state.groups.find(g => g.id === targetGroupId);
+            const trigger = document.getElementById('batchMoveCategorySelectCustom').querySelector('.custom-select-trigger');
+            const targetId = trigger.dataset.value;
+            const targetType = trigger.dataset.type;
 
-            if (!targetGroup) {
-                alert('请选择目标分组');
+            if (!targetId || !targetType) {
+                alert('请选择移动目标');
                 return;
             }
 
             const count = state.selectedTodos.size;
-            // 移动到分组时，清除项目字段（项目与分组互斥）
-            state.todos = state.todos.map(t =>
-                state.selectedTodos.has(t.id)
-                    ? {
-                        ...t,
-                        groupId: targetGroup.id,
-                        groupName: targetGroup.name,
-                        groupColor: targetGroup.color,
-                        projectId: null,
-                        projectName: null,
-                        projectColor: null
-                    }
-                    : t
-            );
 
-            state.selectedTodos.clear();
-            save();
-            closeModal('batchMoveModal');
-            renderTodos();
-            showSyncToast(`已将 ${count} 项任务移动到 "${targetGroup.name}"`);
+            if (targetType === 'group') {
+                // 移动到分组
+                const targetGroup = state.groups.find(g => g.id === targetId);
+                if (!targetGroup) return;
+
+                state.todos = state.todos.map(t =>
+                    state.selectedTodos.has(t.id)
+                        ? {
+                            ...t,
+                            groupId: targetGroup.id,
+                            groupName: targetGroup.name,
+                            groupColor: targetGroup.color,
+                            projectId: null,
+                            projectName: null,
+                            projectColor: null
+                        }
+                        : t
+                );
+
+                state.selectedTodos.clear();
+                save();
+                closeModal('batchMoveModal');
+                renderTodos();
+                showSyncToast(`已将 ${count} 项任务移动到 "${targetGroup.name}"`);
+            } else {
+                // 移动到项目
+                const targetProject = state.projects.find(p => p.id == targetId);
+                if (!targetProject) return;
+
+                state.todos = state.todos.map(t =>
+                    state.selectedTodos.has(t.id)
+                        ? {
+                            ...t,
+                            projectId: String(targetProject.id),
+                            projectName: targetProject.name,
+                            projectColor: targetProject.color,
+                            groupId: null,
+                            groupName: null,
+                            groupColor: null
+                        }
+                        : t
+                );
+
+                state.selectedTodos.clear();
+                save();
+                closeModal('batchMoveModal');
+                renderTodos();
+                showSyncToast(`已将 ${count} 项任务移动到项目 "${targetProject.name}"`);
+            }
         };
 
         // --- 3. 提醒通知功能 ---
@@ -10808,13 +10898,15 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 }
             });
 
-            // 添加项目任务统计
-            const projectTasksCount = state.todos.filter(t => t.projectId).length;
-            if (projectTasksCount > 0) {
-                labels.push('项目任务');
-                data.push(projectTasksCount);
-                colors.push('#8b5cf6'); // 紫色表示项目任务
-            }
+            // 添加项目任务统计 - 每个项目单独显示
+            state.projects.forEach(p => {
+                const projectTaskCount = state.todos.filter(t => t.projectId == p.id).length;
+                if (projectTaskCount > 0) {
+                    labels.push(`📊 ${p.name}`);
+                    data.push(projectTaskCount);
+                    colors.push(p.color);
+                }
+            });
 
             groupChart = new Chart(ctx, {
                 type: 'doughnut',
