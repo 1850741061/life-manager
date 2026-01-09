@@ -785,6 +785,27 @@
             transition: var(--transition);
         }
 
+        /* 项目任务卡片更紧凑 */
+        .todo-item.project-task {
+            padding: 15px;
+            margin-bottom: 12px;
+            gap: 10px;
+        }
+
+        .todo-item.project-task .todo-text {
+            font-size: 0.95rem;
+        }
+
+        .todo-item.project-task .todo-attributes {
+            margin-top: 3px;
+            gap: 6px;
+        }
+
+        .todo-item.project-task .attribute-badge {
+            font-size: 0.7rem;
+            padding: 3px 6px;
+        }
+
         .todo-item:hover {
             transform: translate(-4px, -4px);
             box-shadow: 5px 5px 0 0 var(--border-color);
@@ -4271,7 +4292,7 @@
 
             list.forEach((t, index) => {
                 const li = document.createElement('li');
-                li.className = `todo-item ${t.completed?'completed':''} fade-in`;
+                li.className = `todo-item ${t.completed?'completed':''} ${t.projectId?'project-task':''} fade-in`;
                 li.style.setProperty('--group-color', t.groupColor);
                 li.style.animationDelay = `${index * 0.03}s`;
 
@@ -5320,13 +5341,13 @@
             for(let i=0;i<fd;i++) g.appendChild(document.createElement('div'));
             for(let i=1;i<=dim;i++) {
                 const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-                const tasks = state.todos.filter(t => t.date === dStr);
+                const tasks = state.todos.filter(t => t.date === dStr && !t.projectId);  // 排除项目任务
+                const hasTasks = tasks.length > 0;
                 const div = document.createElement('div');
-                
+
                 const isSelected = state.selectedDate === dStr;
-                div.className = `calendar-day ${isSelected ? 'selected' : ''}`;
-                div.innerHTML = `<div class="day-number">${i}</div>` + 
-                    tasks.slice(0,5).map(t => `<div class="day-task-dot" style="background:${t.groupColor}"></div>`).join('');
+                div.className = `calendar-day ${isSelected ? 'selected' : ''} ${hasTasks ? 'has-tasks' : ''}`;
+                div.innerHTML = `<div class="day-number">${i}</div>`;
                 div.onclick = () => selectCalendarDay(dStr);
                 g.appendChild(div);
             }
@@ -5367,7 +5388,7 @@
             const l = document.getElementById('calendarDetailList');
             l.innerHTML = '';
 
-            const tasks = state.todos.filter(t => t.date === state.selectedDate);
+            const tasks = state.todos.filter(t => t.date === state.selectedDate && !t.projectId);  // 排除项目任务
 
             if(tasks.length === 0) {
                 l.innerHTML = `<li style="text-align:center; color:var(--text-secondary); padding:20px;">暂无任务</li>`;
