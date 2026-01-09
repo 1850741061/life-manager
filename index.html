@@ -4157,6 +4157,8 @@
             const selectedOption = categoryNative ? categoryNative.querySelector(`option[value="${categoryId}"]`) : null;
             const categoryType = selectedOption ? selectedOption.getAttribute('data-type') : null;
 
+            console.log('[addTodo] categoryId:', categoryId, 'type:', categoryType, 'selectedOption:', selectedOption);
+
             let newTask = {
                 id: Date.now(),
                 text, notes: document.getElementById('todoNotes').value.trim(),
