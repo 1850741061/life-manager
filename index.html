@@ -4006,8 +4006,6 @@
             const project = state.projects.find(p => p.id === id);
             if (!project) return;
 
-            console.log('选择项目:', project.name, 'id:', id);
-
             // 点击项目时，清除分组选择（包括"全部任务"）
             state.currentProjectId = id;
             state.currentGroupId = null;
@@ -4021,7 +4019,6 @@
             // 延迟更新表单选择器，确保DOM已更新
             setTimeout(() => {
                 setCustomSelectValue('categorySelectCustom', id);
-                console.log('已更新选择器为项目:', id);
             }, 100);
 
             // 检查该项目是否有任务，如果没有则展开表单
@@ -4130,8 +4127,6 @@
             const selectedOption = categoryNative ? categoryNative.querySelector(`option[value="${categoryId}"]`) : null;
             const categoryType = selectedOption ? selectedOption.getAttribute('data-type') : null;
 
-            console.log('添加任务 - categoryId:', categoryId, 'categoryType:', categoryType);
-
             let newTask = {
                 id: Date.now(),
                 text, notes: document.getElementById('todoNotes').value.trim(),
@@ -4156,7 +4151,6 @@
                     newTask.projectId = project.id;
                     newTask.projectName = project.name;
                     newTask.projectColor = project.color;
-                    console.log('设置项目:', project.name);
                 }
             } else if (categoryType === 'group' && categoryId) {
                 const group = state.groups.find(g => g.id === categoryId);
@@ -4164,7 +4158,6 @@
                     newTask.groupId = group.id;
                     newTask.groupName = group.name;
                     newTask.groupColor = group.color;
-                    console.log('设置分组:', group.name);
                 }
             } else {
                 // 默认使用第一个分组
@@ -4173,11 +4166,9 @@
                     newTask.groupId = defaultGroup.id;
                     newTask.groupName = defaultGroup.name;
                     newTask.groupColor = defaultGroup.color;
-                    console.log('使用默认分组:', defaultGroup.name);
                 }
             }
 
-            console.log('新任务:', newTask);
             state.todos.unshift(newTask);
 
             document.getElementById('todoInput').value = '';
@@ -4670,6 +4661,10 @@
         function updateEditCategorySelect() {
             const categoryCustom = document.getElementById('editCategorySelectCustom');
             const categoryNative = document.getElementById('editCategorySelect');
+
+            // 如果元素不存在，直接返回
+            if (!categoryCustom || !categoryNative) return;
+
             const categoryOptions = categoryCustom.querySelector('.custom-select-options');
             const categoryTrigger = categoryCustom.querySelector('.custom-select-trigger');
 
@@ -4760,8 +4755,6 @@
             const repeat = getCustomSelectValue('editRepeatCustom');
             const repeatEndDate = document.getElementById('editRepeatEndDate').value || null;
 
-            console.log('保存编辑 - categoryId:', categoryId, 'categoryType:', categoryType);
-
             // 项目和分组互斥
             let finalGroupId = null;
             let finalGroupName = null;
@@ -4776,7 +4769,6 @@
                     finalProjectId = project.id;
                     finalProjectName = project.name;
                     finalProjectColor = project.color;
-                    console.log('设置项目:', project.name);
                 }
             } else if (categoryType === 'group' && categoryId) {
                 const group = state.groups.find(g => g.id === categoryId);
@@ -4784,7 +4776,6 @@
                     finalGroupId = group.id;
                     finalGroupName = group.name;
                     finalGroupColor = group.color;
-                    console.log('设置分组:', group.name);
                 }
             } else {
                 // 都没选，使用默认分组
@@ -4793,7 +4784,6 @@
                     finalGroupId = defaultGroup.id;
                     finalGroupName = defaultGroup.name;
                     finalGroupColor = defaultGroup.color;
-                    console.log('使用默认分组:', defaultGroup.name);
                 }
             }
 
@@ -5112,6 +5102,10 @@
             // 更新分类选择器（合并分组、项目）
             const categoryCustom = document.getElementById('categorySelectCustom');
             const categoryNative = document.getElementById('categorySelect');
+
+            // 如果元素不存在，直接返回（可能在非待办视图）
+            if (!categoryCustom || !categoryNative) return;
+
             const categoryOptions = categoryCustom.querySelector('.custom-select-options');
             const categoryTrigger = categoryCustom.querySelector('.custom-select-trigger');
 
