@@ -5401,18 +5401,26 @@
                 const groupTasks = state.todos.filter(t => t.date === dStr && !t.projectId);
                 const projectTasks = state.todos.filter(t => t.date === dStr && t.projectId);
 
-                // 收集分组任务的颜色（去重）
-                const groupColors = [...new Set(groupTasks.map(t => t.groupColor))];
-                const hasProjectTasks = projectTasks.length > 0;
-
                 const div = document.createElement('div');
                 const isSelected = state.selectedDate === dStr;
-                div.className = `calendar-day ${isSelected ? 'selected' : ''} ${hasProjectTasks ? 'has-project-tasks' : ''}`;
+                div.className = `calendar-day ${isSelected ? 'selected' : ''}`;
 
                 let dotsHtml = '';
-                // 分组任务显示分组颜色点
-                groupColors.slice(0, 5).forEach(color => {
-                    dotsHtml += `<div class="day-task-dot" style="background:${color}"></div>`;
+
+                // 每个分组任务显示一个圆点
+                groupTasks.slice(0, 8).forEach(t => {
+                    dotsHtml += `<div class="day-task-dot" style="background:${t.groupColor}"></div>`;
+                });
+
+                // 每个项目显示一个方块（去重）
+                const uniqueProjects = {};
+                projectTasks.forEach(t => {
+                    if (!uniqueProjects[t.projectId]) {
+                        uniqueProjects[t.projectId] = t.projectColor;
+                    }
+                });
+                Object.values(uniqueProjects).slice(0, 3).forEach(color => {
+                    dotsHtml += `<div class="day-task-project" style="background:${color}"></div>`;
                 });
 
                 div.innerHTML = `<div class="day-number">${i}</div>` + dotsHtml;
@@ -7261,6 +7269,7 @@
             state.todos.forEach(t => t.updatedAt = now);
             state.groups.forEach(g => g.updatedAt = now);
             state.transactions.forEach(t => t.updatedAt = now);
+            state.projects.forEach(p => p.updatedAt = now);  // 添加项目时间戳更新
 
             // 立即保存到本地
             baseSave();
