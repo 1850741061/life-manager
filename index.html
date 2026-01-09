@@ -3171,10 +3171,14 @@
             </div>
 
             <!-- 图表区域 -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                 <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
                     <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">分组任务分布</h3>
                     <canvas id="groupDistributionChart" style="max-height: 300px;"></canvas>
+                </div>
+                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
+                    <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">项目进度</h3>
+                    <canvas id="projectProgressChart" style="max-height: 300px;"></canvas>
                 </div>
                 <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
                     <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">7天完成趋势</h3>
@@ -9354,8 +9358,13 @@
         };
 
         // 删除单个归档任务
-        window.deleteArchivedTodo = function(id) {
-            if (!confirm('确定要永久删除此归档任务吗？此操作无法撤销！')) return;
+        window.deleteArchivedTodo = async function(id) {
+            const confirmed = await showConfirm(
+                '永久删除归档任务',
+                '确定要永久删除此归档任务吗？此操作无法撤销！',
+                ['取消', '永久删除']
+            );
+            if (confirmed === 0) return;
 
             state.archivedTodos = state.archivedTodos.filter(t => t.id !== id);
             if (selectedArchivedTodos.has(id)) {
@@ -9368,13 +9377,18 @@
         };
 
         // 批量删除归档任务
-        window.batchDeleteArchived = function() {
+        window.batchDeleteArchived = async function() {
             if (selectedArchivedTodos.size === 0) {
                 alert('请先选择要删除的任务');
                 return;
             }
 
-            if (!confirm(`确定要永久删除选中的 ${selectedArchivedTodos.size} 个任务吗？此操作无法撤销！`)) return;
+            const confirmed = await showConfirm(
+                '批量永久删除',
+                `确定要永久删除选中的 ${selectedArchivedTodos.size} 个任务吗？此操作无法撤销！`,
+                ['取消', '永久删除']
+            );
+            if (confirmed === 0) return;
 
             const count = selectedArchivedTodos.size;
             state.archivedTodos = state.archivedTodos.filter(t => !selectedArchivedTodos.has(t.id));
@@ -9384,7 +9398,7 @@
             renderArchiveList();
             renderStats();
 
-            alert(`已永久删除 ${count} 个任务`);
+            showSyncToast(`已永久删除 ${count} 个任务`);
         };
 
         // --- 重复任务功能 ---
@@ -10817,6 +10831,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
 
         // ========== 数据统计功能 ==========
         let groupChart = null;
+        let projectChart = null;
         let trendChart = null;
 
         // 初始化数据统计
@@ -10830,6 +10845,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
         function openStatsModal() {
             updateStatsCards();
             renderGroupDistributionChart();
+            renderProjectProgressChart();
             renderCompletionTrendChart();
             openModal('statsModal');
         }
@@ -10872,13 +10888,13 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 groupChart.destroy();
             }
 
-            // 统计每个分组和项目的任务数
+            // 统计每个分组的任务数（不包含项目任务）
             const groupCounts = {};
             state.groups.forEach(g => {
                 groupCounts[g.id] = 0;
             });
 
-            // 只统计分组任务（不包含项目任务）
+            // 只统计分组任务
             state.todos.forEach(t => {
                 if (!t.projectId && groupCounts.hasOwnProperty(t.groupId)) {
                     groupCounts[t.groupId]++;
@@ -10895,16 +10911,6 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                     labels.push(g.name);
                     data.push(groupCounts[g.id]);
                     colors.push(g.color);
-                }
-            });
-
-            // 添加项目任务统计 - 每个项目单独显示
-            state.projects.forEach(p => {
-                const projectTaskCount = state.todos.filter(t => t.projectId == p.id).length;
-                if (projectTaskCount > 0) {
-                    labels.push(`📊 ${p.name}`);
-                    data.push(projectTaskCount);
-                    colors.push(p.color);
                 }
             });
 
@@ -11022,6 +11028,124 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                             beginAtZero: true,
                             ticks: {
                                 stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染项目进度图表
+        function renderProjectProgressChart() {
+            const canvas = document.getElementById('projectProgressChart');
+            const ctx = canvas.getContext('2d');
+
+            // 销毁旧图表
+            if (projectChart) {
+                projectChart.destroy();
+            }
+
+            // 如果没有项目，显示提示
+            if (state.projects.length === 0) {
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#6b7280';
+                ctx.textAlign = 'center';
+                ctx.fillText('暂无项目', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            // 准备数据：每个项目的总任务数和完成数
+            const labels = [];
+            const totalData = [];
+            const completedData = [];
+            const colors = [];
+
+            state.projects.forEach(p => {
+                const projectTasks = state.todos.filter(t => t.projectId == p.id);
+                const total = projectTasks.length;
+                const completed = projectTasks.filter(t => t.completed).length;
+
+                if (total > 0) {
+                    labels.push(p.name);
+                    totalData.push(total);
+                    completedData.push(completed);
+                    colors.push(p.color);
+                }
+            });
+
+            // 如果没有项目任务，显示提示
+            if (labels.length === 0) {
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#6b7280';
+                ctx.textAlign = 'center';
+                ctx.fillText('暂无项目任务', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            projectChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '已完成',
+                            data: completedData,
+                            backgroundColor: colors.map(c => c + '99'),
+                            borderColor: colors,
+                            borderWidth: 2
+                        },
+                        {
+                            label: '未完成',
+                            data: totalData.map((total, i) => total - completedData[i]),
+                            backgroundColor: colors.map(c => c + '33'),
+                            borderColor: colors,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    family: 'var(--font-family)'
+                                },
+                                color: 'var(--text-main)'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    const total = totalData[context.dataIndex];
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: {
+                                color: 'var(--text-main)',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                color: 'var(--text-main)'
                             }
                         }
                     }
