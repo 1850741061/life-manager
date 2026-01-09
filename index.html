@@ -787,23 +787,33 @@
 
         /* 项目任务卡片更紧凑 */
         .todo-item.project-task {
-            padding: 15px;
-            margin-bottom: 12px;
-            gap: 10px;
+            padding: 8px;
+            margin-bottom: 8px;
+            gap: 5px;
         }
 
         .todo-item.project-task .todo-text {
-            font-size: 0.95rem;
+            font-size: 0.85rem;
+            line-height: 1.2;
         }
 
         .todo-item.project-task .todo-attributes {
-            margin-top: 3px;
-            gap: 6px;
+            margin-top: 2px;
+            gap: 4px;
         }
 
         .todo-item.project-task .attribute-badge {
-            font-size: 0.7rem;
-            padding: 3px 6px;
+            font-size: 0.65rem;
+            padding: 2px 4px;
+        }
+
+        .todo-item.project-task .todo-main {
+            gap: 8px;
+            padding-left: 6px;
+        }
+
+        .todo-item.project-task .checkbox {
+            transform: scale(0.8);
         }
 
         .todo-item:hover {
@@ -4010,17 +4020,12 @@
             }
 
             state.projects.forEach((p) => {
-                const projectTodos = state.todos.filter(t => t.projectId == p.id);  // 使用 == 比较
-                const totalTodos = projectTodos.length;
-                const activeTodos = projectTodos.filter(t => !t.completed).length;
-
                 const li = document.createElement('li');
                 li.className = `group-item ${state.currentProjectId==p.id?'active':''}`;  // 使用 == 比较
                 li.innerHTML = `
                     <div class="group-name">
                         <i class="fas fa-project-diagram" style="margin-right: 8px; color: ${p.color};"></i>
                         <span>${p.name}</span>
-                        <span class="group-count" style="margin-left: auto; background: ${p.color};">${activeTodos}/${totalTodos}</span>
                     </div>
                 `;
                 li.onclick = () => selectProject(p.id);
@@ -5341,13 +5346,27 @@
             for(let i=0;i<fd;i++) g.appendChild(document.createElement('div'));
             for(let i=1;i<=dim;i++) {
                 const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-                const tasks = state.todos.filter(t => t.date === dStr && !t.projectId);  // 排除项目任务
-                const hasTasks = tasks.length > 0;
-                const div = document.createElement('div');
+                const groupTasks = state.todos.filter(t => t.date === dStr && !t.projectId);
+                const projectTasks = state.todos.filter(t => t.date === dStr && t.projectId);
 
+                // 收集项目任务的颜色
+                const projectColors = [...new Set(projectTasks.map(t => t.projectColor))];
+
+                const div = document.createElement('div');
                 const isSelected = state.selectedDate === dStr;
-                div.className = `calendar-day ${isSelected ? 'selected' : ''} ${hasTasks ? 'has-tasks' : ''}`;
-                div.innerHTML = `<div class="day-number">${i}</div>`;
+                div.className = `calendar-day ${isSelected ? 'selected' : ''}`;
+
+                let dotsHtml = '';
+                if (groupTasks.length > 0) {
+                    // 分组任务显示灰色点
+                    dotsHtml += `<div class="day-task-dot" style="background:var(--border-color)"></div>`;
+                }
+                // 项目任务显示项目颜色点
+                projectColors.slice(0, 4).forEach(color => {
+                    dotsHtml += `<div class="day-task-dot" style="background:${color}"></div>`;
+                });
+
+                div.innerHTML = `<div class="day-number">${i}</div>` + dotsHtml;
                 div.onclick = () => selectCalendarDay(dStr);
                 g.appendChild(div);
             }
