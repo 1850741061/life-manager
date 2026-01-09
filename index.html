@@ -9887,20 +9887,15 @@
                     const action = await showConfirm(
                         `删除项目"${project.name}"`,
                         `该项目下有 ${projectTasks.length} 个任务，请选择处理方式：`,
-                        ['取消删除', '释放任务（不归属任何分组）', `移至默认分组"${defaultGroup ? defaultGroup.name : '无'}"`]
+                        ['取消删除', '删除项目下的所有任务', `保留任务并移至默认分组"${defaultGroup ? defaultGroup.name : '无'}"`]
                     );
 
                     if (action === 0) {
                         // 用户选择取消删除 - 直接返回
                         return;
                     } else if (action === 1) {
-                        // 用户选择释放任务（移除项目关联）
-                        state.todos = state.todos.map(t => {
-                            if (t.projectId == projectId) {
-                                return {...t, projectId: null, projectName: null, projectColor: null};
-                            }
-                            return t;
-                        });
+                        // 用户选择删除项目下的所有任务
+                        state.todos = state.todos.filter(t => t.projectId != projectId);
                     } else if (action === 2) {
                         // 用户选择移至默认分组
                         if (defaultGroup) {
@@ -9919,14 +9914,9 @@
                                 return t;
                             });
                         } else {
-                            // 没有默认分组，提示用户并释放任务
-                            alert('没有默认分组，任务将被释放');
-                            state.todos = state.todos.map(t => {
-                                if (t.projectId == projectId) {
-                                    return {...t, projectId: null, projectName: null, projectColor: null};
-                                }
-                                return t;
-                            });
+                            // 没有默认分组，提示用户并删除任务
+                            alert('没有默认分组，项目任务将被删除');
+                            state.todos = state.todos.filter(t => t.projectId != projectId);
                         }
                     }
                 } else {
