@@ -510,36 +510,6 @@
             display: none;
         }
 
-        /* 悬浮加号按钮 */
-        .fab-add-task {
-            position: fixed;
-            bottom: 40px;
-            right: 40px;
-            width: 60px;
-            height: 60px;
-            background: var(--accent-color);
-            border: 3px solid var(--border-color);
-            border-radius: 50%;
-            box-shadow: var(--shadow);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 100;
-            transition: var(--transition);
-            font-size: 1.5rem;
-            color: var(--text-main);
-        }
-
-        .fab-add-task:hover {
-            transform: scale(1.1) rotate(90deg);
-            box-shadow: 8px 8px 0 0 var(--border-color);
-        }
-
-        .fab-add-task:active {
-            transform: scale(0.95);
-        }
-
         /* 核心：统一的输入控件 Pop 风格 (大格子) */
         input, select, textarea {
             width: 100%;
@@ -806,10 +776,11 @@
             background: var(--card-bg);
             border: 3px solid var(--border-color);
             border-radius: var(--radius);
-            padding: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 15px;
             position: relative;
             transition: var(--transition);
         }
@@ -1282,9 +1253,8 @@
             transform: scale(0.95);
         }
 
-        /* --- 移动端悬浮添加按钮 --- */
+        /* --- 悬浮添加按钮 --- */
         .mobile-fab {
-            display: none;
             position: fixed;
             bottom: 80px;
             right: 20px;
@@ -2342,17 +2312,12 @@
 
                         <!-- 归属选择器 - 合并分组和项目 -->
                         <div class="custom-select" id="categorySelectCustom">
-                            <div class="custom-select-trigger" data-value="all">全部任务</div>
+                            <div class="custom-select-trigger" data-value="">选择分组或项目</div>
                             <div class="custom-select-options"></div>
                             <select id="categorySelect" class="native-select-hidden"></select>
                         </div>
 
                         <textarea id="todoNotes" placeholder="备注（可选）" style="resize: vertical; min-height: 50px; margin-top: 15px;"></textarea>
-                    </div>
-
-                    <!-- 悬浮加号按钮 -->
-                    <div class="fab-add-task" id="fabAddTask" onclick="toggleInputSection()">
-                        <i class="fas fa-plus"></i>
                     </div>
 
                     <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
@@ -3879,16 +3844,26 @@
         window.addEventListener('resize', updateMobileGroupToggle);
         updateMobileGroupToggle();
 
-        // --- 移动端悬浮添加按钮处理 ---
+        // --- 悬浮添加按钮处理 ---
         window.handleMobileFabClick = function() {
             const currentView = state.view;
 
             if (currentView === 'todo') {
-                // 待办视图：聚焦到添加任务输入框
-                const todoInput = document.getElementById('todoInput');
-                if (todoInput) {
-                    todoInput.focus();
-                    todoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // 待办视图：切换输入区域显示/隐藏
+                const inputSection = document.querySelector('.input-section');
+                const isCollapsed = inputSection.classList.contains('collapsed');
+
+                if (isCollapsed) {
+                    // 展开
+                    inputSection.classList.remove('collapsed');
+                    // 滚动到输入区域
+                    setTimeout(() => {
+                        inputSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        document.getElementById('todoInput').focus();
+                    }, 100);
+                } else {
+                    // 收起
+                    inputSection.classList.add('collapsed');
                 }
             } else if (currentView === 'finance') {
                 // 记账视图：打开添加记账模态框
@@ -3897,16 +3872,16 @@
                     addFinanceBtn.click();
                 }
             } else if (currentView === 'calendar') {
-                // 日历视图：聚焦到添加任务输入框
-                const todoInput = document.getElementById('todoInput');
-                if (todoInput) {
-                    // 先切换到待办视图
-                    switchView('todo');
+                // 日历视图：切换到待办视图并展开输入区域
+                switchView('todo');
+                setTimeout(() => {
+                    const inputSection = document.querySelector('.input-section');
+                    inputSection.classList.remove('collapsed');
                     setTimeout(() => {
-                        todoInput.focus();
-                        todoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 300);
-                }
+                        inputSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        document.getElementById('todoInput').focus();
+                    }, 100);
+                }, 300);
             }
         };
 
@@ -4183,8 +4158,6 @@
             document.getElementById('todoDate').valueAsDate = new Date();
             document.getElementById('todoStartTime').value = '';
             document.getElementById('todoEndTime').value = '';
-            // 重置选择器到"全部任务"
-            setCustomSelectValue('categorySelectCustom', 'all');
             save();
             renderTodos();
             renderProjects();
@@ -4988,39 +4961,24 @@
         }
 
         function updateGroupSelects() {
-            // 更新分类选择器（合并全部任务、分组、项目）
+            // 更新分类选择器（合并分组、项目）
             const categoryCustom = document.getElementById('categorySelectCustom');
             const categoryNative = document.getElementById('categorySelect');
             const categoryOptions = categoryCustom.querySelector('.custom-select-options');
             const categoryTrigger = categoryCustom.querySelector('.custom-select-trigger');
-            const currentValue = categoryTrigger.dataset.value || 'all';
+
+            // 确定当前应该选择的值
+            let currentValue = null;
+            if (state.currentProjectId) {
+                currentValue = state.currentProjectId;
+            } else if (state.currentGroupId && state.currentGroupId !== 'all') {
+                currentValue = state.currentGroupId;
+            }
 
             categoryOptions.innerHTML = '';
             categoryNative.innerHTML = '';
 
-            // 1. 添加"全部任务"
-            const allOption = document.createElement('option');
-            allOption.value = 'all';
-            allOption.innerText = '全部任务';
-            categoryNative.appendChild(allOption);
-
-            const allDiv = document.createElement('div');
-            allDiv.className = 'custom-select-option';
-            allDiv.dataset.value = 'all';
-            allDiv.dataset.type = 'all';
-            allDiv.innerHTML = `<span><i class="fas fa-th-large" style="margin-right: 8px;"></i>全部任务</span>`;
-            allDiv.addEventListener('click', (e) => {
-                e.stopPropagation();
-                categoryTrigger.innerHTML = `<span><i class="fas fa-th-large" style="margin-right: 8px;"></i>全部任务</span>`;
-                categoryTrigger.dataset.value = 'all';
-                categoryNative.value = 'all';
-                categoryOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
-                allDiv.classList.add('selected');
-                categoryCustom.classList.remove('open');
-            });
-            categoryOptions.appendChild(allDiv);
-
-            // 2. 添加分组（如果有分组）
+            // 1. 添加分组（如果有分组）
             if (state.groups.length > 0) {
                 // 分组分界线
                 const groupDivider = document.createElement('div');
@@ -5053,7 +5011,7 @@
                 });
             }
 
-            // 3. 添加项目（如果有项目）
+            // 2. 添加项目（如果有项目）
             if (state.projects.length > 0) {
                 // 项目分界线
                 const projectDivider = document.createElement('div');
@@ -5086,11 +5044,15 @@
                 });
             }
 
-            // 恢复选中状态
-            if (currentValue !== 'all' && (state.groups.find(g => g.id === currentValue) || state.projects.find(p => p.id === currentValue))) {
+            // 恢复选中状态：自动选择当前分组/项目
+            if (currentValue && (state.groups.find(g => g.id === currentValue) || state.projects.find(p => p.id === currentValue))) {
                 setCustomSelectValue('categorySelectCustom', currentValue);
-            } else {
-                setCustomSelectValue('categorySelectCustom', 'all');
+            } else if (state.groups.length > 0) {
+                // 默认选择第一个分组
+                setCustomSelectValue('categorySelectCustom', state.groups[0].id);
+            } else if (state.projects.length > 0) {
+                // 如果没有分组，选择第一个项目
+                setCustomSelectValue('categorySelectCustom', state.projects[0].id);
             }
 
             // 更新编辑模态框分组选择器（保持不变）
@@ -6168,14 +6130,6 @@
         }
 
         // --- 通用 ---
-        // 切换输入区域的显示/隐藏
-        window.toggleInputSection = function() {
-            const inputSection = document.querySelector('.input-section');
-            const fab = document.getElementById('fabAddTask');
-            inputSection.classList.toggle('collapsed');
-            fab.style.display = inputSection.classList.contains('collapsed') ? 'flex' : 'none';
-        };
-
         // 根据任务数量更新输入区域状态
         function updateInputSectionVisibility() {
             let list = state.todos;
@@ -6190,15 +6144,12 @@
             }
 
             const inputSection = document.querySelector('.input-section');
-            const fab = document.getElementById('fabAddTask');
 
             // 如果没有任务，默认展开表单；如果有任务，默认折叠
             if (list.length === 0) {
                 inputSection.classList.remove('collapsed');
-                fab.style.display = 'none';
             } else {
                 inputSection.classList.add('collapsed');
-                fab.style.display = 'flex';
             }
         }
 

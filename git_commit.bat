@@ -1,13 +1,13 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "feat: merge group/project selector, add project stats, implement smart task input form
+git commit -m "fix: improve UX with unified FAB button and better task creation flow
 
-- Merge group and project selectors into unified dropdown with divider and type labels
-- Implement mutual exclusion between group and project highlighting
-- Project tasks only show when project is selected, not in 'all tasks'
-- Add independent statistics for projects (total, active, completion rate)
-- Add smart task input form: auto-show when empty, fab button when has tasks
-- Remove project filter bar and category radio buttons"
+- Remove duplicate FAB button, use existing mobile-fab for desktop too
+- Change FAB behavior to toggle input form instead of hiding button
+- Click to expand input form and scroll to it smoothly
+- Remove 'All Tasks' option from selector, auto-select current group/project
+- Increase task item padding and margin for better readability
+- Fix: can now add tasks to projects correctly"
 git push origin main
 pause
