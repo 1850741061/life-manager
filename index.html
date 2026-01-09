@@ -3124,7 +3124,7 @@
 
     <!-- 数据统计模态框 -->
     <div class="modal-overlay" id="statsModal">
-        <div class="modal" style="max-width: 900px;">
+        <div class="modal" style="max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0;"><i class="fas fa-chart-bar"></i> 数据统计</h2>
                 <button class="btn" onclick="closeModal('statsModal')"><i class="fas fa-times"></i></button>
@@ -3170,19 +3170,23 @@
                 </div>
             </div>
 
-            <!-- 图表区域 -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
-                    <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">分组任务分布</h3>
-                    <canvas id="groupDistributionChart" style="max-height: 300px;"></canvas>
+            <!-- 可滚动的内容区域 -->
+            <div style="flex: 1; overflow-y: auto; padding-right: 10px;">
+                <!-- 图表区域 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
+                        <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">分组任务分布</h3>
+                        <canvas id="groupDistributionChart" style="max-height: 250px;"></canvas>
+                    </div>
+                    <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
+                        <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">连续打卡统计</h3>
+                        <canvas id="habitStreakChart" style="max-height: 250px;"></canvas>
+                    </div>
                 </div>
-                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
-                    <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">项目进度</h3>
-                    <canvas id="projectProgressChart" style="max-height: 300px;"></canvas>
-                </div>
-                <div style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color); box-shadow: var(--shadow);">
-                    <h3 style="margin: 0 0 15px 0; font-size: 0.9rem; text-transform: uppercase; font-weight: 700;">7天完成趋势</h3>
-                    <canvas id="completionTrendChart" style="max-height: 300px;"></canvas>
+
+                <!-- 项目列表区域 -->
+                <div id="projectStatsList" style="display: flex; flex-direction: column; gap: 20px;">
+                    <!-- 项目卡片将在这里动态生成 -->
                 </div>
             </div>
         </div>
@@ -10831,7 +10835,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
 
         // ========== 数据统计功能 ==========
         let groupChart = null;
-        let projectChart = null;
+        let habitStreakChart = null;
         let trendChart = null;
 
         // 初始化数据统计
@@ -10845,8 +10849,8 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
         function openStatsModal() {
             updateStatsCards();
             renderGroupDistributionChart();
-            renderProjectProgressChart();
-            renderCompletionTrendChart();
+            renderHabitStreakChart();
+            renderProjectStatsList();
             openModal('statsModal');
         }
 
@@ -11035,122 +11039,245 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             });
         }
 
-        // 渲染项目进度图表
-        function renderProjectProgressChart() {
-            const canvas = document.getElementById('projectProgressChart');
+        // 渲染连续打卡统计图表
+        function renderHabitStreakChart() {
+            const canvas = document.getElementById('habitStreakChart');
             const ctx = canvas.getContext('2d');
 
             // 销毁旧图表
-            if (projectChart) {
-                projectChart.destroy();
+            if (habitStreakChart) {
+                habitStreakChart.destroy();
             }
 
-            // 如果没有项目，显示提示
-            if (state.projects.length === 0) {
-                ctx.font = '16px Arial';
-                ctx.fillStyle = '#6b7280';
-                ctx.textAlign = 'center';
-                ctx.fillText('暂无项目', canvas.width / 2, canvas.height / 2);
-                return;
-            }
-
-            // 准备数据：每个项目的总任务数和完成数
+            // 准备数据：每个习惯的连续打卡天数
             const labels = [];
-            const totalData = [];
-            const completedData = [];
+            const streakData = [];
             const colors = [];
 
-            state.projects.forEach(p => {
-                const projectTasks = state.todos.filter(t => t.projectId == p.id);
-                const total = projectTasks.length;
-                const completed = projectTasks.filter(t => t.completed).length;
-
-                if (total > 0) {
-                    labels.push(p.name);
-                    totalData.push(total);
-                    completedData.push(completed);
-                    colors.push(p.color);
+            state.habits.forEach(habit => {
+                // 计算连续打卡天数
+                let streak = calculateHabitStreak(habit.id);
+                if (streak > 0) {
+                    labels.push(habit.text);
+                    streakData.push(streak);
+                    colors.push('#ec4899');
                 }
             });
 
-            // 如果没有项目任务，显示提示
             if (labels.length === 0) {
                 ctx.font = '16px Arial';
                 ctx.fillStyle = '#6b7280';
                 ctx.textAlign = 'center';
-                ctx.fillText('暂无项目任务', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('暂无打卡记录', canvas.width / 2, canvas.height / 2);
                 return;
             }
 
-            projectChart = new Chart(ctx, {
-                type: 'bar',
+            habitStreakChart = new Chart(ctx, {
+                type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [
-                        {
-                            label: '已完成',
-                            data: completedData,
-                            backgroundColor: colors.map(c => c + '99'),
-                            borderColor: colors,
-                            borderWidth: 2
-                        },
-                        {
-                            label: '未完成',
-                            data: totalData.map((total, i) => total - completedData[i]),
-                            backgroundColor: colors.map(c => c + '33'),
-                            borderColor: colors,
-                            borderWidth: 2
-                        }
-                    ]
+                    datasets: [{
+                        label: '连续打卡天数',
+                        data: streakData,
+                        borderColor: '#ec4899',
+                        backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: '#ec4899',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
                     plugins: {
                         legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 15,
-                                font: {
-                                    size: 12,
-                                    family: 'var(--font-family)'
-                                },
-                                color: 'var(--text-main)'
-                            }
+                            display: false
                         },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    const label = context.dataset.label || '';
-                                    const value = context.parsed.y;
-                                    const total = totalData[context.dataIndex];
-                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                                    return `${label}: ${value} (${percentage}%)`;
+                                    return `连续打卡 ${context.parsed.y} 天`;
                                 }
                             }
                         }
                     },
                     scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                color: 'var(--text-main)'
+                            }
+                        },
                         x: {
-                            stacked: true,
                             ticks: {
                                 color: 'var(--text-main)',
                                 font: {
                                     size: 11
                                 }
                             }
-                        },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1,
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染项目统计列表
+        function renderProjectStatsList() {
+            const container = document.getElementById('projectStatsList');
+            container.innerHTML = '';
+
+            if (state.projects.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary); background: var(--bg-color); border-radius: var(--radius); border: 3px solid var(--border-color);">
+                        <i class="fas fa-project-diagram" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <div style="font-size: 1.1rem; font-weight: 600;">暂无项目</div>
+                    </div>
+                `;
+                return;
+            }
+
+            state.projects.forEach(project => {
+                const projectTasks = state.todos.filter(t => t.projectId == project.id);
+                const total = projectTasks.length;
+                const completed = projectTasks.filter(t => t.completed).length;
+                const inProgress = total - completed;
+                const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                const projectCard = document.createElement('div');
+                projectCard.style.cssText = `
+                    padding: 25px;
+                    background: var(--card-bg);
+                    border-radius: var(--radius);
+                    border: 3px solid ${project.color};
+                    box-shadow: var(--shadow);
+                    display: grid;
+                    grid-template-columns: 200px 1fr;
+                    gap: 25px;
+                `;
+
+                projectCard.innerHTML = `
+                    <!-- 左侧：项目名称 -->
+                    <div style="display: flex; flex-direction: column; justify-content: center; border-right: 3px solid var(--border-color); padding-right: 25px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <i class="fas fa-project-diagram" style="color: ${project.color}; font-size: 1.5rem;"></i>
+                            <h3 style="margin: 0; font-size: 1.3rem; color: ${project.color}; font-weight: 800;">${project.name}</h3>
+                        </div>
+                        ${project.description ? `<div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">${project.description}</div>` : ''}
+                    </div>
+
+                    <!-- 右侧：统计数据 -->
+                    <div>
+                        <!-- 统计卡片 -->
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                            <div style="text-align: center; padding: 15px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--border-color);">
+                                <div style="font-size: 2rem; font-weight: 900; color: ${project.color};">${total}</div>
+                                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">总任务</div>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--success-color);">
+                                <div style="font-size: 2rem; font-weight: 900; color: var(--success-color);">${completed}</div>
+                                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">已完成</div>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--warning-color);">
+                                <div style="font-size: 2rem; font-weight: 900; color: var(--warning-color);">${inProgress}</div>
+                                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">进行中</div>
+                            </div>
+                            <div style="text-align: center; padding: 15px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--accent-color);">
+                                <div style="font-size: 2rem; font-weight: 900; color: var(--accent-color);">${completionRate}%</div>
+                                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); margin-top: 5px;">完成率</div>
+                            </div>
+                        </div>
+
+                        <!-- 进度条 -->
+                        <div style="margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary);">项目进度</span>
+                                <span style="font-size: 0.85rem; font-weight: 700; color: ${project.color};">${completed}/${total}</span>
+                            </div>
+                            <div style="height: 12px; background: var(--bg-color); border-radius: 6px; overflow: hidden; border: 2px solid var(--border-color);">
+                                <div style="height: 100%; background: ${project.color}; transition: width 0.3s; width: ${completionRate}%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- 可视化图表 -->
+                        <div style="height: 150px;">
+                            <canvas id="projectChart-${project.id}"></canvas>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(projectCard);
+
+                // 为每个项目渲染饼图
+                setTimeout(() => renderProjectPieChart(project), 100);
+            });
+        }
+
+        // 渲染单个项目的饼图
+        function renderProjectPieChart(project) {
+            const canvas = document.getElementById(`projectChart-${project.id}`);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const projectTasks = state.todos.filter(t => t.projectId == project.id);
+            const completed = projectTasks.filter(t => t.completed).length;
+            const inProgress = projectTasks.length - completed;
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['已完成', '进行中'],
+                    datasets: [{
+                        data: [completed, inProgress],
+                        backgroundColor: [project.color + 'cc', project.color + '33'],
+                        borderColor: [project.color, project.color],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 10,
+                                font: {
+                                    size: 12
+                                },
                                 color: 'var(--text-main)'
                             }
                         }
                     }
                 }
             });
+        }
+
+        // 计算习惯的连续打卡天数
+        function calculateHabitStreak(habitId) {
+            const records = state.habitRecords[habitId];
+            if (!records) return 0;
+
+            let streak = 0;
+            const today = new Date();
+
+            for (let i = 0; i < 365; i++) { // 最多检查365天
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+
+                if (records[dateStr]) {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+
+            return streak;
         }
 
         // ========== 番茄钟功能 ==========
