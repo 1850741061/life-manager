@@ -9851,65 +9851,70 @@
         };
 
         window.deleteProject = async function(projectId) {
-            const project = state.projects.find(p => p.id === projectId);
-            if (!project) return;
+            try {
+                const project = state.projects.find(p => p.id === projectId);
+                if (!project) return;
 
-            // 检查该项目下是否有任务
-            const projectTasks = state.todos.filter(t => t.projectId == projectId);
+                // 检查该项目下是否有任务
+                const projectTasks = state.todos.filter(t => t.projectId == projectId);
 
-            if (projectTasks.length > 0) {
-                // 有任务，询问如何处理
-                const choice = await showConfirm(
-                    `删除项目"${project.name}"`,
-                    `该项目下有 ${projectTasks.length} 个任务。\n\n点击"确定"将这些任务移至默认分组\n点击"取消"将这些任务释放（不归属任何分组）`
-                );
+                if (projectTasks.length > 0) {
+                    // 有任务，询问如何处理
+                    const choice = await showConfirm(
+                        `删除项目"${project.name}"`,
+                        `该项目下有 ${projectTasks.length} 个任务。\n\n点击"确定"将这些任务移至默认分组\n点击"取消"将这些任务释放（不归属任何分组）`
+                    );
 
-                if (!choice) {
-                    // 用户点击取消 - 释放任务（移除项目关联但不设为默认分组）
-                    state.todos = state.todos.map(t => {
-                        if (t.projectId == projectId) {
-                            return {...t, projectId: null, projectName: null, projectColor: null};
-                        }
-                        return t;
-                    });
-                } else {
-                    // 用户点击确定 - 移至默认分组
-                    const defaultGroup = state.groups[0];
-                    if (defaultGroup) {
-                        state.todos = state.todos.map(t => {
-                            if (t.projectId == projectId) {
-                                return {
-                                    ...t,
-                                    projectId: null,
-                                    projectName: null,
-                                    projectColor: null,
-                                    groupId: defaultGroup.id,
-                                    groupName: defaultGroup.name,
-                                    groupColor: defaultGroup.color
-                                };
-                            }
-                            return t;
-                        });
-                    } else {
-                        // 没有默认分组，释放任务
+                    if (!choice) {
+                        // 用户点击取消 - 释放任务（移除项目关联但不设为默认分组）
                         state.todos = state.todos.map(t => {
                             if (t.projectId == projectId) {
                                 return {...t, projectId: null, projectName: null, projectColor: null};
                             }
                             return t;
                         });
+                    } else {
+                        // 用户点击确定 - 移至默认分组
+                        const defaultGroup = state.groups[0];
+                        if (defaultGroup) {
+                            state.todos = state.todos.map(t => {
+                                if (t.projectId == projectId) {
+                                    return {
+                                        ...t,
+                                        projectId: null,
+                                        projectName: null,
+                                        projectColor: null,
+                                        groupId: defaultGroup.id,
+                                        groupName: defaultGroup.name,
+                                        groupColor: defaultGroup.color
+                                    };
+                                }
+                                return t;
+                            });
+                        } else {
+                            // 没有默认分组，释放任务
+                            state.todos = state.todos.map(t => {
+                                if (t.projectId == projectId) {
+                                    return {...t, projectId: null, projectName: null, projectColor: null};
+                                }
+                                return t;
+                            });
+                        }
                     }
                 }
+
+                // 删除项目
+                state.projects = state.projects.filter(p => p.id !== projectId);
+
+                save();
+                renderProjects();
+                renderSidebarProjects();
+                renderTodos();
+                updateStats();
+            } catch (error) {
+                console.error('删除项目时出错:', error);
+                alert('删除项目失败，请重试');
             }
-
-            // 删除项目
-            state.projects = state.projects.filter(p => p.id !== projectId);
-
-            save();
-            renderProjects();
-            renderSidebarProjects();
-            renderTodos();
-            updateStats();
         };
 
         // --- 2. 批量操作功能 ---
