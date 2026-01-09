@@ -3999,7 +3999,7 @@
                 li.className = `group-item ${state.currentProjectId===p.id?'active':''}`;
                 li.innerHTML = `
                     <div class="group-name">
-                        <i class="fas fa-project-diagram" style="margin-right: 8px; color: var(--text-secondary);"></i>
+                        <i class="fas fa-project-diagram" style="margin-right: 8px; color: ${p.color};"></i>
                         <span>${p.name}</span>
                     </div>
                 `;
@@ -4016,11 +4016,20 @@
             state.currentProjectId = id;
             state.currentGroupId = null;
 
+            // 更新表单选择器为当前项目
+            setCustomSelectValue('categorySelectCustom', id);
+
             // 更新UI - 重新渲染侧边栏和任务
             renderGroups();
             renderSidebarProjects();
             renderTodos();
             updateStats();
+
+            // 检查该项目是否有任务，如果没有则展开表单
+            const projectTasks = state.todos.filter(t => t.projectId === id);
+            if (projectTasks.length === 0) {
+                document.querySelector('.input-section').classList.remove('collapsed');
+            }
 
             // 移动端：关闭侧边栏
             if (window.innerWidth <= 768) {
@@ -4036,10 +4045,23 @@
             state.currentGroupId = id;
             state.currentProjectId = null;
 
+            // 更新表单选择器为当前分组（如果是具体分组而不是all）
+            if (id !== 'all') {
+                setCustomSelectValue('categorySelectCustom', id);
+            }
+
             renderGroups();
             renderSidebarProjects();
             renderTodos();
             updateStats();
+
+            // 检查该分组是否有任务（且不属于项目），如果没有则展开表单
+            if (id !== 'all') {
+                const groupTasks = state.todos.filter(t => t.groupId === id && !t.projectId);
+                if (groupTasks.length === 0) {
+                    document.querySelector('.input-section').classList.remove('collapsed');
+                }
+            }
 
             // 移动端：关闭侧边栏
             if (window.innerWidth <= 768) {
@@ -4106,8 +4128,8 @@
             // 获取选择的分类（分组或项目）
             const categoryId = getCustomSelectValue('categorySelectCustom');
             const categoryNative = document.getElementById('categorySelect');
-            const selectedOption = categoryNative.querySelector(`option[value="${categoryId}"]`);
-            const categoryType = selectedOption ? selectedOption.getAttribute('data-type') : 'all';
+            const selectedOption = categoryNative ? categoryNative.querySelector(`option[value="${categoryId}"]`) : null;
+            const categoryType = selectedOption ? selectedOption.getAttribute('data-type') : null;
 
             let newTask = {
                 id: Date.now(),
@@ -4127,22 +4149,22 @@
             };
 
             // 根据选择的类型设置分组或项目信息
-            if (categoryType === 'group' && categoryId !== 'all') {
-                const group = state.groups.find(g => g.id === categoryId);
-                if (group) {
-                    newTask.groupId = group.id;
-                    newTask.groupName = group.name;
-                    newTask.groupColor = group.color;
-                }
-            } else if (categoryType === 'project') {
+            if (categoryType === 'project') {
                 const project = state.projects.find(p => p.id === categoryId);
                 if (project) {
                     newTask.projectId = project.id;
                     newTask.projectName = project.name;
                     newTask.projectColor = project.color;
                 }
+            } else if (categoryType === 'group') {
+                const group = state.groups.find(g => g.id === categoryId);
+                if (group) {
+                    newTask.groupId = group.id;
+                    newTask.groupName = group.name;
+                    newTask.groupColor = group.color;
+                }
             } else {
-                // 全部任务 - 使用默认分组
+                // 默认使用第一个分组
                 if (state.groups.length > 0) {
                     const defaultGroup = state.groups[0];
                     newTask.groupId = defaultGroup.id;
@@ -4610,8 +4632,6 @@
             document.getElementById('editNotes').value = t.notes || '';
             document.getElementById('editTodoDate').value = t.date;
             setCustomSelectValue('editPriorityCustom', t.priority);
-            document.getElementById('editGroupSelect').value = t.groupId;
-            setCustomSelectValue('editGroupSelectCustom', t.groupId);  // 设置自定义select
             document.getElementById('editStartTime').value = t.startTime || '';
             document.getElementById('editEndTime').value = t.endTime || '';
 
@@ -4628,11 +4648,24 @@
                 endDateContainer.style.display = 'none';
             }
 
-            // 设置项目关联
-            const projectSelect = document.getElementById('editProjectSelect');
-            projectSelect.innerHTML = '<option value="">无项目</option>' +
-                state.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-            projectSelect.value = t.projectId || '';
+            // 根据任务是关联项目还是分组，设置选择器
+            if (t.projectId) {
+                // 任务属于项目
+                document.getElementById('editGroupSelect').value = '';
+                setCustomSelectValue('editGroupSelectCustom', '');
+                const projectSelect = document.getElementById('editProjectSelect');
+                projectSelect.innerHTML = '<option value="">无项目</option>' +
+                    state.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                projectSelect.value = t.projectId;
+            } else {
+                // 任务属于分组
+                document.getElementById('editGroupSelect').value = t.groupId;
+                setCustomSelectValue('editGroupSelectCustom', t.groupId);
+                const projectSelect = document.getElementById('editProjectSelect');
+                projectSelect.innerHTML = '<option value="">无项目</option>' +
+                    state.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                projectSelect.value = '';
+            }
 
             openModal('editModal');
         };
@@ -4641,27 +4674,57 @@
             if(!state.editingId) return;
             const text = document.getElementById('editInput').value.trim();
             if(!text) return;
+
             const gId = getCustomSelectValue('editGroupSelectCustom');
             const group = state.groups.find(g => g.id === gId);
             const priority = getCustomSelectValue('editPriorityCustom');
             const repeat = getCustomSelectValue('editRepeatCustom');
             const repeatEndDate = document.getElementById('editRepeatEndDate').value || null;
             const projectId = document.getElementById('editProjectSelect').value || null;
-            const project = state.projects.find(p => p.id == projectId);
+            const project = projectId ? state.projects.find(p => p.id == projectId) : null;
+
+            // 项目和分组互斥
+            let finalGroupId = null;
+            let finalGroupName = null;
+            let finalGroupColor = null;
+            let finalProjectId = null;
+            let finalProjectName = null;
+            let finalProjectColor = null;
+
+            if (project) {
+                // 选择了项目
+                finalProjectId = project.id;
+                finalProjectName = project.name;
+                finalProjectColor = project.color;
+            } else if (group) {
+                // 选择了分组
+                finalGroupId = group.id;
+                finalGroupName = group.name;
+                finalGroupColor = group.color;
+            } else {
+                // 都没选，使用默认分组
+                if (state.groups.length > 0) {
+                    const defaultGroup = state.groups[0];
+                    finalGroupId = defaultGroup.id;
+                    finalGroupName = defaultGroup.name;
+                    finalGroupColor = defaultGroup.color;
+                }
+            }
 
             state.todos = state.todos.map(t => t.id===state.editingId ? {
                 ...t, text, notes: document.getElementById('editNotes').value.trim(),
                 priority: priority,
-                groupId: gId,
-                groupName: group.name, groupColor: group.color,
+                groupId: finalGroupId,
+                groupName: finalGroupName,
+                groupColor: finalGroupColor,
                 date: document.getElementById('editTodoDate').value,
                 startTime: document.getElementById('editStartTime').value || null,
                 endTime: document.getElementById('editEndTime').value || null,
                 repeat: repeat,
                 repeatEndDate: repeatEndDate,
-                projectId: projectId,
-                projectName: project ? project.name : null,
-                projectColor: project ? project.color : null
+                projectId: finalProjectId,
+                projectName: finalProjectName,
+                projectColor: finalProjectColor
             } : t);
             save();
             closeModal('editModal');
@@ -5029,10 +5092,10 @@
                     optionDiv.className = 'custom-select-option';
                     optionDiv.dataset.value = p.id;
                     optionDiv.dataset.type = 'project';
-                    optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;flex:1;"><i class="fas fa-project-diagram" style="color:var(--text-secondary);"></i>${p.name}</span><span class="category-type-label project">项目</span>`;
+                    optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;flex:1;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span><span class="category-type-label project">项目</span>`;
                     optionDiv.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        categoryTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:var(--text-secondary);"></i>${p.name}</span>`;
+                        categoryTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span>`;
                         categoryTrigger.dataset.value = p.id;
                         categoryNative.value = p.id;
                         categoryOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
@@ -10543,7 +10606,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             // 绑定帮助按钮
             const helpBtn = document.getElementById('helpBtn');
             if (helpBtn) {
-                helpBtn.onclick = () => {
+                helpBtn.onclick = function() {
                     showKeyboardShortcutsHelp();
                 };
             }
