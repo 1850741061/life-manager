@@ -1,15 +1,15 @@
 @echo off
 cd H:\claude
 git add -A
-git commit -m "fix: complete project/group integration and edit task bugs
+git commit -m "fix: complete rewrite of edit modal and project task creation
 
-- Add color to project icons in sidebar and selector
-- Auto-expand form when switching to empty project/group
-- Auto-switch form selector to current project/group
-- Fix task labels showing NULL when adding to projects
-- Fix edit modal to show correct project/group selection
-- Fix saveEditTask to handle project/group mutual exclusion
-- Prevent undefined errors when saving edited tasks
-- Improve help button event binding"
+- Merge edit modal selectors into single unified category selector
+- Create updateEditCategorySelect function for edit modal
+- Fix project task creation - tasks now correctly归类 to projects
+- Add console logging for debugging project/group selection
+- Fix selectProject to properly update form selector with delay
+- Make showKeyboardShortcutsHelp a global function
+- Directly bind help button onclick in HTML
+- Remove separate editGroupSelect and editProjectSelect"
 git push origin main
 pause

@@ -2235,7 +2235,7 @@
                     <button class="btn-icon" id="refreshBtn" title="刷新数据"><i class="fas fa-sync-alt"></i></button>
                     <button class="btn-icon" id="importExportBtn" title="导入/导出"><i class="fas fa-exchange-alt"></i></button>
                     <button class="btn-icon" id="themeToggle" title="切换主题"><i class="fas fa-moon"></i></button>
-                    <button class="btn-icon" id="helpBtn" title="帮助"><i class="fas fa-question-circle"></i></button>
+                    <button class="btn-icon" id="helpBtn" title="帮助" onclick="showKeyboardShortcutsHelp()"><i class="fas fa-question-circle"></i></button>
                 </div>
             </div>
         </header>
@@ -2554,12 +2554,13 @@
                 </div>
             </div>
 
+            <!-- 归属选择器 - 合并分组和项目 -->
             <div style="margin-bottom: 20px;">
-                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">分组</label>
-                <div class="custom-select" id="editGroupSelectCustom">
-                    <div class="custom-select-trigger" data-value="default">选择分组</div>
+                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">归属</label>
+                <div class="custom-select" id="editCategorySelectCustom">
+                    <div class="custom-select-trigger" data-value="">选择分组或项目</div>
                     <div class="custom-select-options"></div>
-                    <select id="editGroupSelect" class="native-select-hidden"></select>
+                    <select id="editCategorySelect" class="native-select-hidden"></select>
                 </div>
             </div>
 
@@ -2591,16 +2592,6 @@
                 <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">重复结束日期（可选）</label>
                 <input type="date" id="editRepeatEndDate" placeholder="留空表示永久重复">
                 <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">留空表示任务会一直重复</p>
-            </div>
-
-            <!-- 项目关联 -->
-            <div style="margin-bottom: 20px;">
-                <label style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">
-                    <i class="fas fa-project-diagram"></i> 关联项目（可选）
-                </label>
-                <select id="editProjectSelect" style="width: 100%; padding: 10px;">
-                    <option value="">无项目</option>
-                </select>
             </div>
             <div style="display: flex; justify-content: space-between; gap: 10px;">
                 <button class="btn" onclick="saveAsTemplate()" style="background: var(--warning-color); border-color: var(--warning-color);"><i class="fas fa-save"></i> 保存为模板</button>
@@ -4012,18 +4003,23 @@
             const project = state.projects.find(p => p.id === id);
             if (!project) return;
 
+            console.log('选择项目:', project.name, 'id:', id);
+
             // 点击项目时，清除分组选择（包括"全部任务"）
             state.currentProjectId = id;
             state.currentGroupId = null;
-
-            // 更新表单选择器为当前项目
-            setCustomSelectValue('categorySelectCustom', id);
 
             // 更新UI - 重新渲染侧边栏和任务
             renderGroups();
             renderSidebarProjects();
             renderTodos();
             updateStats();
+
+            // 延迟更新表单选择器，确保DOM已更新
+            setTimeout(() => {
+                setCustomSelectValue('categorySelectCustom', id);
+                console.log('已更新选择器为项目:', id);
+            }, 100);
 
             // 检查该项目是否有任务，如果没有则展开表单
             const projectTasks = state.todos.filter(t => t.projectId === id);
@@ -4131,6 +4127,8 @@
             const selectedOption = categoryNative ? categoryNative.querySelector(`option[value="${categoryId}"]`) : null;
             const categoryType = selectedOption ? selectedOption.getAttribute('data-type') : null;
 
+            console.log('添加任务 - categoryId:', categoryId, 'categoryType:', categoryType);
+
             let newTask = {
                 id: Date.now(),
                 text, notes: document.getElementById('todoNotes').value.trim(),
@@ -4149,19 +4147,21 @@
             };
 
             // 根据选择的类型设置分组或项目信息
-            if (categoryType === 'project') {
+            if (categoryType === 'project' && categoryId) {
                 const project = state.projects.find(p => p.id === categoryId);
                 if (project) {
                     newTask.projectId = project.id;
                     newTask.projectName = project.name;
                     newTask.projectColor = project.color;
+                    console.log('设置项目:', project.name);
                 }
-            } else if (categoryType === 'group') {
+            } else if (categoryType === 'group' && categoryId) {
                 const group = state.groups.find(g => g.id === categoryId);
                 if (group) {
                     newTask.groupId = group.id;
                     newTask.groupName = group.name;
                     newTask.groupColor = group.color;
+                    console.log('设置分组:', group.name);
                 }
             } else {
                 // 默认使用第一个分组
@@ -4170,9 +4170,11 @@
                     newTask.groupId = defaultGroup.id;
                     newTask.groupName = defaultGroup.name;
                     newTask.groupColor = defaultGroup.color;
+                    console.log('使用默认分组:', defaultGroup.name);
                 }
             }
 
+            console.log('新任务:', newTask);
             state.todos.unshift(newTask);
 
             document.getElementById('todoInput').value = '';
@@ -4648,40 +4650,114 @@
                 endDateContainer.style.display = 'none';
             }
 
-            // 根据任务是关联项目还是分组，设置选择器
+            // 更新编辑分类选择器
+            updateEditCategorySelect();
+
+            // 设置当前归属
             if (t.projectId) {
-                // 任务属于项目
-                document.getElementById('editGroupSelect').value = '';
-                setCustomSelectValue('editGroupSelectCustom', '');
-                const projectSelect = document.getElementById('editProjectSelect');
-                projectSelect.innerHTML = '<option value="">无项目</option>' +
-                    state.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-                projectSelect.value = t.projectId;
-            } else {
-                // 任务属于分组
-                document.getElementById('editGroupSelect').value = t.groupId;
-                setCustomSelectValue('editGroupSelectCustom', t.groupId);
-                const projectSelect = document.getElementById('editProjectSelect');
-                projectSelect.innerHTML = '<option value="">无项目</option>' +
-                    state.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-                projectSelect.value = '';
+                setCustomSelectValue('editCategorySelectCustom', t.projectId);
+            } else if (t.groupId) {
+                setCustomSelectValue('editCategorySelectCustom', t.groupId);
             }
 
             openModal('editModal');
         };
+
+        // 更新编辑分类选择器（合并分组和项目）
+        function updateEditCategorySelect() {
+            const categoryCustom = document.getElementById('editCategorySelectCustom');
+            const categoryNative = document.getElementById('editCategorySelect');
+            const categoryOptions = categoryCustom.querySelector('.custom-select-options');
+            const categoryTrigger = categoryCustom.querySelector('.custom-select-trigger');
+
+            categoryOptions.innerHTML = '';
+            categoryNative.innerHTML = '';
+
+            // 1. 添加分组（如果有分组）
+            if (state.groups.length > 0) {
+                // 分组分界线
+                const groupDivider = document.createElement('div');
+                groupDivider.className = 'custom-select-divider';
+                groupDivider.innerHTML = '分组';
+                categoryOptions.appendChild(groupDivider);
+
+                state.groups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.setAttribute('data-type', 'group');
+                    opt.innerText = g.name;
+                    categoryNative.appendChild(opt);
+
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'custom-select-option';
+                    optionDiv.dataset.value = g.id;
+                    optionDiv.dataset.type = 'group';
+                    optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;flex:1;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span><span class="category-type-label group">分组</span>`;
+                    optionDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        categoryTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                        categoryTrigger.dataset.value = g.id;
+                        categoryNative.value = g.id;
+                        categoryOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                        optionDiv.classList.add('selected');
+                        categoryCustom.classList.remove('open');
+                    });
+                    categoryOptions.appendChild(optionDiv);
+                });
+            }
+
+            // 2. 添加项目（如果有项目）
+            if (state.projects.length > 0) {
+                // 项目分界线
+                const projectDivider = document.createElement('div');
+                projectDivider.className = 'custom-select-divider';
+                projectDivider.innerHTML = '项目';
+                categoryOptions.appendChild(projectDivider);
+
+                state.projects.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.setAttribute('data-type', 'project');
+                    opt.innerText = p.name;
+                    categoryNative.appendChild(opt);
+
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'custom-select-option';
+                    optionDiv.dataset.value = p.id;
+                    optionDiv.dataset.type = 'project';
+                    optionDiv.innerHTML = `<span style="display:flex;align-items:center;gap:8px;flex:1;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span><span class="category-type-label project">项目</span>`;
+                    optionDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        categoryTrigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span>`;
+                        categoryTrigger.dataset.value = p.id;
+                        categoryNative.value = p.id;
+                        categoryOptions.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                        optionDiv.classList.add('selected');
+                        categoryCustom.classList.remove('open');
+                    });
+                    categoryOptions.appendChild(optionDiv);
+                });
+            }
+
+            // 初始化选择器
+            initCustomSelect('editCategorySelectCustom');
+        }
 
         window.saveEditTask = () => {
             if(!state.editingId) return;
             const text = document.getElementById('editInput').value.trim();
             if(!text) return;
 
-            const gId = getCustomSelectValue('editGroupSelectCustom');
-            const group = state.groups.find(g => g.id === gId);
+            const categoryId = getCustomSelectValue('editCategorySelectCustom');
+            const categoryNative = document.getElementById('editCategorySelect');
+            const selectedOption = categoryNative ? categoryNative.querySelector(`option[value="${categoryId}"]`) : null;
+            const categoryType = selectedOption ? selectedOption.getAttribute('data-type') : null;
+
             const priority = getCustomSelectValue('editPriorityCustom');
             const repeat = getCustomSelectValue('editRepeatCustom');
             const repeatEndDate = document.getElementById('editRepeatEndDate').value || null;
-            const projectId = document.getElementById('editProjectSelect').value || null;
-            const project = projectId ? state.projects.find(p => p.id == projectId) : null;
+
+            console.log('保存编辑 - categoryId:', categoryId, 'categoryType:', categoryType);
 
             // 项目和分组互斥
             let finalGroupId = null;
@@ -4691,16 +4767,22 @@
             let finalProjectName = null;
             let finalProjectColor = null;
 
-            if (project) {
-                // 选择了项目
-                finalProjectId = project.id;
-                finalProjectName = project.name;
-                finalProjectColor = project.color;
-            } else if (group) {
-                // 选择了分组
-                finalGroupId = group.id;
-                finalGroupName = group.name;
-                finalGroupColor = group.color;
+            if (categoryType === 'project' && categoryId) {
+                const project = state.projects.find(p => p.id == categoryId);
+                if (project) {
+                    finalProjectId = project.id;
+                    finalProjectName = project.name;
+                    finalProjectColor = project.color;
+                    console.log('设置项目:', project.name);
+                }
+            } else if (categoryType === 'group' && categoryId) {
+                const group = state.groups.find(g => g.id === categoryId);
+                if (group) {
+                    finalGroupId = group.id;
+                    finalGroupName = group.name;
+                    finalGroupColor = group.color;
+                    console.log('设置分组:', group.name);
+                }
             } else {
                 // 都没选，使用默认分组
                 if (state.groups.length > 0) {
@@ -4708,6 +4790,7 @@
                     finalGroupId = defaultGroup.id;
                     finalGroupName = defaultGroup.name;
                     finalGroupColor = defaultGroup.color;
+                    console.log('使用默认分组:', defaultGroup.name);
                 }
             }
 
@@ -10661,7 +10744,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
         }
 
         // 显示快捷键帮助
-        function showKeyboardShortcutsHelp() {
+        window.showKeyboardShortcutsHelp = function() {
             const helpContent = `
 📌 ProLife 功能帮助
 
