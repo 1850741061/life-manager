@@ -3989,12 +3989,17 @@
             }
 
             state.projects.forEach((p) => {
+                const projectTodos = state.todos.filter(t => t.projectId == p.id);  // 使用 == 比较
+                const totalTodos = projectTodos.length;
+                const activeTodos = projectTodos.filter(t => !t.completed).length;
+
                 const li = document.createElement('li');
-                li.className = `group-item ${state.currentProjectId===p.id?'active':''}`;
+                li.className = `group-item ${state.currentProjectId==p.id?'active':''}`;  // 使用 == 比较
                 li.innerHTML = `
                     <div class="group-name">
                         <i class="fas fa-project-diagram" style="margin-right: 8px; color: ${p.color};"></i>
                         <span>${p.name}</span>
+                        <span class="group-count" style="margin-left: auto; background: ${p.color};">${activeTodos}/${totalTodos}</span>
                     </div>
                 `;
                 li.onclick = () => selectProject(p.id);
@@ -4241,7 +4246,7 @@
 
             // 项目视图：显示该项目的所有任务
             if(state.currentProjectId) {
-                list = list.filter(t => t.projectId === state.currentProjectId);
+                list = list.filter(t => t.projectId == state.currentProjectId);  // 使用 == 比较
             } else if(state.currentGroupId && state.currentGroupId !== 'all') {
                 // 分组视图：只显示该分组且不属于项目的任务
                 list = list.filter(t => t.groupId === state.currentGroupId && !t.projectId);
@@ -4946,7 +4951,7 @@
             // 根据当前选择过滤任务
             if(state.currentProjectId) {
                 // 项目视图：显示该项目的统计
-                list = list.filter(t => t.projectId === state.currentProjectId);
+                list = list.filter(t => t.projectId == state.currentProjectId);  // 使用 == 比较
             } else if(state.currentGroupId && state.currentGroupId !== 'all') {
                 // 分组视图：只显示该分组且不属于项目的任务
                 list = list.filter(t => t.groupId === state.currentGroupId && !t.projectId);
@@ -6285,7 +6290,7 @@
 
             // 根据当前选择过滤任务
             if(state.currentProjectId) {
-                list = list.filter(t => t.projectId === state.currentProjectId);
+                list = list.filter(t => t.projectId == state.currentProjectId);  // 使用 == 比较
             } else if(state.currentGroupId && state.currentGroupId !== 'all') {
                 list = list.filter(t => t.groupId === state.currentGroupId && !t.projectId);
             } else {
@@ -9520,7 +9525,7 @@
             emptyState.style.display = 'none';
 
             container.innerHTML = state.projects.map(project => {
-                const projectTodos = state.todos.filter(t => t.projectId === project.id);
+                const projectTodos = state.todos.filter(t => t.projectId == project.id);  // 使用 == 比较
                 const totalTodos = projectTodos.length;
                 const completedTodos = projectTodos.filter(t => t.completed).length;
                 const progress = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0;
