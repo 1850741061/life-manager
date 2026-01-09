@@ -4003,7 +4003,7 @@
         }
 
         window.selectProject = (id) => {
-            const project = state.projects.find(p => p.id === id);
+            const project = state.projects.find(p => p.id == id);  // 使用 == 比较
             if (!project) return;
 
             // 点击项目时，清除分组选择（包括"全部任务"）
@@ -4016,31 +4016,25 @@
             renderTodos();
             updateStats();
 
-            // 更新表单选择器（renderGroups会调用updateGroupSelects）
-            // 所以我们只需要设置当前值
-            const categoryCustom = document.getElementById('categorySelectCustom');
-            if (categoryCustom) {
-                // 直接设置选择器的值
-                setTimeout(() => {
+            // 延迟更新表单选择器，确保updateGroupSelects已完成
+            setTimeout(() => {
+                const categoryCustom = document.getElementById('categorySelectCustom');
+                if (categoryCustom) {
                     const trigger = categoryCustom.querySelector('.custom-select-trigger');
                     const options = categoryCustom.querySelectorAll('.custom-select-option');
-                    const targetOption = Array.from(options).find(opt => opt.dataset.value === id);
+                    const targetOption = Array.from(options).find(opt => opt.dataset.value == id);  // 使用 ==
 
                     if (targetOption && trigger) {
-                        // 查找项目信息
-                        const p = state.projects.find(pr => pr.id === id);
-                        if (p) {
-                            trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span>`;
-                            trigger.dataset.value = id;
-                            options.forEach(o => o.classList.remove('selected'));
-                            targetOption.classList.add('selected');
-                        }
+                        trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${project.color};"></i>${project.name}</span>`;
+                        trigger.dataset.value = String(id);
+                        options.forEach(o => o.classList.remove('selected'));
+                        targetOption.classList.add('selected');
                     }
-                }, 50);
-            }
+                }
+            }, 150);
 
             // 检查该项目是否有任务，如果没有则展开表单
-            const projectTasks = state.todos.filter(t => t.projectId === id);
+            const projectTasks = state.todos.filter(t => String(t.projectId) == String(id));
             if (projectTasks.length === 0) {
                 document.querySelector('.input-section').classList.remove('collapsed');
             }
@@ -4182,14 +4176,14 @@
 
             // 根据选择的类型设置分组或项目信息
             if (categoryType === 'project' && categoryId) {
-                const project = state.projects.find(p => p.id === categoryId);
+                const project = state.projects.find(p => p.id == categoryId);  // 使用 == 比较
                 if (project) {
-                    newTask.projectId = project.id;
+                    newTask.projectId = String(project.id);
                     newTask.projectName = project.name;
                     newTask.projectColor = project.color;
                 }
             } else if (categoryType === 'group' && categoryId) {
-                const group = state.groups.find(g => g.id === categoryId);
+                const group = state.groups.find(g => g.id == categoryId);  // 使用 == 比较
                 if (group) {
                     newTask.groupId = group.id;
                     newTask.groupName = group.name;
@@ -4292,7 +4286,8 @@
                 let subtasksHtml = '';
                 if (t.subtasks && t.subtasks.length > 0) {
                     const completedSubtasks = t.subtasks.filter(st => st.completed).length;
-                    const isExpanded = state.expandedSubtasks[t.id] !== false; // 默认展开
+                    // 项目任务默认折叠，分组任务默认展开
+                    const isExpanded = t.projectId ? (state.expandedSubtasks[t.id] === true) : (state.expandedSubtasks[t.id] !== false);
                     const expandIcon = isExpanded ? 'fa-chevron-down' : 'fa-chevron-right';
                     const subtaskListDisplay = isExpanded ? 'flex' : 'none';
 
@@ -4802,12 +4797,12 @@
             if (categoryType === 'project' && categoryId) {
                 const project = state.projects.find(p => p.id == categoryId);
                 if (project) {
-                    finalProjectId = project.id;
+                    finalProjectId = String(project.id);  // 转为字符串
                     finalProjectName = project.name;
                     finalProjectColor = project.color;
                 }
             } else if (categoryType === 'group' && categoryId) {
-                const group = state.groups.find(g => g.id === categoryId);
+                const group = state.groups.find(g => g.id == categoryId);
                 if (group) {
                     finalGroupId = group.id;
                     finalGroupName = group.name;
