@@ -42,3 +42,6 @@ builder-debug.yml
 supabase/config.toml
 vercel.json
 android/
+
+# Build scripts (local use only)
+*.bat
