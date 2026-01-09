@@ -4016,10 +4016,28 @@
             renderTodos();
             updateStats();
 
-            // 延迟更新表单选择器，确保DOM已更新
-            setTimeout(() => {
-                setCustomSelectValue('categorySelectCustom', id);
-            }, 100);
+            // 更新表单选择器（renderGroups会调用updateGroupSelects）
+            // 所以我们只需要设置当前值
+            const categoryCustom = document.getElementById('categorySelectCustom');
+            if (categoryCustom) {
+                // 直接设置选择器的值
+                setTimeout(() => {
+                    const trigger = categoryCustom.querySelector('.custom-select-trigger');
+                    const options = categoryCustom.querySelectorAll('.custom-select-option');
+                    const targetOption = Array.from(options).find(opt => opt.dataset.value === id);
+
+                    if (targetOption && trigger) {
+                        // 查找项目信息
+                        const p = state.projects.find(pr => pr.id === id);
+                        if (p) {
+                            trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-project-diagram" style="color:${p.color};"></i>${p.name}</span>`;
+                            trigger.dataset.value = id;
+                            options.forEach(o => o.classList.remove('selected'));
+                            targetOption.classList.add('selected');
+                        }
+                    }
+                }, 50);
+            }
 
             // 检查该项目是否有任务，如果没有则展开表单
             const projectTasks = state.todos.filter(t => t.projectId === id);
@@ -4041,15 +4059,33 @@
             state.currentGroupId = id;
             state.currentProjectId = null;
 
-            // 更新表单选择器为当前分组（如果是具体分组而不是all）
-            if (id !== 'all') {
-                setCustomSelectValue('categorySelectCustom', id);
-            }
-
             renderGroups();
             renderSidebarProjects();
             renderTodos();
             updateStats();
+
+            // 更新表单选择器（如果是具体分组）
+            if (id !== 'all') {
+                const categoryCustom = document.getElementById('categorySelectCustom');
+                if (categoryCustom) {
+                    setTimeout(() => {
+                        const trigger = categoryCustom.querySelector('.custom-select-trigger');
+                        const options = categoryCustom.querySelectorAll('.custom-select-option');
+                        const targetOption = Array.from(options).find(opt => opt.dataset.value === id);
+
+                        if (targetOption && trigger) {
+                            // 查找分组信息
+                            const g = state.groups.find(gr => gr.id === id);
+                            if (g) {
+                                trigger.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><span class="group-color" style="width:12px;height:12px;border-radius:2px;border:2px solid var(--border-color);background:${g.color};flex-shrink:0;"></span>${g.name}</span>`;
+                                trigger.dataset.value = id;
+                                options.forEach(o => o.classList.remove('selected'));
+                                targetOption.classList.add('selected');
+                            }
+                        }
+                    }, 50);
+                }
+            }
 
             // 检查该分组是否有任务（且不属于项目），如果没有则展开表单
             if (id !== 'all') {
