@@ -3579,6 +3579,9 @@
         // --- 自定义下拉组件初始化 ---
         function initCustomSelects() {
             document.querySelectorAll('.custom-select').forEach(select => {
+                // 跳过编辑模态框的分类选择器，它会单独初始化
+                if (select.id === 'editCategorySelectCustom') return;
+
                 const trigger = select.querySelector('.custom-select-trigger');
                 const options = select.querySelectorAll('.custom-select-option');
                 const nativeSelect = select.querySelector('select');
