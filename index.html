@@ -1051,6 +1051,11 @@
             width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--border-color);
             display: inline-block; margin-right: 4px; margin-bottom: 4px;
         }
+
+        .day-task-project {
+            width: 8px; height: 8px; border-radius: 2px; border: 1px solid var(--border-color);
+            display: inline-block; margin-right: 4px; margin-bottom: 4px;
+        }
         
         .calendar-detail-view {
             margin-top: 30px;
@@ -5349,22 +5354,25 @@
                 const groupTasks = state.todos.filter(t => t.date === dStr && !t.projectId);
                 const projectTasks = state.todos.filter(t => t.date === dStr && t.projectId);
 
-                // 收集项目任务的颜色
-                const projectColors = [...new Set(projectTasks.map(t => t.projectColor))];
+                // 收集分组任务的颜色（去重）
+                const groupColors = [...new Set(groupTasks.map(t => t.groupColor))];
 
                 const div = document.createElement('div');
                 const isSelected = state.selectedDate === dStr;
                 div.className = `calendar-day ${isSelected ? 'selected' : ''}`;
 
                 let dotsHtml = '';
-                if (groupTasks.length > 0) {
-                    // 分组任务显示灰色点
-                    dotsHtml += `<div class="day-task-dot" style="background:var(--border-color)"></div>`;
-                }
-                // 项目任务显示项目颜色点
-                projectColors.slice(0, 4).forEach(color => {
+                // 分组任务显示分组颜色点
+                groupColors.slice(0, 5).forEach(color => {
                     dotsHtml += `<div class="day-task-dot" style="background:${color}"></div>`;
                 });
+                // 项目任务显示方块标记
+                if (projectTasks.length > 0) {
+                    const projectColors = [...new Set(projectTasks.map(t => t.projectColor))];
+                    projectColors.slice(0, 2).forEach(color => {
+                        dotsHtml += `<div class="day-task-project" style="background:${color}"></div>`;
+                    });
+                }
 
                 div.innerHTML = `<div class="day-number">${i}</div>` + dotsHtml;
                 div.onclick = () => selectCalendarDay(dStr);
@@ -5407,15 +5415,15 @@
             const l = document.getElementById('calendarDetailList');
             l.innerHTML = '';
 
-            const tasks = state.todos.filter(t => t.date === state.selectedDate && !t.projectId);  // 排除项目任务
+            const tasks = state.todos.filter(t => t.date === state.selectedDate);  // 显示所有任务，包括项目任务
 
             if(tasks.length === 0) {
                 l.innerHTML = `<li style="text-align:center; color:var(--text-secondary); padding:20px;">暂无任务</li>`;
             } else {
                 tasks.forEach(t => {
                     const li = document.createElement('li');
-                    li.className = `todo-item ${t.completed?'completed':''}`;
-                    li.style.setProperty('--group-color', t.groupColor);
+                    li.className = `todo-item ${t.completed?'completed':''} ${t.projectId?'project-task':''}`;  // 项目任务添加特殊class
+                    li.style.setProperty('--group-color', t.projectId ? t.projectColor : t.groupColor);
                     li.style.cursor = 'pointer';
                     const pLabel = pMap[t.priority] || '中';
 
@@ -5432,6 +5440,11 @@
                         subtaskProgress = `<span class="attribute-badge" style="color:var(--text-secondary);"><i class="fas fa-tasks"></i> ${completed}/${t.subtasks.length}</span>`;
                     }
 
+                    // 根据是否项目任务显示不同的标签
+                    const categoryBadge = t.projectId
+                        ? `<span class="attribute-badge" style="color:${t.projectColor}; border-color:${t.projectColor};"><i class="fas fa-project-diagram"></i> ${t.projectName}</span>`
+                        : `<span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor};">${t.groupName}</span>`;
+
                     li.innerHTML = `
                         <div class="todo-main">
                             <label class="checkbox"><input type="checkbox" ${t.completed?'checked':''} onchange="event.stopPropagation(); toggleTodo(${t.id})"><span class="checkmark"></span></label>
@@ -5440,7 +5453,7 @@
                                 <div class="todo-attributes">
                                     ${timeDisplay}
                                     <span class="attribute-badge priority-${t.priority}">${pLabel}优先级</span>
-                                    <span class="attribute-badge" style="color:${t.groupColor}; border-color:${t.groupColor}">${t.groupName}</span>
+                                    ${categoryBadge}
                                     ${subtaskProgress}
                                 </div>
                             </div>
