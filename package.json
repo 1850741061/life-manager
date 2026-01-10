@@ -1,7 +1,7 @@
 {
   "name": "pro-life",
-  "version": "1.5.0",
-  "description": "待办事项与记账应用 - 移动端优化版：底部导航、滑动删除、悬浮按钮、触摸优化",
+  "version": "2.0.0",
+  "description": "ProLife - 生活管理系统：任务管理、项目管理、习惯打卡、番茄钟、记账",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -30,6 +30,8 @@
     },
     "files": [
       "index.html",
+      "manifest.json",
+      "sw.js",
       "main.js",
       "package.json"
     ],
