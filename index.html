@@ -1352,18 +1352,50 @@
             .view-tabs { display: none !important; } /* 底部导航替代 */
             .mobile-group-toggle { display: none !important; } /* 集成到底部导航 */
 
+            /* 移动端按钮优化 - 更大的点击区域 */
+            .btn-icon {
+                width: 40px !important;
+                height: 40px !important;
+                min-width: 40px !important;
+                font-size: 1.1rem !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
             /* 移动端归档卡片优化 */
             .archive-list .todo-item {
-                padding: 10px 12px !important;
-                margin-bottom: 8px !important;
+                padding: 12px !important;
+                margin-bottom: 10px !important;
+                font-size: 0.9rem;
             }
             .archive-list .todo-item .btn-icon {
-                padding: 4px 8px !important;
-                font-size: 0.85rem !important;
+                width: 32px !important;
+                height: 32px !important;
+                min-width: 32px !important;
+                padding: 0 !important;
+                font-size: 0.9rem !important;
             }
             .archive-list input[type="checkbox"] {
-                width: 16px !important;
-                height: 16px !important;
+                width: 18px !important;
+                height: 18px !important;
+                margin-top: 3px !important;
+            }
+            /* 归档卡片信息行优化 */
+            .archive-list .todo-item > div > div:last-child {
+                font-size: 0.75rem !important;
+                gap: 8px !important;
+            }
+            /* 归档卡片文本优化 */
+            .archive-list .todo-item > div > div:first-child > span:first-child {
+                font-size: 0.95rem !important;
+                line-height: 1.4 !important;
+            }
+            /* 归档卡片标签优化 */
+            .archive-list .todo-item > div > div:first-child > span:nth-child(2) {
+                font-size: 0.7rem !important;
+                padding: 2px 6px !important;
             }
 
             /* 移动端搜索框优化 - 悬浮弹窗 */
@@ -1842,7 +1874,7 @@
 
             /* 按钮 */
             .btn { padding: 8px 14px; font-size: 0.8rem; }
-            .btn-icon { width: 36px; height: 36px; font-size: 1rem; }
+            /* .btn-icon 在前面已定义 */
 
             /* 模态框 */
             .modal { max-width: 95%; margin: 20px 10px; max-height: 90vh; overflow-y: auto; }
@@ -2216,7 +2248,7 @@
             h1 { font-size: 0.9rem; }
             h1 i { display: none; } /* 隐藏图标节省空间 */
             .view-tab { padding: 5px 10px; font-size: 0.75rem; }
-            .btn-icon { width: 32px; height: 32px; }
+            /* .btn-icon 在768px媒体查询中已定义 */
             .stats-bar { padding: 10px 5px; }
             .stat-value { font-size: 1.2rem; }
             .content-view { padding: 12px 8px; }
