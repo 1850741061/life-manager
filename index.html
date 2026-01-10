@@ -1455,10 +1455,21 @@
             .mobile-fab { display: flex; }
 
             /* 统计栏 */
-            .stats-bar { padding: 12px 8px; flex-wrap: wrap; gap: 10px; }
-            .stat-item { min-width: 30%; }
-            .stat-value { font-size: 1.4rem; }
-            .stat-label { font-size: 0.7rem; }
+            .stats-bar {
+                padding: 10px;
+                flex-wrap: nowrap;
+                gap: 5px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-bottom: 15px;
+            }
+            .stat-item {
+                min-width: 70px;
+                flex-shrink: 0;
+                padding: 8px 5px;
+            }
+            .stat-value { font-size: 1.3rem; }
+            .stat-label { font-size: 0.65rem; }
 
             /* 内容区域 */
             .content-view { padding: 15px 12px; }
@@ -2249,7 +2260,8 @@
             h1 i { display: none; } /* 隐藏图标节省空间 */
             .view-tab { padding: 5px 10px; font-size: 0.75rem; }
             /* .btn-icon 在768px媒体查询中已定义 */
-            .stats-bar { padding: 10px 5px; }
+            /* .stats-bar 在768px媒体查询中已定义 */
+            .stat-item { min-width: 60px; }
             .stat-value { font-size: 1.2rem; }
             .content-view { padding: 12px 8px; }
             .modal { margin: 10px 5px; }
