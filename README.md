@@ -1,4 +1,4 @@
-# 🎯 ProLife - 生活管理系统
+# 🎯 Todo
 
 <div align="center">
 
@@ -11,14 +11,6 @@
 
 [在线演示](https://1850741061.github.io/life-manager/) • [功能特性](#-核心特性) • [快速开始](#-快速开始) • [使用指南](#-使用指南)
 
-</div>
-
----
-
-## 📸 应用截图
-
-<div align="center">
-  <img src="https://via.placeholder.com/800x500/6fc2ff/ffffff?text=ProLife+界面展示" alt="应用界面" width="800"/>
 </div>
 
 ---
