@@ -963,11 +963,24 @@
             opacity: 0;
             transition: var(--transition);
         }
-        .subtask-item:hover .subtask-delete {
+        .subtask-item:hover .subtask-delete,
+        .subtask-item:hover .subtask-edit {
             opacity: 1;
         }
         .subtask-delete:hover {
             color: var(--danger-color);
+        }
+        .subtask-edit {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            opacity: 0;
+            transition: var(--transition);
+        }
+        .subtask-edit:hover {
+            color: var(--accent-color);
         }
         /* 添加子任务输入框 */
         .add-subtask-input {
@@ -1858,7 +1871,8 @@
                 min-width: 20px !important;
             }
 
-            .subtask-delete {
+            .subtask-delete,
+            .subtask-edit {
                 opacity: 1 !important;
                 padding: 8px;
             }
@@ -4538,9 +4552,10 @@
                             </div>
                             <ul class="subtask-list slide-in" id="subtask-list-${t.id}" style="display: ${subtaskListDisplay};">
                                 ${t.subtasks.map(st => `
-                                    <li class="subtask-item ${st.completed ? 'completed' : ''}">
+                                    <li class="subtask-item ${st.completed ? 'completed' : ''}" data-subtask-id="${st.id}">
                                         <input type="checkbox" class="subtask-checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${t.id}, ${st.id})">
-                                        <span class="subtask-text">${escapeHtml(st.text)}</span>
+                                        <span class="subtask-text" onclick="startEditSubtask(${t.id}, ${st.id})" style="cursor: pointer; flex: 1;">${escapeHtml(st.text)}</span>
+                                        <button class="subtask-edit" onclick="startEditSubtask(${t.id}, ${st.id})" style="margin-right: 5px;"><i class="fas fa-edit"></i></button>
                                         <button class="subtask-delete" onclick="deleteSubtask(${t.id}, ${st.id})"><i class="fas fa-times"></i></button>
                                     </li>
                                 `).join('')}
@@ -5158,8 +5173,10 @@
             }
         };
 
-        window.deleteSubtask = (todoId, subtaskId) => {
-            if (!confirm('删除此子任务？')) return;
+        window.deleteSubtask = async (todoId, subtaskId) => {
+            const result = await showConfirm('删除子任务', '确定要删除这个子任务吗？');
+            if (result !== 1) return; // 1是第二个按钮（确定）
+
             state.todos = state.todos.map(t => {
                 if (t.id === todoId) {
                     return {
@@ -5171,6 +5188,69 @@
             });
             save();
             renderTodos();
+        };
+
+        // 开始编辑子任务
+        window.startEditSubtask = (todoId, subtaskId) => {
+            const subtaskItem = document.querySelector(`li[data-subtask-id="${subtaskId}"]`);
+            const subtaskText = subtaskItem.querySelector('.subtask-text');
+            const currentText = subtaskText.textContent;
+
+            // 创建编辑输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentText;
+            input.className = 'subtask-edit-input';
+            input.style.cssText = 'flex: 1; padding: 4px 8px; border: 2px solid var(--accent-color); border-radius: var(--radius); font-size: 0.9rem;';
+
+            // 替换文本为输入框
+            subtaskText.style.display = 'none';
+            subtaskItem.insertBefore(input, subtaskText.nextSibling);
+            input.focus();
+            input.select();
+
+            // 保存编辑的函数
+            const saveEdit = () => {
+                const newText = input.value.trim();
+                if (newText) {
+                    state.todos = state.todos.map(t => {
+                        if (t.id === todoId) {
+                            return {
+                                ...t,
+                                subtasks: t.subtasks.map(st => {
+                                    if (st.id === subtaskId) {
+                                        return { ...st, text: newText };
+                                    }
+                                    return st;
+                                })
+                            };
+                        }
+                        return t;
+                    });
+                    save();
+                    renderTodos();
+                } else {
+                    // 如果为空，恢复原样
+                    input.remove();
+                    subtaskText.style.display = '';
+                }
+            };
+
+            // 按Enter保存，按Esc取消
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    input.remove();
+                    subtaskText.style.display = '';
+                }
+            };
+
+            // 失去焦点时自动保存
+            input.onblur = () => {
+                saveEdit();
+            };
         };
 
         function updateStats() {
