@@ -1457,19 +1457,16 @@
             /* 统计栏 */
             .stats-bar {
                 padding: 10px;
-                flex-wrap: nowrap;
-                gap: 5px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
                 margin-bottom: 15px;
             }
             .stat-item {
-                min-width: 70px;
-                flex-shrink: 0;
-                padding: 8px 5px;
+                padding: 8px 6px;
             }
-            .stat-value { font-size: 1.3rem; }
-            .stat-label { font-size: 0.65rem; }
+            .stat-value { font-size: 1.2rem; }
+            .stat-label { font-size: 0.6rem; }
 
             /* 内容区域 */
             .content-view { padding: 15px 12px; }
@@ -2313,8 +2310,8 @@
             .view-tab { padding: 5px 10px; font-size: 0.75rem; }
             /* .btn-icon 在768px媒体查询中已定义 */
             /* .stats-bar 在768px媒体查询中已定义 */
-            .stat-item { min-width: 60px; }
-            .stat-value { font-size: 1.2rem; }
+            .stat-value { font-size: 1.1rem; }
+            .stat-label { font-size: 0.55rem; }
             .content-view { padding: 12px 8px; }
             .modal { margin: 10px 5px; }
         }
