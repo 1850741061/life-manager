@@ -1729,24 +1729,27 @@
                 gap: 6px;
             }
 
-            .view-tabs {
-                display: none;
+            /* 顶部导航隐藏（使用底部导航切换视图） */
+            header .view-tabs {
+                display: none !important;
             }
 
-            /* 隐藏顶部导航，使用底部导航 */
-            .view-tab {
-                padding: 6px 12px;
-                font-size: 0.8rem;
+            /* 待办内的列表/看板/连线 切换保留但紧凑化 */
+            #todoFilterBar~div .view-tabs,
+            .content-view .view-tabs {
+                display: flex !important;
+                padding: 2px !important;
+            }
+
+            .content-view .view-tab,
+            #todoFilterBar~div .view-tab {
+                padding: 5px 10px;
+                font-size: 0.75rem;
             }
 
             /* 移动端隐藏部分按钮和元素 */
             #batchModeBtn,
             #pomodoroBtn {
-                display: none !important;
-            }
-
-            /* 隐藏批量操作和番茄钟按钮（底部已有番茄钟） */
-            .view-tabs {
                 display: none !important;
             }
 
@@ -1898,6 +1901,92 @@
             /* 内容区域 */
             .content-view {
                 padding: 15px 12px;
+            }
+
+            /* 过滤栏 + DDL按钮：移动端换行 */
+            #todoFilterBar {
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+            }
+
+            #todoFilterBar .btn {
+                padding: 6px 10px !important;
+                font-size: 0.75rem !important;
+                min-height: 34px !important;
+                min-width: auto !important;
+            }
+
+            /* 过滤+视图切换行 改为堆叠 */
+            #todoFilterBar+div {
+                flex-wrap: wrap !important;
+            }
+
+            /* 日历网格移动端优化 */
+            .calendar-grid {
+                gap: 4px !important;
+            }
+
+            .calendar-day {
+                min-height: 55px !important;
+                padding: 5px !important;
+            }
+
+            .day-number {
+                font-size: 0.85rem !important;
+                margin-bottom: 3px !important;
+            }
+
+            /* 连线视图移动端 */
+            #connectionView {
+                min-height: 300px !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 思维导图移动端 */
+            .mindmap-toolbar {
+                padding: 10px 12px !important;
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+
+            .mindmap-toolbar h2 {
+                font-size: 1rem !important;
+                gap: 6px !important;
+            }
+
+            .mindmap-toolbar-actions {
+                gap: 4px !important;
+                flex-wrap: wrap !important;
+            }
+
+            .mindmap-toolbar-actions .btn {
+                padding: 6px 10px !important;
+                font-size: 0.75rem !important;
+                min-height: 34px !important;
+                min-width: auto !important;
+            }
+
+            #mindmapContainer {
+                overflow: auto !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 思维导图弹窗移动端 */
+            .mm-popup {
+                max-width: calc(100vw - 30px) !important;
+                margin: 10px !important;
+            }
+
+            /* 思维导图详情面板移动端 */
+            .mm-detail-panel {
+                width: 100% !important;
+                max-width: 100% !important;
+                right: 0 !important;
+                border-left: none !important;
+                border-top: 3px solid var(--border-color) !important;
+                max-height: 50vh !important;
+                overflow-y: auto !important;
             }
 
             .input-section {
@@ -2793,14 +2882,11 @@
                 display: none;
             }
 
-            /* 隐藏图标节省空间 */
             .view-tab {
-                padding: 5px 10px;
-                font-size: 0.75rem;
+                padding: 5px 8px;
+                font-size: 0.7rem;
             }
 
-            /* .btn-icon 在768px媒体查询中已定义 */
-            /* .stats-bar 在768px媒体查询中已定义 */
             .stat-value {
                 font-size: 1.1rem;
             }
@@ -2810,11 +2896,68 @@
             }
 
             .content-view {
-                padding: 12px 8px;
+                padding: 10px 6px;
             }
 
             .modal {
                 margin: 10px 5px;
+            }
+
+            /* DDL按钮图标 */
+            #btnSortDDLTime i,
+            #btnSortDDLPriority i {
+                display: none;
+            }
+
+            /* todo卡片更紧凑 */
+            .todo-item {
+                padding: 10px !important;
+                margin-bottom: 8px !important;
+                gap: 6px !important;
+            }
+
+            .todo-text {
+                font-size: 0.85rem !important;
+            }
+
+            .todo-main {
+                gap: 8px !important;
+                padding-left: 8px !important;
+            }
+
+            .attribute-badge {
+                font-size: 0.65rem !important;
+                padding: 2px 5px !important;
+            }
+
+            /* 侧边栏更紧凑 */
+            .sidebar {
+                max-height: 150px !important;
+                padding: 8px !important;
+            }
+
+            /* 日历更紧凑 */
+            .calendar-day {
+                min-height: 42px !important;
+                padding: 3px !important;
+            }
+
+            .day-number {
+                font-size: 0.75rem !important;
+                margin-bottom: 2px !important;
+            }
+
+            /* 思维导图节点缩小 */
+            .mm-node {
+                transform: scale(0.85);
+                transform-origin: left top;
+            }
+
+            /* 连线视图紧凑 */
+            #connectionCanvas {
+                padding: 15px !important;
+                transform: scale(0.8);
+                transform-origin: left top;
             }
         }
 
