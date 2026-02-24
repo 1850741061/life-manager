@@ -1676,6 +1676,11 @@
         /* 响应式 - 移动端适配 */
         @media (max-width: 768px) {
 
+            /* 隐藏 Electron 标题栏 */
+            .custom-titlebar {
+                display: none !important;
+            }
+
             /* 容器和布局 */
             .main-layout.todo-mode {
                 flex-direction: column;
@@ -1685,14 +1690,31 @@
                 width: 100%;
                 border-right: none;
                 border-bottom: 3px solid var(--border-color);
-                max-height: 200px;
+                max-height: 180px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .container {
                 height: 100vh;
                 border-radius: 0;
                 border: none;
-                padding-bottom: 70px;
+                padding-bottom: 75px;
+            }
+
+            .sidebar-title {
+                font-size: 0.75rem !important;
+                padding: 6px 10px !important;
+            }
+
+            .group-list li {
+                padding: 8px 10px !important;
+                font-size: 0.85rem !important;
+            }
+
+            .add-group-btn {
+                padding: 8px 10px !important;
+                font-size: 0.8rem !important;
             }
 
             body {
@@ -1705,28 +1727,38 @@
 
             /* 头部区域 */
             header {
-                padding: 10px 15px;
+                padding: 8px 10px;
                 flex-wrap: nowrap;
-                gap: 10px;
+                gap: 6px;
                 justify-content: space-between;
             }
 
             h1 {
-                font-size: 1.1rem;
-                gap: 8px;
+                font-size: 1rem;
+                gap: 6px;
                 flex-shrink: 0;
             }
 
             .header-controls {
-                gap: 6px;
+                gap: 4px;
                 flex-wrap: nowrap;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+
+            .header-controls::-webkit-scrollbar {
+                display: none;
             }
 
             .header-controls>div:first-child {
+                display: none;
+            }
+
+            .header-controls>div:last-child {
                 display: flex;
-                gap: 6px;
+                gap: 3px;
+                flex-shrink: 0;
             }
 
             /* 顶部导航隐藏（使用底部导航切换视图） */
@@ -1760,12 +1792,13 @@
 
             /* 集成到底部导航 */
 
-            /* 移动端按钮优化 - 更大的点击区域 */
+            /* 移动端按钮优化 - 触摸友好 */
             .btn-icon {
-                width: 40px !important;
-                height: 40px !important;
-                min-width: 40px !important;
-                font-size: 1.1rem !important;
+                width: 36px !important;
+                height: 36px !important;
+                min-width: 36px !important;
+                min-height: 36px !important;
+                font-size: 1rem !important;
                 padding: 0 !important;
                 display: flex !important;
                 align-items: center !important;
@@ -1879,19 +1912,19 @@
 
             /* 统计栏 */
             .stats-bar {
-                padding: 10px;
+                padding: 8px;
                 display: grid !important;
                 grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-                margin-bottom: 15px;
+                gap: 8px;
+                margin-bottom: 10px;
             }
 
             .stat-item {
-                padding: 10px 8px;
+                padding: 8px 6px;
             }
 
             .stat-value {
-                font-size: 1.3rem;
+                font-size: 1.2rem;
             }
 
             .stat-label {
@@ -1900,40 +1933,90 @@
 
             /* 内容区域 */
             .content-view {
-                padding: 15px 12px;
+                padding: 12px 10px;
             }
 
-            /* 过滤栏 + DDL按钮：移动端换行 */
+            /* === 过滤栏 + DDL + 视图切换: 整体堆叠布局 === */
+            /* 外层包裹 div (filter bar + view tabs) 改为垂直堆叠 */
+            #todoView>div:nth-child(3) {
+                flex-direction: column !important;
+                gap: 8px !important;
+                margin-bottom: 12px !important;
+            }
+
+            /* 过滤按钮行 */
             #todoFilterBar {
                 flex-wrap: wrap !important;
                 gap: 4px !important;
+                justify-content: flex-start !important;
             }
 
             #todoFilterBar .btn {
-                padding: 6px 10px !important;
+                padding: 5px 10px !important;
                 font-size: 0.75rem !important;
-                min-height: 34px !important;
+                min-height: 32px !important;
                 min-width: auto !important;
             }
 
-            /* 过滤+视图切换行 改为堆叠 */
-            #todoFilterBar+div {
+            /* DDL按钮取消左边距 */
+            #btnSortDDLTime {
+                margin-left: 0 !important;
+            }
+
+            /* 视图切换 + 清除按钮行 */
+            #todoView>div:nth-child(3)>div:last-child {
+                width: 100% !important;
+                justify-content: space-between !important;
+            }
+
+            /* 视图切换按钮紧凑化 */
+            #todoView .view-tabs {
+                padding: 2px !important;
+            }
+
+            #todoView .view-tab {
+                padding: 5px 8px !important;
+                font-size: 0.75rem !important;
+            }
+
+            /* 日历控件移动端 */
+            .calendar-controls {
+                padding: 10px !important;
                 flex-wrap: wrap !important;
+                gap: 8px !important;
+                justify-content: center !important;
+            }
+
+            .calendar-controls h2 {
+                font-size: 1rem !important;
+                width: 100% !important;
+                text-align: center !important;
             }
 
             /* 日历网格移动端优化 */
             .calendar-grid {
-                gap: 4px !important;
+                gap: 3px !important;
             }
 
             .calendar-day {
-                min-height: 55px !important;
-                padding: 5px !important;
+                min-height: 52px !important;
+                padding: 4px !important;
+                border-width: 2px !important;
             }
 
             .day-number {
-                font-size: 0.85rem !important;
-                margin-bottom: 3px !important;
+                font-size: 0.8rem !important;
+                margin-bottom: 2px !important;
+            }
+
+            .day-task-dot {
+                width: 6px !important;
+                height: 6px !important;
+            }
+
+            .calendar-detail-view {
+                padding: 15px !important;
+                margin-top: 15px !important;
             }
 
             /* 连线视图移动端 */
@@ -1945,13 +2028,13 @@
 
             /* 思维导图移动端 */
             .mindmap-toolbar {
-                padding: 10px 12px !important;
+                padding: 8px 10px !important;
                 flex-wrap: wrap !important;
-                gap: 8px !important;
+                gap: 6px !important;
             }
 
             .mindmap-toolbar h2 {
-                font-size: 1rem !important;
+                font-size: 0.95rem !important;
                 gap: 6px !important;
             }
 
@@ -1961,9 +2044,9 @@
             }
 
             .mindmap-toolbar-actions .btn {
-                padding: 6px 10px !important;
-                font-size: 0.75rem !important;
-                min-height: 34px !important;
+                padding: 5px 8px !important;
+                font-size: 0.72rem !important;
+                min-height: 32px !important;
                 min-width: auto !important;
             }
 
@@ -1972,26 +2055,57 @@
                 -webkit-overflow-scrolling: touch;
             }
 
-            /* 思维导图弹窗移动端 */
+            /* 思维导图弹窗 + 详情面板移动端 */
             .mm-popup {
-                max-width: calc(100vw - 30px) !important;
+                max-width: calc(100vw - 24px) !important;
                 margin: 10px !important;
+                padding: 16px !important;
             }
 
-            /* 思维导图详情面板移动端 */
             .mm-detail-panel {
                 width: 100% !important;
                 max-width: 100% !important;
-                right: 0 !important;
+                right: -100% !important;
                 border-left: none !important;
                 border-top: 3px solid var(--border-color) !important;
-                max-height: 50vh !important;
+                max-height: 55vh !important;
                 overflow-y: auto !important;
+                padding: 16px !important;
+            }
+
+            .mm-detail-panel.open {
+                right: 0 !important;
+            }
+
+            /* 任务卡片移动端优化 */
+            .todo-item {
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                border-width: 2px !important;
+            }
+
+            .todo-actions {
+                opacity: 1 !important;
+                gap: 4px !important;
+            }
+
+            .todo-actions .action-icon {
+                font-size: 0.9rem !important;
+                padding: 4px !important;
+            }
+
+            /* 输入区域移动端 */
+            .input-section>div {
+                gap: 8px !important;
             }
 
             .input-section {
-                padding: 12px;
-                margin-bottom: 15px;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .input-group {
+                gap: 6px !important;
             }
 
             /* 优化移动端输入体验 */
@@ -2031,16 +2145,19 @@
             }
 
             button,
-            .btn,
-            .btn-icon {
-                min-height: 44px;
-                min-width: 44px;
-                padding: 10px 16px;
-                font-size: 0.95rem;
+            .btn {
+                min-height: 38px;
+                padding: 8px 12px;
+                font-size: 0.85rem;
             }
 
             .btn-icon {
-                padding: 10px;
+                padding: 6px;
+            }
+
+            .btn-primary {
+                padding: 8px 14px !important;
+                font-size: 0.85rem !important;
             }
 
             /* 改善移动端触摸反馈 */
