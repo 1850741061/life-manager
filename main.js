@@ -1,7 +1,9 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
 
 let mainWindow;
+let widgetProcess = null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -53,6 +55,47 @@ ipcMain.on('window-maximize', () => {
 ipcMain.on('window-close', () => {
     if (mainWindow) mainWindow.close();
 });
+
+// 启动小组件
+ipcMain.on('launch-widget', () => {
+    launchWidget();
+});
+
+function launchWidget() {
+    // 如果已经在运行，不重复启动
+    if (widgetProcess && !widgetProcess.killed) {
+        console.log('[Widget] 小组件已在运行');
+        return;
+    }
+
+    try {
+        const electronPath = process.execPath; // 当前 Electron 可执行文件路径
+        const widgetMainPath = path.join(__dirname, 'widget', 'widget-main.js');
+
+        console.log('[Widget] 启动小组件:', electronPath, widgetMainPath);
+
+        widgetProcess = spawn(electronPath, [widgetMainPath], {
+            detached: true,
+            stdio: 'ignore',
+            cwd: path.join(__dirname, 'widget')
+        });
+
+        widgetProcess.unref(); // 允许父进程独立退出
+
+        widgetProcess.on('error', (err) => {
+            console.error('[Widget] 启动失败:', err);
+            widgetProcess = null;
+        });
+
+        widgetProcess.on('exit', (code) => {
+            console.log('[Widget] 进程退出，代码:', code);
+            widgetProcess = null;
+        });
+
+    } catch (e) {
+        console.error('[Widget] 启动异常:', e);
+    }
+}
 
 // 创建菜单（隐藏）
 function createMenu() {

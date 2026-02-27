@@ -1,0 +1,9 @@
+{
+  "name": "prolife-widget",
+  "version": "1.0.0",
+  "description": "ProLife 桌面小组件 - 快速查看任务和计划",
+  "main": "widget-main.js",
+  "scripts": {
+    "start": "electron ."
+  }
+}

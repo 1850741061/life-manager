@@ -33,7 +33,8 @@
       "manifest.json",
       "sw.js",
       "main.js",
-      "package.json"
+      "package.json",
+      "widget/**/*"
     ],
     "win": {
       "target": [

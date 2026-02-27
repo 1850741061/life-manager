@@ -3546,6 +3546,7 @@
                     <button class="btn-icon" id="statsBtn" title="数据统计"><i class="fas fa-chart-bar"></i></button>
                     <button class="btn-icon" id="pomodoroBtn" title="番茄钟"><i class="fas fa-clock"></i></button>
                     <button class="btn-icon" id="notificationBtn" title="提醒设置"><i class="fas fa-bell"></i></button>
+                    <button class="btn-icon" id="widgetBtn" title="打开桌面小组件" onclick="launchWidget()"><i class="fas fa-th-large"></i></button>
                     <button class="btn-icon" id="cloudSyncBtn" title="云端同步"><i class="fas fa-cloud"></i></button>
                     <button class="btn-icon" id="refreshBtn" title="刷新数据"><i class="fas fa-sync-alt"></i></button>
                     <button class="btn-icon" id="importExportBtn" title="导入/导出"><i
@@ -8802,6 +8803,28 @@
             localStorage.setItem('projects', JSON.stringify(state.projects));
             localStorage.setItem('milktea', JSON.stringify(state.milktea));
             localStorage.setItem('dailyPlans', JSON.stringify(state.dailyPlans));
+
+            // 导出数据供桌面小组件使用
+            if (typeof require !== 'undefined') {
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const dir = path.join(process.env.APPDATA || '', 'ProLife');
+                    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                    fs.writeFileSync(path.join(dir, 'widget-data.json'), JSON.stringify({
+                        todos: state.todos,
+                        projects: state.projects,
+                        dailyPlans: state.dailyPlans,
+                        groups: state.groups,
+                        auth: {
+                            user_id: localStorage.getItem('user_id'),
+                            access_token: localStorage.getItem('access_token'),
+                            refresh_token: localStorage.getItem('refresh_token')
+                        },
+                        updatedAt: new Date().toISOString()
+                    }));
+                } catch(e) { console.warn('[Widget Export]', e); }
+            }
         }
 
         function animateValue(id, start, end, duration) {
@@ -14818,6 +14841,17 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 state.dailyPlans = state.dailyPlans.filter(p => p.id !== id);
                 save();
                 renderDailyPlans();
+            };
+
+            // 启动桌面小组件
+            window.launchWidget = function() {
+                if (typeof require !== 'undefined') {
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.send('launch-widget');
+                    showSyncToast('正在启动桌面小组件...', 'success');
+                } else {
+                    alert('桌面小组件仅在 Electron 桌面版中可用');
+                }
             };
 
     </script>

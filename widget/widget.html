@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ProLife Widget</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+    --primary-color: #383838;
+    --accent-color: #6fc2ff;
+    --header-bg: #ffde00;
+    --success-color: #4ade80;
+    --danger-color: #ff6b6b;
+    --warning-color: #fbbf24;
+    --bg-color: #fdfdfd;
+    --card-bg: #ffffff;
+    --text-main: #383838;
+    --text-secondary: #666666;
+    --border-color: #383838;
+    --shadow: 4px 4px 0 0 #383838;
+    --radius: 2px;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.dark-mode {
+    --primary-color: #e0e0e0;
+    --bg-color: #1e1e1e;
+    --card-bg: #2d2d2d;
+    --text-main: #e8e8e8;
+    --text-secondary: #b0b0b0;
+    --border-color: #4a4a4a;
+    --shadow: 4px 4px 0 0 rgba(74,74,74,0.6);
+    --header-bg: #3a3a3a;
+    --accent-color: #7eb3ff;
+    --success-color: #6dd89a;
+    --danger-color: #ff8787;
+    --warning-color: #ffc876;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+    height: 100%;
+    background: transparent;
+    font-family: var(--font-family);
+    color: var(--text-main);
+    overflow: hidden;
+    user-select: none;
+}
+#widget-root {
+    height: 100%;
+    background: var(--bg-color);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+/* Header */
+#header {
+    background: var(--header-bg);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--border-color);
+    -webkit-app-region: drag;
+    flex-shrink: 0;
+}
+#header .date {
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--primary-color);
+}
+#header .actions {
+    display: flex;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+}
+#header .actions button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--primary-color);
+    padding: 2px 5px;
+    border-radius: var(--radius);
+}
+#header .actions button:hover {
+    background: rgba(0,0,0,0.1);
+}
+
+/* Tabs */
+#tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border-color);
+    flex-shrink: 0;
+    background: var(--card-bg);
+}
+#tabs button {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    background: transparent;
+    font-family: var(--font-family);
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.15s;
+}
+#tabs button.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+#tabs button:hover:not(.active) {
+    background: rgba(0,0,0,0.03);
+}
+
+/* Content */
+#content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px;
+}
+#content::-webkit-scrollbar { width: 4px; }
+#content::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+#content::-webkit-scrollbar-track { background: transparent; }
+
+/* Section panels */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Task item */
+.task-item {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    box-shadow: 3px 3px 0 0 var(--border-color);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    transition: all 0.15s;
+    cursor: default;
+}
+.task-item:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 var(--border-color);
+}
+.task-item.done {
+    opacity: 0.5;
+}
+.task-item.done .task-name {
+    text-decoration: line-through;
+}
+.task-item.overdue {
+    border-left: 4px solid var(--danger-color);
+}
+.task-check {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+    background: var(--card-bg);
+}
+.task-check:hover { border-color: var(--accent-color); }
+.task-check.checked {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+.task-check.checked::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 10px;
+    color: white;
+}
+.task-info { flex: 1; min-width: 0; }
+.task-name {
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.3;
+    word-break: break-word;
+}
+.task-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+}
+.task-meta .priority-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.task-meta .group-tag {
+    background: var(--accent-color);
+    color: white;
+    padding: 1px 6px;
+    border-radius: var(--radius);
+    font-size: 10px;
+    font-weight: 600;
+}
+.task-meta .ddl {
+    font-weight: 600;
+}
+.task-meta .ddl.overdue {
+    color: var(--danger-color);
+}
+
+/* Project card */
+.project-card {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    box-shadow: 3px 3px 0 0 var(--border-color);
+}
+.project-name {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.project-name .status {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+}
+.progress-bar {
+    height: 8px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s;
+}
+.project-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Daily plan item */
+.plan-item {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    box-shadow: 3px 3px 0 0 var(--border-color);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.plan-item.done { opacity: 0.5; }
+.plan-item.done .plan-text { text-decoration: line-through; }
+.plan-time {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-color);
+    white-space: nowrap;
+    margin-top: 1px;
+}
+.plan-text {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+    word-break: break-word;
+}
+
+/* Empty state */
+.empty {
+    text-align: center;
+    padding: 30px 10px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+.empty i { font-size: 28px; margin-bottom: 8px; display: block; opacity: 0.4; }
+
+/* Footer */
+#footer {
+    border-top: 2px solid var(--border-color);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card-bg);
+    flex-shrink: 0;
+}
+#footer .sync-status {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+#footer .open-btn {
+    background: var(--accent-color);
+    color: white;
+    border: 2px solid var(--border-color);
+    padding: 4px 12px;
+    font-family: var(--font-family);
+    font-weight: 700;
+    font-size: 11px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    box-shadow: 2px 2px 0 0 var(--border-color);
+}
+#footer .open-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 0 var(--border-color);
+}
+#footer .open-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 0 var(--border-color);
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+.loading i { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Count badge */
+.count-badge {
+    background: var(--danger-color);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0 5px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+</style>
+</head>
+<body>
+<div id="widget-root">
+    <div id="header">
+        <span class="date" id="headerDate"></span>
+        <div class="actions">
+            <button onclick="refreshData()" title="刷新"><i class="fas fa-sync-alt"></i></button>
+            <button onclick="toggleDark()" title="主题"><i class="fas fa-moon" id="themeIcon"></i></button>
+            <button onclick="togglePin()" title="置顶"><i class="fas fa-thumbtack" id="pinIcon"></i></button>
+        </div>
+    </div>
+    <div id="tabs">
+        <button class="active" onclick="switchTab('tasks', this)"><i class="fas fa-tasks"></i> 任务 <span id="taskCount" class="count-badge" style="display:none"></span></button>
+        <button onclick="switchTab('projects', this)"><i class="fas fa-project-diagram"></i> 项目</button>
+        <button onclick="switchTab('plans', this)"><i class="fas fa-calendar-day"></i> 今日</button>
+    </div>
+    <div id="content">
+        <div id="panel-tasks" class="panel active">
+            <div class="loading"><i class="fas fa-spinner"></i> 加载中...</div>
+        </div>
+        <div id="panel-projects" class="panel">
+            <div class="loading"><i class="fas fa-spinner"></i> 加载中...</div>
+        </div>
+        <div id="panel-plans" class="panel">
+            <div class="loading"><i class="fas fa-spinner"></i> 加载中...</div>
+        </div>
+    </div>
+    <div id="footer">
+        <span class="sync-status" id="syncStatus">就绪</span>
+        <button class="open-btn" onclick="openProLife()"><i class="fas fa-external-link-alt"></i> 打开 ProLife</button>
+    </div>
+</div>
+
+<script>
+const fs = require('fs');
+const path = require('path');
+const { ipcRenderer } = require('electron');
+
+const SUPABASE_URL = 'https://gcrdheovyzjywwyijjli.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM';
+
+const DATA_DIR = path.join(process.env.APPDATA || '', 'ProLife');
+const DATA_FILE = path.join(DATA_DIR, 'widget-data.json');
+
+let data = { todos: [], projects: [], dailyPlans: [], groups: [], auth: {} };
+let pinned = true;
+
+// --- 初始化 ---
+document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    updateDate();
+    refreshData();
+    // 每60秒自动刷新
+    setInterval(refreshData, 60000);
+});
+
+function updateDate() {
+    const now = new Date();
+    const days = ['日','一','二','三','四','五','六'];
+    document.getElementById('headerDate').textContent =
+        `${now.getMonth()+1}月${now.getDate()}日 周${days[now.getDay()]}`;
+}
+
+// --- 主题 ---
+function initTheme() {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark-mode');
+        document.getElementById('themeIcon').className = 'fas fa-sun';
+    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        document.body.classList.toggle('dark-mode', e.matches);
+        document.getElementById('themeIcon').className = e.matches ? 'fas fa-sun' : 'fas fa-moon';
+    });
+}
+
+function toggleDark() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    document.getElementById('themeIcon').className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+function togglePin() {
+    pinned = !pinned;
+    ipcRenderer.send('widget-toggle-top', pinned);
+    document.getElementById('pinIcon').style.opacity = pinned ? '1' : '0.4';
+}
+
+// --- Tab 切换 ---
+function switchTab(tab, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    btn.classList.add('active');
+}
+
+// --- 数据加载 ---
+function refreshData() {
+    document.getElementById('syncStatus').textContent = '刷新中...';
+    // 优先读本地文件
+    let loaded = loadLocalData();
+    if (loaded) {
+        renderAll();
+        document.getElementById('syncStatus').textContent = '本地数据 ' + formatTime(data.updatedAt);
+    }
+    // 尝试从云端刷新
+    loadCloudData().then(ok => {
+        if (ok) {
+            renderAll();
+            document.getElementById('syncStatus').textContent = '已同步 ' + formatTime(new Date().toISOString());
+        } else if (!loaded) {
+            document.getElementById('syncStatus').textContent = '无数据';
+            renderAll();
+        }
+    });
+}
+
+function loadLocalData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+            const parsed = JSON.parse(raw);
+            data = { ...data, ...parsed };
+            return true;
+        }
+    } catch(e) { console.warn('[Local]', e); }
+    return false;
+}
+
+async function loadCloudData() {
+    if (!data.auth || !data.auth.access_token || !data.auth.user_id) return false;
+    try {
+        // 先尝试刷新 token
+        let token = data.auth.access_token;
+        if (data.auth.refresh_token) {
+            try {
+                const refreshRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+                    body: JSON.stringify({ refresh_token: data.auth.refresh_token })
+                });
+                if (refreshRes.ok) {
+                    const refreshData = await refreshRes.json();
+                    token = refreshData.access_token;
+                    data.auth.access_token = token;
+                    data.auth.refresh_token = refreshData.refresh_token || data.auth.refresh_token;
+                }
+            } catch(e) {}
+        }
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${data.auth.user_id}`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const arr = await res.json();
+            if (arr && arr[0]) {
+                data.todos = arr[0].todos || [];
+                data.projects = arr[0].projects || [];
+                data.dailyPlans = arr[0].dailyPlans || [];
+                data.groups = arr[0].groups || [];
+                // 写回本地
+                saveLocalData();
+                return true;
+            }
+        }
+    } catch(e) { console.warn('[Cloud]', e); }
+    return false;
+}
+
+function saveLocalData() {
+    try {
+        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        fs.writeFileSync(DATA_FILE, JSON.stringify({
+            ...data,
+            updatedAt: new Date().toISOString()
+        }));
+    } catch(e) { console.warn('[Save]', e); }
+}
+
+async function syncToggleToCloud(todoId, done) {
+    if (!data.auth || !data.auth.access_token || !data.auth.user_id) return;
+    try {
+        const payload = {
+            id: data.auth.user_id,
+            todos: data.todos,
+            projects: data.projects,
+            dailyPlans: data.dailyPlans,
+            groups: data.groups,
+            updated_at: new Date().toISOString()
+        };
+        await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${data.auth.user_id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${data.auth.access_token}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(payload)
+        });
+    } catch(e) { console.warn('[Sync]', e); }
+}
+
+// --- 渲染 ---
+function renderAll() {
+    renderTasks();
+    renderProjects();
+    renderPlans();
+}
+
+function renderTasks() {
+    const panel = document.getElementById('panel-tasks');
+    // 只显示独立任务（不属于任何项目的任务）
+    const todos = (data.todos || []).filter(t => !t.done && !t.projectId);
+    const countEl = document.getElementById('taskCount');
+
+    if (todos.length === 0) {
+        panel.innerHTML = '<div class="empty"><i class="fas fa-check-circle"></i>没有待办任务</div>';
+        countEl.style.display = 'none';
+        return;
+    }
+
+    countEl.textContent = todos.length;
+    countEl.style.display = 'inline';
+
+    // 排序：优先级 high>medium>low，同优先级按DDL升序
+    const priOrder = { high: 0, medium: 1, low: 2 };
+    const sorted = [...todos].sort((a, b) => {
+        const pa = priOrder[a.priority] ?? 1;
+        const pb = priOrder[b.priority] ?? 1;
+        if (pa !== pb) return pa - pb;
+        const da = a.date ? new Date(a.date).getTime() : Infinity;
+        const db = b.date ? new Date(b.date).getTime() : Infinity;
+        return da - db;
+    });
+
+    const now = new Date();
+    now.setHours(0,0,0,0);
+
+    let html = '';
+    sorted.forEach(t => {
+        const priColors = { high: 'var(--danger-color)', medium: 'var(--warning-color)', low: 'var(--success-color)' };
+        const priColor = priColors[t.priority] || 'var(--warning-color)';
+        const isOverdue = t.date && new Date(t.date) < now;
+        const group = (data.groups || []).find(g => g.id === t.groupId);
+        const groupName = group ? group.name : '';
+        const groupColor = group ? group.color : 'var(--accent-color)';
+
+        let ddlText = '';
+        if (t.date) {
+            const d = new Date(t.date);
+            ddlText = `${d.getMonth()+1}/${d.getDate()}`;
+            if (t.time) ddlText += ' ' + t.time;
+        }
+
+        html += `<div class="task-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
+            <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTodo('${t.id}')"></div>
+            <div class="task-info">
+                <div class="task-name">${escHtml(t.text)}</div>
+                <div class="task-meta">
+                    <span class="priority-dot" style="background:${priColor}"></span>
+                    ${ddlText ? `<span class="ddl ${isOverdue ? 'overdue' : ''}">${ddlText}</span>` : ''}
+                    ${groupName ? `<span class="group-tag" style="background:${groupColor}">${escHtml(groupName)}</span>` : ''}
+                </div>
+            </div>
+        </div>`;
+    });
+    panel.innerHTML = html;
+}
+
+function renderProjects() {
+    const panel = document.getElementById('panel-projects');
+    const projects = data.projects || [];
+
+    if (projects.length === 0) {
+        panel.innerHTML = '<div class="empty"><i class="fas fa-folder-open"></i>没有项目</div>';
+        return;
+    }
+
+    let html = '';
+    projects.forEach(p => {
+        const tasks = p.tasks || [];
+        const done = tasks.filter(t => t.done).length;
+        const total = tasks.length;
+        const pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+        let statusText = '进行中';
+        let statusColor = 'var(--accent-color)';
+        if (p.status === 'completed') { statusText = '已完成'; statusColor = 'var(--success-color)'; }
+        else if (p.status === 'paused') { statusText = '暂停'; statusColor = 'var(--warning-color)'; }
+
+        let ddlText = '';
+        if (p.deadline) {
+            const d = new Date(p.deadline);
+            ddlText = `${d.getMonth()+1}/${d.getDate()}`;
+            if (new Date(p.deadline) < new Date()) ddlText = `<span style="color:var(--danger-color)">${ddlText} 逾期</span>`;
+        }
+
+        html += `<div class="project-card">
+            <div class="project-name">
+                <span>${escHtml(p.name)}</span>
+                <span class="status" style="color:${statusColor};border-color:${statusColor}">${statusText}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${statusColor}"></div></div>
+            <div class="project-meta">
+                <span>${done}/${total} 任务 (${pct}%)</span>
+                ${ddlText ? `<span>${ddlText}</span>` : ''}
+            </div>
+        </div>`;
+    });
+    panel.innerHTML = html;
+}
+
+function renderPlans() {
+    const panel = document.getElementById('panel-plans');
+    const today = new Date().toISOString().slice(0, 10);
+    const plans = (data.dailyPlans || []).filter(p => p.date === today);
+
+    if (plans.length === 0) {
+        panel.innerHTML = '<div class="empty"><i class="fas fa-calendar-check"></i>今天没有计划</div>';
+        return;
+    }
+
+    // 按时间排序
+    const sorted = [...plans].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    let html = '';
+    sorted.forEach(p => {
+        html += `<div class="plan-item ${p.done ? 'done' : ''}">
+            <div class="task-check ${p.done ? 'checked' : ''}" onclick="togglePlan('${p.id}')"></div>
+            ${p.time ? `<span class="plan-time">${p.time}</span>` : ''}
+            <span class="plan-text">${escHtml(p.text || p.content || '')}</span>
+        </div>`;
+    });
+    panel.innerHTML = html;
+}
+
+// --- 交互 ---
+function toggleTodo(id) {
+    const todo = data.todos.find(t => t.id === id);
+    if (!todo) return;
+    todo.done = !todo.done;
+    todo.updatedAt = new Date().toISOString();
+    saveLocalData();
+    renderTasks();
+    syncToggleToCloud();
+}
+
+function togglePlan(id) {
+    const plan = data.dailyPlans.find(p => p.id === id);
+    if (!plan) return;
+    plan.done = !plan.done;
+    saveLocalData();
+    renderPlans();
+    syncToggleToCloud();
+}
+
+function openProLife() {
+    const { exec } = require('child_process');
+    const mainDir = path.join(__dirname, '..');
+    exec(`cd /d "${mainDir}" && npx electron .`);
+}
+
+// --- 工具 ---
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+</script>
+</body>
+</html>
