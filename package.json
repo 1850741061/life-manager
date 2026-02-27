@@ -36,6 +36,9 @@
       "package.json",
       "widget/**/*"
     ],
+    "asarUnpack": [
+      "widget/**/*"
+    ],
     "win": {
       "target": [
         "nsis",

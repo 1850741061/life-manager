@@ -70,14 +70,20 @@ function launchWidget() {
 
     try {
         const electronPath = process.execPath; // 当前 Electron 可执行文件路径
-        const widgetMainPath = path.join(__dirname, 'widget', 'widget-main.js');
+
+        // 打包后 widget 在 app.asar.unpacked/widget/ 下，开发时在 __dirname/widget/
+        let widgetDir = path.join(__dirname, 'widget');
+        if (!require('fs').existsSync(widgetDir)) {
+            widgetDir = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'widget');
+        }
+        const widgetMainPath = path.join(widgetDir, 'widget-main.js');
 
         console.log('[Widget] 启动小组件:', electronPath, widgetMainPath);
 
         widgetProcess = spawn(electronPath, [widgetMainPath], {
             detached: true,
             stdio: 'ignore',
-            cwd: path.join(__dirname, 'widget')
+            cwd: widgetDir
         });
 
         widgetProcess.unref(); // 允许父进程独立退出
