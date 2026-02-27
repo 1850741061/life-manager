@@ -1,6 +1,6 @@
 {
   "name": "pro-life",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "ProLife - 生活管理系统：任务管理、项目管理、习惯打卡、番茄钟、记账",
   "main": "main.js",
   "scripts": {
