@@ -1687,12 +1687,22 @@
             }
 
             .sidebar {
-                display: none;
+                position: fixed;
+                bottom: 0;
+                left: 0;
                 width: 100%;
-                border-right: none;
-                border-bottom: 3px solid var(--border-color);
+                height: auto;
+                max-height: 80vh;
+                background: var(--card-bg);
+                z-index: 1001;
+                border: 3px solid var(--border-color);
+                border-bottom: none;
+                border-radius: 24px 24px 0 0;
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
                 overflow-y: auto;
-                -webkit-overflow-scrolling: touch;
+                padding-bottom: 30px;
+                box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
             }
 
             .container {
@@ -2530,47 +2540,31 @@
                 padding: 10px 14px;
             }
 
-            /* 分组 - 移动端从底部展开 */
+            /* 分组 - 移动端从底部展开 (Bottom Sheet) */
             .sidebar {
                 position: fixed;
-                bottom: 70px;
+                bottom: 0;
                 left: 0;
                 right: 0;
                 width: 100%;
-                max-height: 0;
+                height: auto;
+                max-height: 80vh;
                 background: var(--card-bg);
                 border-top: 3px solid var(--border-color);
                 border-right: none;
-                z-index: 900;
-                transition: max-height 0.3s ease-out;
+                border-radius: 24px 24px 0 0;
+                z-index: 1001;
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
                 overflow-y: auto;
+                padding-bottom: 30px;
+                box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
             }
 
             .sidebar.mobile-open {
-                display: block;
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 75px;
-                max-height: none;
-                z-index: 900;
-                background: var(--bg-color);
-                padding: 15px;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-                animation: slideDown 0.25s ease-out;
-            }
-
-            @keyframes slideDown {
-                from {
-                    opacity: 0;
-                    transform: translateY(-20px);
-                }
-
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
+                display: block !important;
+                transform: translateY(0);
+                animation: none;
             }
 
             .mobile-group-toggle {
@@ -2938,6 +2932,16 @@
                 padding: 3px 8px;
                 font-size: 0.75rem;
                 border-width: 2px;
+            }
+
+            /* 日历视图奶茶侧边栏移动端堆叠 */
+            #calendarView.active {
+                flex-direction: column !important;
+            }
+            #milkteaSidebar {
+                width: 100% !important;
+                border-left: none !important;
+                border-top: 3px solid var(--border-color);
             }
         }
 
@@ -3572,20 +3576,7 @@
                 <!-- 待办视图 -->
                 <div class="content-view active" id="todoView">
                     <!-- 统计面板 -->
-                    <div class="stats-bar">
-                        <div class="stat-item">
-                            <div class="stat-value" id="statTotal">0</div>
-                            <div class="stat-label">总任务</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="statActive">0</div>
-                            <div class="stat-label">进行中</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" id="statRate">0%</div>
-                            <div class="stat-label">完成率</div>
-                        </div>
-                    </div>
+                    <!-- 原本的统计面板被移至模态框内 -->
 
                     <!-- 搜索框区域 (移动端专用) -->
                     <div id="mobileSearchContainer" style="display: none;">
@@ -3604,6 +3595,21 @@
                                 <h2 style="margin: 0;"><i class="fas fa-plus-circle"></i> 添加任务</h2>
                                 <button class="btn" onclick="closeModal('addTodoModal')"><i
                                         class="fas fa-times"></i></button>
+                            </div>
+                            <!-- 统计面板 -->
+                            <div class="stats-bar" style="margin-bottom: 20px;">
+                                <div class="stat-item">
+                                    <div class="stat-value" id="statTotal">0</div>
+                                    <div class="stat-label">总任务</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="statActive">0</div>
+                                    <div class="stat-label">进行中</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="statRate">0%</div>
+                                    <div class="stat-label">完成率</div>
+                                </div>
                             </div>
                             <div class="input-section"
                                 style="padding: 0; background: transparent; border: none; box-shadow: none; margin-bottom: 0;">
@@ -3709,6 +3715,25 @@
                     <!-- 列表视图 -->
                     <ul class="todo-list" id="todoList"></ul>
 
+                    <!-- 每日计划区域（仅在"今日"筛选时显示） -->
+                    <div id="dailyPlanSection" style="display: none; margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-sun" style="color: var(--warning-color); font-size: 1.2rem;"></i>
+                                <span style="font-weight: 900; font-size: 1rem; text-transform: uppercase;">每日计划</span>
+                                <span style="font-size: 0.75rem; color: var(--text-secondary); padding: 4px 8px; background: var(--bg-color); border-radius: var(--radius);">临时任务，不计入待办</span>
+                            </div>
+                            <button class="btn btn-primary" onclick="openAddDailyPlan()" style="padding: 8px 14px; font-size: 0.85rem;">
+                                <i class="fas fa-plus"></i> 添加
+                            </button>
+                        </div>
+                        <div id="dailyPlanList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        <div id="dailyPlanEmpty" style="display: none; text-align: center; padding: 30px; color: var(--text-secondary); font-size: 0.85rem;">
+                            <i class="fas fa-coffee" style="font-size: 1.5rem; opacity: 0.3; margin-bottom: 8px; display: block;"></i>
+                            暂无每日计划，点击上方添加
+                        </div>
+                    </div>
+
                     <!-- 看板视图 -->
                     <div id="kanbanView" style="display: none;">
                         <div class="kanban-board">
@@ -3748,21 +3773,117 @@
                     </div>
                 </div>
 
-                <!-- 日历视图 -->
-                <div class="content-view" id="calendarView">
-                    <div class="calendar-controls">
-                        <button class="btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
-                        <h2 id="calendarTitle" style="font-weight: 900; text-transform: uppercase;"></h2>
-                        <button class="btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                    <div class="calendar-grid" id="calendarGrid"></div>
+                <!-- 日历视图 (含奶茶面板) -->
+                <div class="content-view" id="calendarView" style="flex-direction: row; gap: 0;">
+                    <!-- 左侧：日历 + 任务详情 -->
+                    <div style="flex: 1; overflow-y: auto; padding: 30px;">
+                        <div class="calendar-controls">
+                            <button class="btn" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+                            <h2 id="calendarTitle" style="font-weight: 900; text-transform: uppercase;"></h2>
+                            <button class="btn" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                        <div class="calendar-grid" id="calendarGrid"></div>
 
-                    <div id="calendarDetailPanel" class="calendar-detail-view" style="display: none;">
-                        <h3 id="calendarDetailDate"
-                            style="font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
-                            2023-10-01</h3>
-                        <ul id="calendarDetailList"
-                            style="list-style: none; display: flex; flex-direction: column; gap: 15px;"></ul>
+                        <div id="calendarDetailPanel" class="calendar-detail-view" style="display: none;">
+                            <h3 id="calendarDetailDate"
+                                style="font-size: 1.2rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
+                                2023-10-01</h3>
+                            <ul id="calendarDetailList"
+                                style="list-style: none; display: flex; flex-direction: column; gap: 15px;"></ul>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：奶茶面板 -->
+                    <div id="milkteaSidebar" style="width: 320px; border-left: 3px solid var(--border-color); background: var(--card-bg); overflow-y: auto; padding: 20px; flex-shrink: 0;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; font-weight: 900; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-coffee" style="color: var(--accent-color);"></i> 奶茶追踪
+                        </h3>
+
+                        <!-- 进度环 -->
+                        <div style="display: flex; gap: 12px; margin-bottom: 15px;">
+                            <div style="flex: 1; text-align: center; padding: 12px 8px; background: var(--bg-color); border: 2px solid var(--border-color); border-radius: var(--radius);">
+                                <div style="position: relative; width: 70px; height: 70px; margin: 0 auto 6px;">
+                                    <svg width="70" height="70" viewBox="0 0 70 70">
+                                        <circle cx="35" cy="35" r="28" fill="none" stroke="var(--border-color)" stroke-width="7"></circle>
+                                        <circle id="mtWeeklyProgress" cx="35" cy="35" r="28" fill="none"
+                                            stroke="var(--accent-color)" stroke-width="7" stroke-dasharray="175.93"
+                                            stroke-dashoffset="0" transform="rotate(-90 35 35)"
+                                            style="transition: stroke-dashoffset 0.8s ease-out, stroke 0.3s;"></circle>
+                                    </svg>
+                                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <span id="mtWeeklyText" style="font-size: 1rem; font-weight: 900;">0/2</span>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">本周</div>
+                            </div>
+                            <div style="flex: 1; text-align: center; padding: 12px 8px; background: var(--bg-color); border: 2px solid var(--border-color); border-radius: var(--radius);">
+                                <div style="position: relative; width: 70px; height: 70px; margin: 0 auto 6px;">
+                                    <svg width="70" height="70" viewBox="0 0 70 70">
+                                        <circle cx="35" cy="35" r="28" fill="none" stroke="var(--border-color)" stroke-width="7"></circle>
+                                        <circle id="mtMonthlyProgress" cx="35" cy="35" r="28" fill="none"
+                                            stroke="var(--warning-color)" stroke-width="7" stroke-dasharray="175.93"
+                                            stroke-dashoffset="0" transform="rotate(-90 35 35)"
+                                            style="transition: stroke-dashoffset 0.8s ease-out, stroke 0.3s;"></circle>
+                                    </svg>
+                                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                        <span id="mtMonthlyText" style="font-size: 1rem; font-weight: 900;">0/8</span>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase;">本月</div>
+                            </div>
+                        </div>
+
+                        <!-- 统计数据 -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                            <div style="flex: 1; text-align: center; padding: 8px; background: var(--bg-color); border: 2px solid var(--border-color); border-radius: var(--radius);">
+                                <div style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 800; text-transform: uppercase;">花费</div>
+                                <div id="mtTotalCost" style="font-size: 0.9rem; font-weight: 900; color: var(--danger-color);">￥0</div>
+                            </div>
+                            <div style="flex: 1; text-align: center; padding: 8px; background: var(--bg-color); border: 2px solid var(--border-color); border-radius: var(--radius);">
+                                <div style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 800; text-transform: uppercase;">均价</div>
+                                <div id="mtAvgCost" style="font-size: 0.9rem; font-weight: 900;">￥0</div>
+                            </div>
+                            <div style="flex: 1; text-align: center; padding: 8px; background: var(--bg-color); border: 2px solid var(--border-color); border-radius: var(--radius);">
+                                <div style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 800; text-transform: uppercase;">甜度</div>
+                                <div id="mtFavSugar" style="font-size: 0.9rem; font-weight: 900; color: var(--warning-color);">无</div>
+                            </div>
+                        </div>
+
+                        <!-- 心理建议 -->
+                        <div id="mtInsightMessage" style="margin-bottom: 15px; padding: 10px; background: var(--bg-color); border: 2px solid var(--accent-color); border-radius: var(--radius); font-weight: 700; color: var(--accent-color); font-size: 0.85rem;">
+                            加载中...
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                            <button class="btn btn-primary" onclick="openMilkteaModal()" style="flex: 1; justify-content: center; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-coffee"></i> 记录
+                            </button>
+                            <button class="btn" onclick="openMilkteaSettings()" style="padding: 8px 12px;">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+
+                        <!-- 热力图 -->
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="margin-bottom: 10px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between;">
+                                <span>打卡频次</span>
+                                <span style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                                    <button class="btn" onclick="changeMtHeatmapMonth(-1)" style="padding: 2px 7px; font-size: 0.75rem;"><i class="fas fa-chevron-left"></i></button>
+                                    <span id="mtMonthLabel"></span>
+                                    <button class="btn" onclick="changeMtHeatmapMonth(1)" style="padding: 2px 7px; font-size: 0.75rem;"><i class="fas fa-chevron-right"></i></button>
+                                </span>
+                            </h4>
+                            <div id="mtHeatmap" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;"></div>
+                        </div>
+
+                        <!-- 当日奶茶记录 -->
+                        <div id="mtDayRecords" style="display: none;">
+                            <h4 style="margin-bottom: 10px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: var(--text-secondary);">
+                                <i class="fas fa-list"></i> 当日记录
+                            </h4>
+                            <div id="mtDayRecordsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -3982,6 +4103,114 @@
                 style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
                 <button class="btn" onclick="closeModal('viewTodoModal')">关闭</button>
                 <button class="btn btn-primary" id="viewTodoEditBtn"><i class="fas fa-pen"></i> 编辑</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 喝奶茶记录模态框 -->
+    <div class="modal-overlay" id="milkteaModal">
+        <div class="modal">
+            <h2 style="display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fas fa-coffee" style="color: var(--accent-color);"></i> 记录奶茶</span>
+                <button class="btn-icon" onclick="closeModal('milkteaModal')"
+                    style="background: none; border: none; font-size: 1.5rem;"><i class="fas fa-times"></i></button>
+            </h2>
+            <div style="margin-bottom: 15px;">
+                <label
+                    style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">日期</label>
+                <input type="date" id="mtDateInput">
+            </div>
+            <div style="margin-bottom: 15px; display: flex; gap: 15px;">
+                <div style="flex: 1;">
+                    <label
+                        style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">杯数</label>
+                    <input type="number" id="mtAmountInput" value="1" min="0.5" step="0.5">
+                </div>
+                <div style="flex: 1;">
+                    <label
+                        style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">花费(￥)</label>
+                    <input type="number" id="mtCostInput" placeholder="如 18">
+                </div>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label
+                    style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">甜度</label>
+                <select id="mtSugarInput"
+                    style="width: 100%; padding: 10px; border: 3px solid var(--border-color); border-radius: var(--radius); background: var(--bg-color); font-family: inherit; font-size: 1rem; cursor: pointer;">
+                    <option value="无糖">无糖 (0%)</option>
+                    <option value="三分甜" selected>三分甜 (30%)</option>
+                    <option value="半糖">半糖 (50%)</option>
+                    <option value="七分甜">七分甜 (70%)</option>
+                    <option value="全糖">全糖 (100%)</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label
+                    style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">品牌
+                    (可选)</label>
+                <input type="text" id="mtBrandInput" placeholder="如 霸王茶姬">
+            </div>
+            <div style="margin-bottom: 25px;">
+                <label
+                    style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">备注
+                    (可选)</label>
+                <input type="text" id="mtNotesInput" placeholder="如 加冰少冰">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="closeModal('milkteaModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveMilkteaRecord()">饮下！保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 奶茶设置模态框 -->
+    <div class="modal-overlay" id="milkteaSettingsModal">
+        <div class="modal">
+            <h2 style="display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fas fa-cog"></i> 额度设定</span>
+                <button class="btn-icon" onclick="closeModal('milkteaSettingsModal')"
+                    style="background: none; border: none; font-size: 1.5rem;"><i class="fas fa-times"></i></button>
+            </h2>
+            <div style="margin-bottom: 15px;">
+                <label
+                    style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">每周限制
+                    (杯)</label>
+                <input type="number" id="mtWeeklyLimitInput" min="0" step="1" value="2">
+            </div>
+            <div style="margin-bottom: 25px;">
+                <label
+                    style="display:block; margin-bottom:8px; font-weight:800; font-size:0.8rem; text-transform:uppercase;">每月限制
+                    (杯)</label>
+                <input type="number" id="mtMonthlyLimitInput" min="0" step="1" value="8">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn" onclick="closeModal('milkteaSettingsModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveMilkteaSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 每日计划添加模态框 -->
+    <div class="modal-overlay" id="dailyPlanModal">
+        <div class="modal">
+            <h2>添加每日计划</h2>
+            <div style="margin-bottom:15px;">
+                <label style="display:block;margin-bottom:8px;font-weight:800;font-size:0.8rem;text-transform:uppercase;">内容</label>
+                <input type="text" id="dpTextInput" placeholder="计划内容">
+            </div>
+            <div style="margin-bottom:15px;display:flex;gap:15px;">
+                <div style="flex:1;">
+                    <label style="display:block;margin-bottom:8px;font-weight:800;font-size:0.8rem;text-transform:uppercase;">开始时间</label>
+                    <input type="time" id="dpStartTimeInput">
+                </div>
+                <div style="flex:1;">
+                    <label style="display:block;margin-bottom:8px;font-weight:800;font-size:0.8rem;text-transform:uppercase;">结束时间</label>
+                    <input type="time" id="dpEndTimeInput">
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn" onclick="closeModal('dailyPlanModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveDailyPlan()">保存</button>
             </div>
         </div>
     </div>
@@ -5092,6 +5321,7 @@
                 { name: '人情', color: '#eab308', icon: 'fa-gift' },
                 { name: '投资', color: '#22c55e', icon: 'fa-chart-line' },
                 { name: '通讯', color: '#06b6d4', icon: 'fa-phone' },
+                { name: '奶茶', color: '#ec4899', icon: 'fa-coffee' },
                 { name: '其他', color: '#6b7280', icon: 'fa-ellipsis-h' }
             ],
             income: [
@@ -5169,7 +5399,13 @@
             habits: JSON.parse(localStorage.getItem('habits')) || [],
             habitRecords: JSON.parse(localStorage.getItem('habitRecords')) || {}, // {habitId: {date: timestamp}}
             // 新增：项目管理
-            projects: JSON.parse(localStorage.getItem('projects')) || []
+            projects: JSON.parse(localStorage.getItem('projects')) || [],
+            // 新增：奶茶月摄入量
+            milktea: JSON.parse(localStorage.getItem('milktea')) || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } },
+            // 新增：每日计划（临时任务）
+            dailyPlans: JSON.parse(localStorage.getItem('dailyPlans')) || [],
+            // 新增：记账月份展开状态
+            financeExpandedMonths: new Set()
         };
 
         // --- 初始化 ---
@@ -5427,18 +5663,23 @@
             document.querySelectorAll('.mobile-bottom-nav .nav-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === view));
 
             const layout = document.getElementById('mainLayout');
-            layout.classList.toggle('todo-mode', view !== 'finance');
+            // 仅待办和项目思维导图显示侧边栏
+            layout.classList.toggle('todo-mode', view === 'todo' || view === 'projectMindmap');
+
+            // FAB仅在待办页面显示
+            const fab = document.getElementById('globalFab');
+            if (fab) fab.style.display = (view === 'todo') ? 'flex' : 'none';
 
             if (view === 'calendar') {
                 // 自动选择今天，并设置日历显示月份为当前月
                 const today = new Date();
-                state.calendarDate = today;  // 设置日历显示的月份
+                state.calendarDate = today;
                 const dateStr = today.toISOString().split('T')[0];
                 state.selectedDate = dateStr;
                 renderCalendar();
-                // 确保详情面板显示
                 document.getElementById('calendarDetailPanel').style.display = 'block';
                 renderCalendarDetail();
+                renderMilkteaView();
             }
             if (view === 'finance') renderFinance();
         }
@@ -5607,8 +5848,11 @@
 
         function renderGroups() {
             const l = document.getElementById('groupList');
-            l.innerHTML = `<li class="group-item ${state.currentGroupId === 'all' ? 'active' : ''}" onclick="selectGroup('all')">
+            l.innerHTML = `<li class="group-item ${state.currentGroupId === 'all' && state.filter !== 'today' ? 'active' : ''}" onclick="selectGroup('all')">
                 <div class="group-name"><i class="fas fa-th-large"></i> 全部任务</div>
+            </li>
+            <li class="group-item ${state.filter === 'today' ? 'active' : ''}" id="btnSidebarToday" onclick="selectTodayFilter()">
+                <div class="group-name"><i class="fas fa-sun" style="color: var(--warning-color);"></i> 今日</div>
             </li>`;
 
             state.groups.forEach((g, index) => {
@@ -5716,15 +5960,17 @@
         };
 
         window.selectGroup = (id) => {
-            // 点击分组时，清除项目选择，切换到待办视图
+            // 点击分组时，清除项目选择，切换到待办视图，清除今日筛选
             state.currentGroupId = id;
             state.currentProjectId = null;
+            state.filter = 'all';
             switchView('todo');
 
             renderGroups();
             renderSidebarProjects();
             renderTodos();
             updateStats();
+            updateTodoFilterUI();  // 更新筛选栏显示状态
 
             // 更新表单选择器（如果是具体分组）
             if (id !== 'all') {
@@ -5969,6 +6215,10 @@
 
             if (state.filter === 'active') list = list.filter(t => !t.completed);
             if (state.filter === 'completed') list = list.filter(t => t.completed);
+            if (state.filter === 'today') {
+                const todayStr = new Date().toISOString().split('T')[0];
+                list = list.filter(t => t.date === todayStr);
+            }
 
             // 新增：搜索过滤
             if (state.searchQuery) {
@@ -6116,6 +6366,25 @@
 
                 l.appendChild(li);
             });
+
+            // 空状态提示
+            if (list.length === 0) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.style.cssText = 'text-align: center; padding: 40px 20px; color: var(--text-secondary);';
+                emptyDiv.innerHTML = `
+                    <i class="fas fa-inbox" style="font-size: 2.5rem; opacity: 0.3; margin-bottom: 15px; display: block;"></i>
+                    <div style="font-size: 1rem; font-weight: 700; margin-bottom: 8px;">暂无任务</div>
+                    <div style="font-size: 0.85rem;">点击右下角 + 进行添加</div>
+                `;
+                l.appendChild(emptyDiv);
+            }
+
+            // 今日筛选时显示每日计划区域
+            const dpSection = document.getElementById('dailyPlanSection');
+            if (dpSection) {
+                dpSection.style.display = state.filter === 'today' ? 'block' : 'none';
+                if (state.filter === 'today') renderDailyPlans();
+            }
             updateStats();
             renderGroups();
         }
@@ -6126,19 +6395,101 @@
             renderTodos();
         };
 
+        window.selectTodayFilter = () => {
+            state.currentGroupId = 'all';
+            state.currentProjectId = null;
+            state.filter = 'today';
+            updateTodoFilterUI();
+            renderTodos();
+            renderGroups();
+        };
+
         function updateTodoFilterUI() {
+            const isTodayView = state.filter === 'today';
+
+            // 今日筛选时隐藏筛选按钮和视图切换按钮
+            const filterBar = document.getElementById('todoFilterBar');
+            if (filterBar) {
+                filterBar.style.display = isTodayView ? 'none' : 'flex';
+            }
+
+            // 隐藏视图切换和清除按钮的父容器
+            const viewTabsContainer = filterBar?.nextElementSibling;
+            if (viewTabsContainer) {
+                viewTabsContainer.style.display = isTodayView ? 'none' : 'flex';
+            }
+
             const allBtn = document.getElementById('btnFilterAll');
             const activeBtn = document.getElementById('btnFilterActive');
             const completedBtn = document.getElementById('btnFilterCompleted');
+            const todayBtn = document.getElementById('btnFilterToday');
+            const sidebarTodayBtn = document.getElementById('btnSidebarToday');
 
-            [allBtn, activeBtn, completedBtn].forEach(btn => {
-                btn.style.background = 'transparent';
-                btn.style.borderColor = 'transparent';
+            [allBtn, activeBtn, completedBtn, todayBtn].forEach(btn => {
+                if (btn) {
+                    btn.style.background = 'transparent';
+                    btn.style.borderColor = 'transparent';
+                }
             });
 
-            if (state.filter === 'all') allBtn.style.background = 'var(--accent-color)';
-            else if (state.filter === 'active') activeBtn.style.background = 'var(--accent-color)';
-            else if (state.filter === 'completed') completedBtn.style.background = 'var(--accent-color)';
+            // 清除侧边栏高亮
+            document.querySelectorAll('.group-item').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            if (state.filter === 'all') {
+                allBtn.style.background = 'var(--accent-color)';
+                // 高亮当前选中的分组（可能是"全部任务"或其他分组）
+                if (state.currentGroupId === 'all') {
+                    const allTasksItem = document.querySelector('.group-item[onclick*="selectGroup(\'all\'"]');
+                    if (allTasksItem) allTasksItem.classList.add('active');
+                } else {
+                    // 找到并高亮选中的分组
+                    const groupItems = document.querySelectorAll('.group-item');
+                    groupItems.forEach(el => {
+                        const onclick = el.getAttribute('onclick') || '';
+                        if (onclick.includes(`selectGroup('${state.currentGroupId}')`) ||
+                            onclick.includes(`selectGroup("${state.currentGroupId}")`)) {
+                            el.classList.add('active');
+                        }
+                    });
+                }
+            } else if (state.filter === 'active') {
+                activeBtn.style.background = 'var(--accent-color)';
+                // 高亮当前选中的分组
+                if (state.currentGroupId === 'all') {
+                    const allTasksItem = document.querySelector('.group-item[onclick*="selectGroup(\'all\'"]');
+                    if (allTasksItem) allTasksItem.classList.add('active');
+                } else {
+                    const groupItems = document.querySelectorAll('.group-item');
+                    groupItems.forEach(el => {
+                        const onclick = el.getAttribute('onclick') || '';
+                        if (onclick.includes(`selectGroup('${state.currentGroupId}')`) ||
+                            onclick.includes(`selectGroup("${state.currentGroupId}")`)) {
+                            el.classList.add('active');
+                        }
+                    });
+                }
+            } else if (state.filter === 'completed') {
+                completedBtn.style.background = 'var(--accent-color)';
+                // 高亮当前选中的分组
+                if (state.currentGroupId === 'all') {
+                    const allTasksItem = document.querySelector('.group-item[onclick*="selectGroup(\'all\'"]');
+                    if (allTasksItem) allTasksItem.classList.add('active');
+                } else {
+                    const groupItems = document.querySelectorAll('.group-item');
+                    groupItems.forEach(el => {
+                        const onclick = el.getAttribute('onclick') || '';
+                        if (onclick.includes(`selectGroup('${state.currentGroupId}')`) ||
+                            onclick.includes(`selectGroup("${state.currentGroupId}")`)) {
+                            el.classList.add('active');
+                        }
+                    });
+                }
+            } else if (state.filter === 'today') {
+                if (todayBtn) todayBtn.style.background = 'var(--warning-color)';
+                if (sidebarTodayBtn) sidebarTodayBtn.classList.add('active');
+            }
         }
 
         // DDL排序切换（两种模式）
@@ -6704,6 +7055,27 @@
             renderTodos();
         };
 
+        // 思维导图视图：添加子任务
+        window.mmAddSubtask = (todoId) => {
+            const input = document.getElementById('mmSubtaskInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const todo = state.todos.find(t => t.id === todoId);
+            if (!todo) return;
+
+            if (!todo.subtasks) todo.subtasks = [];
+            todo.subtasks.push({
+                id: Date.now(),
+                text: text,
+                completed: false
+            });
+
+            save();
+            renderMindmap();
+            showTaskDetail(todo);
+        };
+
         // 开始编辑子任务
         window.startEditSubtask = (todoId, subtaskId) => {
             const subtaskItem = document.querySelector(`li[data-subtask-id="${subtaskId}"]`);
@@ -6787,8 +7159,8 @@
             const active = total - completed;
             const rate = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-            animateValue("statTotal", parseInt(document.getElementById("statTotal").innerText), total, 500);
-            animateValue("statActive", parseInt(document.getElementById("statActive").innerText), active, 500);
+            animateValue("statTotal", parseInt(document.getElementById("statTotal").innerText) || 0, total, 500);
+            animateValue("statActive", parseInt(document.getElementById("statActive").innerText) || 0, active, 500);
             document.getElementById("statRate").innerText = rate + "%";
         }
 
@@ -7328,6 +7700,7 @@
                 state.selectedDate = dateStr;
                 document.getElementById('calendarDetailPanel').style.display = 'block';
                 renderCalendarDetail();
+                renderMilkteaDayRecords(dateStr);
             }
             renderCalendar();
         };
@@ -7712,25 +8085,50 @@
 
                 // 月份头部
                 const [year, month] = monthKey.split('-');
+                const isExpanded = state.financeExpandedMonths && state.financeExpandedMonths.has(monthKey);
                 monthGroup.innerHTML = `
-                    <div class="month-header" onclick="openMonthDetail('${monthKey}', ${monthInc}, ${monthExp})" style="cursor: pointer;">
-                        <div class="month-title">
-                            <i class="fas fa-calendar-alt"></i>
-                            ${year}年 ${parseInt(month)}月
+                    <div class="month-header" style="cursor: pointer;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-chevron-${isExpanded ? 'down' : 'right'} month-toggle-icon" style="font-size: 0.8rem; transition: transform 0.2s; width: 12px;"></i>
+                            <div class="month-title">
+                                <i class="fas fa-calendar-alt"></i>
+                                ${year}年 ${parseInt(month)}月
+                            </div>
                         </div>
-                        <div class="month-stats">
-                            <div class="month-stat income">
-                                <i class="fas fa-arrow-up"></i>
-                                <span>收入 ¥${monthInc.toFixed(2)}</span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="month-stats">
+                                <div class="month-stat income">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>收入 ¥${monthInc.toFixed(2)}</span>
+                                </div>
+                                <div class="month-stat expense">
+                                    <i class="fas fa-arrow-down"></i>
+                                    <span>支出 ¥${monthExp.toFixed(2)}</span>
+                                </div>
                             </div>
-                            <div class="month-stat expense">
-                                <i class="fas fa-arrow-down"></i>
-                                <span>支出 ¥${monthExp.toFixed(2)}</span>
-                            </div>
+                            <i class="fas fa-external-link-alt" onclick="event.stopPropagation(); openMonthDetail('${monthKey}', ${monthInc}, ${monthExp})" style="cursor:pointer; font-size:0.85rem; color:var(--text-secondary); padding: 4px;" title="查看详情"></i>
                         </div>
                     </div>
-                    <div class="month-transactions"></div>
+                    <div class="month-transactions" style="display: ${isExpanded ? 'block' : 'none'};"></div>
                 `;
+
+                // 点击月份头部切换展开/折叠
+                const header = monthGroup.querySelector('.month-header');
+                header.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!state.financeExpandedMonths) state.financeExpandedMonths = new Set();
+                    const transEl = monthGroup.querySelector('.month-transactions');
+                    const iconEl = monthGroup.querySelector('.month-toggle-icon');
+                    if (state.financeExpandedMonths.has(monthKey)) {
+                        state.financeExpandedMonths.delete(monthKey);
+                        transEl.style.display = 'none';
+                        iconEl.className = 'fas fa-chevron-right month-toggle-icon';
+                    } else {
+                        state.financeExpandedMonths.add(monthKey);
+                        transEl.style.display = 'block';
+                        iconEl.className = 'fas fa-chevron-down month-toggle-icon';
+                    }
+                });
 
                 // 添加该月的交易记录
                 const transContainer = monthGroup.querySelector('.month-transactions');
@@ -8402,9 +8800,13 @@
             localStorage.setItem('habits', JSON.stringify(state.habits));
             localStorage.setItem('habitRecords', JSON.stringify(state.habitRecords));
             localStorage.setItem('projects', JSON.stringify(state.projects));
+            localStorage.setItem('milktea', JSON.stringify(state.milktea));
+            localStorage.setItem('dailyPlans', JSON.stringify(state.dailyPlans));
         }
 
         function animateValue(id, start, end, duration) {
+            start = isNaN(start) ? 0 : start;
+            end = isNaN(end) ? 0 : end;
             if (start === end) return;
             const obj = document.getElementById(id);
             const range = end - start;
@@ -8596,6 +8998,10 @@
                         state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
                         state.templates = data[0].templates || [];
                         state.archivedTodos = data[0].archivedTodos || [];
+                        state.habits = data[0].habits || [];
+                        state.habitRecords = data[0].habitRecords || {};
+                        state.projects = data[0].projects || [];
+                        state.milktea = data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } };
 
                         // 保存到本地
                         baseSave(); // 使用 baseSave 避免循环上传
@@ -8911,6 +9317,8 @@
                     habits: state.habits,
                     habitRecords: state.habitRecords,
                     projects: state.projects,
+                    milktea: state.milktea,
+                    dailyPlans: state.dailyPlans,
                     updated_at: new Date().toISOString()
                 };
 
@@ -8997,6 +9405,8 @@
                     state.habits = data[0].habits || [];
                     state.habitRecords = data[0].habitRecords || {};
                     state.projects = data[0].projects || [];
+                    state.milktea = data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } };
+                    state.dailyPlans = data[0].dailyPlans || [];
 
                     // 更新本地存储
                     baseSave();
@@ -9059,6 +9469,7 @@
                                 const cloudHabits = payload.new.habits || [];
                                 const cloudHabitRecords = payload.new.habitRecords || {};
                                 const cloudProjects = payload.new.projects || [];
+                                const cloudMilktea = payload.new.milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } };
 
                                 // 比较是否有变化
                                 const oldTodosJson = JSON.stringify(state.todos);
@@ -9074,6 +9485,7 @@
                                     state.habits = cloudHabits;
                                     state.habitRecords = cloudHabitRecords;
                                     state.projects = cloudProjects;
+                                    state.milktea = cloudMilktea;
 
                                     // 更新本地存储
                                     baseSave();
@@ -9092,6 +9504,7 @@
                                 const cloudHabits = payload.new.habits || [];
                                 const cloudHabitRecords = payload.new.habitRecords || {};
                                 const cloudProjects = payload.new.projects || [];
+                                const cloudMilktea2 = payload.new.milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } };
 
                                 console.log('[Realtime] 检测到新数据，更新本地...');
                                 state.todos = cloudTodos;
@@ -9102,6 +9515,7 @@
                                 state.habits = cloudHabits;
                                 state.habitRecords = cloudHabitRecords;
                                 state.projects = cloudProjects;
+                                state.milktea = cloudMilktea2;
 
                                 // 更新本地存储
                                 baseSave();
@@ -13983,20 +14397,26 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             const pColor = { low: 'var(--success-color)', medium: 'var(--warning-color)', high: 'var(--danger-color)' }[task.priority] || 'var(--warning-color)';
 
             let subtasksHtml = '';
-            if (task.subtasks && task.subtasks.length > 0) {
-                const completedSt = task.subtasks.filter(st => st.completed).length;
-                subtasksHtml = `
-                    <div style="margin-top:15px;">
-                        <div style="font-weight:800;font-size:0.8rem;text-transform:uppercase;margin-bottom:8px;">子任务 (${completedSt}/${task.subtasks.length})</div>
-                        ${task.subtasks.map(st => `
-                            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-color);">
-                                <input type="checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${task.id},${st.id});setTimeout(()=>{renderMindmap();showTaskDetail(state.todos.find(t=>t.id==${task.id}))},50);" style="width:14px;height:14px;">
-                                <span style="${st.completed ? 'text-decoration:line-through;opacity:0.6;' : ''}">${st.text}</span>
-                            </div>
-                        `).join('')}
+            const completedSt = task.subtasks ? task.subtasks.filter(st => st.completed).length : 0;
+            const subtaskCount = task.subtasks ? task.subtasks.length : 0;
+
+            subtasksHtml = `
+                <div style="margin-top:15px;">
+                    <div style="font-weight:800;font-size:0.8rem;text-transform:uppercase;margin-bottom:8px;">子任务 (${completedSt}/${subtaskCount})</div>
+                    ${task.subtasks && task.subtasks.length > 0 ? task.subtasks.map(st => `
+                        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-color);">
+                            <input type="checkbox" ${st.completed ? 'checked' : ''} onchange="toggleSubtask(${task.id},${st.id});setTimeout(()=>{renderMindmap();showTaskDetail(state.todos.find(t=>t.id==${task.id}))},50);" style="width:16px;height:16px;cursor:pointer;">
+                            <span style="flex:1;${st.completed ? 'text-decoration:line-through;opacity:0.6;' : ''}">${st.text}</span>
+                            <button onclick="deleteSubtask(${task.id},${st.id});setTimeout(()=>{renderMindmap();showTaskDetail(state.todos.find(t=>t.id==${task.id}))},50);" style="background:none;border:none;color:var(--danger-color);cursor:pointer;padding:4px;"><i class="fas fa-times"></i></button>
+                        </div>
+                    `).join('') : '<div style="color:var(--text-secondary);font-size:0.85rem;padding:10px 0;">暂无子任务</div>'}
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <input type="text" id="mmSubtaskInput" placeholder="添加子任务..." onkeypress="if(event.key==='Enter') mmAddSubtask(${task.id})"
+                            style="flex:1;padding:8px 12px;border:2px solid var(--border-color);border-radius:var(--radius);background:var(--bg-color);color:var(--text-main);">
+                        <button class="btn btn-primary" onclick="mmAddSubtask(${task.id})" style="padding:8px 14px;"><i class="fas fa-plus"></i></button>
                     </div>
-                `;
-            }
+                </div>
+            `;
 
             document.getElementById('mmDetailContent').innerHTML = `
                 <h3 style="margin:0 0 15px 0;">${task.text}</h3>
@@ -14025,6 +14445,381 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             `;
             document.getElementById('mmDetailPanel').classList.add('open');
         }
+
+        // === 奶茶月摄入量功能 ===
+            window.openMilkteaModal = function () {
+                document.getElementById('mtDateInput').valueAsDate = new Date();
+                document.getElementById('mtAmountInput').value = 1;
+                document.getElementById('mtCostInput').value = '';
+                document.getElementById('mtBrandInput').value = '';
+                document.getElementById('mtNotesInput').value = '';
+                document.getElementById('mtSugarInput').value = '三分甜';
+                openModal('milkteaModal');
+            };
+
+            window.saveMilkteaRecord = function () {
+                const dateStr = document.getElementById('mtDateInput').value;
+                const amount = parseFloat(document.getElementById('mtAmountInput').value);
+                const cost = parseFloat(document.getElementById('mtCostInput').value);
+                const sugar = document.getElementById('mtSugarInput').value;
+                const brand = (document.getElementById('mtBrandInput').value || '').trim();
+                const notes = document.getElementById('mtNotesInput').value.trim();
+
+                if (!dateStr || isNaN(amount) || amount <= 0) {
+                    showSyncToast('请输入有效的日期和杯数');
+                    return;
+                }
+                if (isNaN(cost) || cost <= 0) {
+                    showSyncToast('请输入有效的金额');
+                    return;
+                }
+
+                const record = {
+                    id: Date.now(),
+                    date: dateStr,
+                    amount,
+                    cost,
+                    sugar,
+                    brand,
+                    notes
+                };
+
+                state.milktea.records.push(record);
+
+                // 同步到记账（支出）
+                const transaction = {
+                    id: 'mt_' + record.id,
+                    type: 'expense',
+                    amount: cost,
+                    category: '餐饮',
+                        date: dateStr,
+                        note: (brand ? brand + ' ' : '') + (notes || '奶茶消费'),
+                        milkteaRecordId: record.id
+                    };
+                state.transactions.push(transaction);
+
+                save();
+                closeModal('milkteaModal');
+                showSyncToast('吨吨吨~ 奶茶记录成功！');
+                renderMilkteaView();
+            };
+
+            window.openMilkteaSettings = function () {
+                document.getElementById('mtWeeklyLimitInput').value = state.milktea.settings.weeklyLimit;
+                document.getElementById('mtMonthlyLimitInput').value = state.milktea.settings.monthlyLimit;
+                openModal('milkteaSettingsModal');
+            };
+
+            window.saveMilkteaSettings = function () {
+                const wLimit = parseInt(document.getElementById('mtWeeklyLimitInput').value, 10);
+                const mLimit = parseInt(document.getElementById('mtMonthlyLimitInput').value, 10);
+
+                if (isNaN(wLimit) || isNaN(mLimit) || wLimit < 0 || mLimit < 0) {
+                    showSyncToast('请输入有效的额度');
+                    return;
+                }
+
+                state.milktea.settings.weeklyLimit = wLimit;
+                state.milktea.settings.monthlyLimit = mLimit;
+                save();
+                closeModal('milkteaSettingsModal');
+                showSyncToast('额度设定保存成功');
+                renderMilkteaView();
+            };
+
+            // 热力图当前显示月份（独立于今日）
+            if (typeof state.mtHeatmapYear === 'undefined') {
+                const _now = new Date();
+                state.mtHeatmapYear = _now.getFullYear();
+                state.mtHeatmapMonth = _now.getMonth();
+            }
+
+            window.changeMtHeatmapMonth = function (delta) {
+                state.mtHeatmapMonth += delta;
+                if (state.mtHeatmapMonth > 11) { state.mtHeatmapMonth = 0; state.mtHeatmapYear++; }
+                if (state.mtHeatmapMonth < 0) { state.mtHeatmapMonth = 11; state.mtHeatmapYear--; }
+                const heatRecords = state.milktea.records.filter(r => {
+                    const d = new Date(r.date);
+                    return d.getFullYear() === state.mtHeatmapYear && d.getMonth() === state.mtHeatmapMonth;
+                });
+                renderMilkteaHeatmap(state.mtHeatmapYear, state.mtHeatmapMonth, heatRecords);
+            };
+
+            window.renderMilkteaView = function () {
+                const records = state.milktea.records;
+                const settings = state.milktea.settings;
+                const today = new Date();
+                const currYear = today.getFullYear();
+                const currMonth = today.getMonth(); // 0-11
+
+                // 计算本周范围 (周一到周日)
+                const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - dayOfWeek + 1);
+                startOfWeek.setHours(0, 0, 0, 0);
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                endOfWeek.setHours(23, 59, 59, 999);
+
+                // 过滤本周和本月记录
+                let weeklyAmount = 0;
+                let monthlyAmount = 0;
+                let monthlyCost = 0;
+                const sugarCounts = {};
+                const monthRecords = [];
+
+                records.forEach(r => {
+                    const rDate = new Date(r.date);
+                    if (rDate.getFullYear() === currYear && rDate.getMonth() === currMonth) {
+                        monthlyAmount += r.amount;
+                        monthlyCost += r.cost;
+                        monthRecords.push(r);
+                        if (r.sugar) {
+                            sugarCounts[r.sugar] = (sugarCounts[r.sugar] || 0) + 1;
+                        }
+                    }
+                    if (rDate >= startOfWeek && rDate <= endOfWeek) {
+                        weeklyAmount += r.amount;
+                    }
+                });
+
+                // 更新仪表盘文字
+                document.getElementById('mtWeeklyText').textContent = `${weeklyAmount}/${settings.weeklyLimit}`;
+                document.getElementById('mtMonthlyText').textContent = `${monthlyAmount}/${settings.monthlyLimit}`;
+
+                // 更新仪表盘 SVG 进度 (175.93 是圆周长, r=28)
+                const updateProgress = (elementId, current, limit) => {
+                    const el = document.getElementById(elementId);
+                    const perc = limit > 0 ? Math.min(current / limit, 1) : 0;
+                    const offset = 175.93 - (perc * 175.93);
+                    el.style.strokeDashoffset = offset;
+                };
+
+                updateProgress('mtWeeklyProgress', weeklyAmount, settings.weeklyLimit);
+                updateProgress('mtMonthlyProgress', monthlyAmount, settings.monthlyLimit);
+
+                // 更新数据洞察
+                document.getElementById('mtTotalCost').textContent = `￥${monthlyCost.toFixed(2)}`;
+                const avgCost = monthlyAmount > 0 ? (monthlyCost / monthRecords.length) : 0;
+                document.getElementById('mtAvgCost').textContent = `￥${avgCost.toFixed(2)}`;
+
+                let favSugar = '无';
+                let maxCount = 0;
+                for (const [sugar, count] of Object.entries(sugarCounts)) {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        favSugar = sugar;
+                    }
+                }
+                document.getElementById('mtFavSugar').textContent = favSugar;
+
+                // 心理建议提示词
+                const msgEl = document.getElementById('mtInsightMessage');
+                if (weeklyAmount >= settings.weeklyLimit) {
+                    msgEl.textContent = '💔 本周额度已达标，为了健康，请克制一下哦！';
+                    msgEl.style.color = 'var(--danger-color)';
+                    msgEl.style.borderColor = 'var(--danger-color)';
+                } else if (monthlyAmount >= settings.monthlyLimit) {
+                    msgEl.textContent = '🚨 本月额度已爆表，快去喝点热水吧！';
+                    msgEl.style.color = 'var(--danger-color)';
+                    msgEl.style.borderColor = 'var(--danger-color)';
+                } else if (weeklyAmount === 0) {
+                    msgEl.textContent = '🌟 哇！本周还没喝奶茶，继续保持健康作息！';
+                    msgEl.style.color = 'var(--success-color)';
+                    msgEl.style.borderColor = 'var(--success-color)';
+                } else {
+                    msgEl.textContent = `💪 本周还能喝 ${settings.weeklyLimit - weeklyAmount} 杯，合理分配，享受甜蜜！`;
+                    msgEl.style.color = 'var(--accent-color)';
+                    msgEl.style.borderColor = 'var(--accent-color)';
+                }
+
+                // 渲染热力图（用独立月份状态，默认当月）
+                state.mtHeatmapYear = state.mtHeatmapYear ?? currYear;
+                state.mtHeatmapMonth = state.mtHeatmapMonth ?? currMonth;
+                const heatRecords = records.filter(r => {
+                    const d = new Date(r.date);
+                    return d.getFullYear() === state.mtHeatmapYear && d.getMonth() === state.mtHeatmapMonth;
+                });
+                renderMilkteaHeatmap(state.mtHeatmapYear, state.mtHeatmapMonth, heatRecords);
+            };
+
+            function renderMilkteaHeatmap(year, month, monthRecords) {
+                const heatmapEl = document.getElementById('mtHeatmap');
+                const labelEl = document.getElementById('mtMonthLabel');
+                labelEl.textContent = `(${year}年${month + 1}月)`;
+                heatmapEl.innerHTML = '';
+
+                // 获取当月天数
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                // 建立日期 -> 杯数的映射
+                const dayMap = {};
+                monthRecords.forEach(r => {
+                    const day = new Date(r.date).getDate();
+                    dayMap[day] = (dayMap[day] || 0) + r.amount;
+                });
+
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const amount = dayMap[i] || 0;
+                    let bgColor = 'var(--bg-color)';
+                    let textColor = 'var(--text-secondary)';
+                    let opacity = 1;
+
+                    if (amount > 0) {
+                        if (amount < 1) opacity = 0.4;
+                        else if (amount === 1) opacity = 0.7;
+                        else opacity = 1.0;
+
+                        bgColor = `rgba(236, 72, 153, ${opacity})`; // 使用偏粉红色作为奶茶的颜色
+                        textColor = '#fff';
+                    }
+
+                    const dayBlock = document.createElement('div');
+                    dayBlock.style.cssText = `
+                    aspect-ratio: 1;
+                    background: ${bgColor};
+                    color: ${textColor};
+                    border-radius: var(--radius);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    border: 2px solid var(--border-color);
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                `;
+                    dayBlock.textContent = i;
+                    const dayNum = i;
+                    dayBlock.onclick = () => {
+                        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                        renderMilkteaDayRecords(dateStr);
+                    };
+                    if (amount > 0) {
+                        dayBlock.title = `${year}-${month + 1}-${i}: 喝了 ${amount} 杯`;
+                        dayBlock.onmouseover = () => dayBlock.style.transform = 'scale(1.1)';
+                        dayBlock.onmouseout = () => dayBlock.style.transform = 'scale(1)';
+                    }
+
+                    heatmapEl.appendChild(dayBlock);
+                }
+            }
+
+            // 渲染某日的奶茶记录
+            function renderMilkteaDayRecords(dateStr) {
+                const container = document.getElementById('mtDayRecords');
+                const listEl = document.getElementById('mtDayRecordsList');
+                if (!container || !listEl) return;
+
+                const dayRecords = state.milktea.records.filter(r => r.date === dateStr);
+                if (dayRecords.length === 0) {
+                    container.style.display = 'block';
+                    listEl.innerHTML = `<div style="text-align: center; padding: 15px; color: var(--text-secondary); font-size: 0.85rem;">该日无奶茶记录</div>`;
+                    return;
+                }
+
+                container.style.display = 'block';
+                listEl.innerHTML = dayRecords.map(r => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: var(--bg-color); border: 2px solid var(--border-color); border-radius: var(--radius);">
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.85rem;">${r.brand || '奶茶'} x${r.amount}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary);">${r.sugar || ''} ${r.cost > 0 ? '￥' + r.cost : ''}</div>
+                            ${r.notes ? `<div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">${r.notes}</div>` : ''}
+                        </div>
+                        <button class="btn" onclick="deleteMilkteaRecord(${r.id})" style="padding: 4px 8px; font-size: 0.75rem; color: var(--danger-color); border-color: var(--danger-color);">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            // 删除奶茶记录（同步删除对应交易）
+            window.deleteMilkteaRecord = function (recordId) {
+                const idx = state.milktea.records.findIndex(r => r.id === recordId);
+                if (idx === -1) return;
+                state.milktea.records.splice(idx, 1);
+                // 同步删除交易记录
+                const txIdx = state.transactions.findIndex(t => t.id === 'mt_' + recordId);
+                if (txIdx !== -1) state.transactions.splice(txIdx, 1);
+                save();
+                showSyncToast('奶茶记录已删除');
+                renderMilkteaView();
+            };
+
+            // ===== 每日计划逻辑 =====
+            function renderDailyPlans() {
+                // 只在今日视图时渲染
+                if (state.filter !== 'today') return;
+
+                const listEl = document.getElementById('dailyPlanList');
+                const emptyEl = document.getElementById('dailyPlanEmpty');
+                if (!listEl) return;
+
+                const todayStr = new Date().toISOString().split('T')[0];
+                let plans = (state.dailyPlans || []).filter(p => p.date === todayStr);
+                plans.sort((a, b) => {
+                    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                    if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
+                    if (a.startTime) return -1;
+                    if (b.startTime) return 1;
+                    return 0;
+                });
+
+                if (plans.length === 0) {
+                    listEl.innerHTML = '';
+                    if (emptyEl) emptyEl.style.display = 'block';
+                    return;
+                }
+                if (emptyEl) emptyEl.style.display = 'none';
+
+                listEl.innerHTML = plans.map(p => {
+                    const timeLabel = p.startTime ? `${p.startTime}${p.endTime ? ' - ' + p.endTime : ''}` : '';
+                    return `
+                    <div class="todo-item" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: var(--card-bg); border: 3px solid var(--border-color); border-left: 5px solid var(--warning-color); border-radius: var(--radius); box-shadow: var(--shadow); ${p.completed ? 'opacity: 0.6;' : ''} transition: transform 0.2s;">
+                        <input type="checkbox" ${p.completed ? 'checked' : ''} onchange="toggleDailyPlan(${p.id})" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--warning-color);">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 800; font-size: 0.95rem; ${p.completed ? 'text-decoration: line-through; color: var(--text-secondary);' : ''}">${p.text}</div>
+                            ${timeLabel ? `<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;"><i class="far fa-clock"></i> ${timeLabel}</div>` : ''}
+                        </div>
+                        <button onclick="deleteDailyPlan(${p.id})" class="btn" style="padding: 4px 8px; min-width: auto; font-size: 0.8rem; color: var(--danger-color); border-color: var(--danger-color);"><i class="fas fa-trash"></i></button>
+                    </div>`;
+                }).join('');
+            }
+
+            window.openAddDailyPlan = function () {
+                document.getElementById('dpTextInput').value = '';
+                document.getElementById('dpStartTimeInput').value = '';
+                document.getElementById('dpEndTimeInput').value = '';
+                openModal('dailyPlanModal');
+            };
+
+            window.saveDailyPlan = function () {
+                const text = document.getElementById('dpTextInput').value.trim();
+                if (!text) { showSyncToast('请输入计划内容'); return; }
+                state.dailyPlans.push({
+                    id: Date.now(),
+                    date: new Date().toISOString().split('T')[0],
+                    text,
+                    startTime: document.getElementById('dpStartTimeInput').value || '',
+                    endTime: document.getElementById('dpEndTimeInput').value || '',
+                    completed: false
+                });
+                save();
+                closeModal('dailyPlanModal');
+                renderDailyPlans();
+            };
+
+            window.toggleDailyPlan = function (id) {
+                const p = state.dailyPlans.find(p => p.id === id);
+                if (p) { p.completed = !p.completed; save(); renderDailyPlans(); }
+            };
+
+            window.deleteDailyPlan = function (id) {
+                state.dailyPlans = state.dailyPlans.filter(p => p.id !== id);
+                save();
+                renderDailyPlans();
+            };
+
     </script>
 </body>
 
