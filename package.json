@@ -23,8 +23,8 @@
     "electron-packager": "^17.1.2"
   },
   "build": {
-    "appId": "com.todo.app",
-    "productName": "Todo",
+    "appId": "com.prolife.app",
+    "productName": "ProLife",
     "directories": {
       "output": "dist"
     },
@@ -34,6 +34,7 @@
       "sw.js",
       "main.js",
       "package.json",
+      "assets/**/*",
       "widget/**/*"
     ],
     "asarUnpack": [
@@ -41,9 +42,9 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ],
+      "icon": "assets/icon.ico",
       "requestedExecutionLevel": "asInvoker",
       "signAndEditExecutable": false
     },

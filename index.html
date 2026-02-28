@@ -14798,38 +14798,73 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 listEl.innerHTML = plans.map(p => {
                     const timeLabel = p.startTime ? `${p.startTime}${p.endTime ? ' - ' + p.endTime : ''}` : '';
                     return `
-                    <div class="todo-item" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; background: var(--card-bg); border: 3px solid var(--border-color); border-left: 5px solid var(--warning-color); border-radius: var(--radius); box-shadow: var(--shadow); ${p.completed ? 'opacity: 0.6;' : ''} transition: transform 0.2s;">
-                        <input type="checkbox" ${p.completed ? 'checked' : ''} onchange="toggleDailyPlan(${p.id})" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--warning-color);">
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 800; font-size: 0.95rem; ${p.completed ? 'text-decoration: line-through; color: var(--text-secondary);' : ''}">${p.text}</div>
-                            ${timeLabel ? `<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;"><i class="far fa-clock"></i> ${timeLabel}</div>` : ''}
+                    <div class="todo-item" style="padding: 12px 15px; background: var(--card-bg); border: 3px solid var(--border-color); border-left: 5px solid var(--warning-color); border-radius: var(--radius); box-shadow: var(--shadow); ${p.completed ? 'opacity: 0.6;' : ''} transition: transform 0.2s;">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" ${p.completed ? 'checked' : ''} onchange="toggleDailyPlan(${p.id})" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--warning-color); margin-top: 2px;">
+                            <div style="flex: 1; min-width: 0; cursor: pointer;" onclick="editDailyPlan(${p.id})">
+                                <div style="font-weight: 800; font-size: 0.95rem; text-align: left; ${p.completed ? 'text-decoration: line-through; color: var(--text-secondary);' : ''}">${escapeHtml(p.text)}</div>
+                                ${timeLabel ? `<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; text-align: left;"><i class="far fa-clock"></i> ${timeLabel}</div>` : ''}
+                            </div>
                         </div>
-                        <button onclick="deleteDailyPlan(${p.id})" class="btn" style="padding: 4px 8px; min-width: auto; font-size: 0.8rem; color: var(--danger-color); border-color: var(--danger-color);"><i class="fas fa-trash"></i></button>
+                        <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px;">
+                            <i class="fas fa-pen action-icon" onclick="editDailyPlan(${p.id})" title="编辑" style="cursor:pointer;"></i>
+                            <i class="fas fa-trash action-icon" onclick="deleteDailyPlan(${p.id})" title="删除" style="color:var(--danger-color); cursor:pointer;"></i>
+                        </div>
                     </div>`;
                 }).join('');
             }
 
+            let editingDailyPlanId = null;
+
             window.openAddDailyPlan = function () {
+                editingDailyPlanId = null;
                 document.getElementById('dpTextInput').value = '';
                 document.getElementById('dpStartTimeInput').value = '';
                 document.getElementById('dpEndTimeInput').value = '';
+                document.querySelector('#dailyPlanModal h2').textContent = '添加每日计划';
+                openModal('dailyPlanModal');
+            };
+
+            window.editDailyPlan = function (id) {
+                const plan = state.dailyPlans.find(p => p.id === id);
+                if (!plan) return;
+
+                editingDailyPlanId = id;
+                document.getElementById('dpTextInput').value = plan.text || '';
+                document.getElementById('dpStartTimeInput').value = plan.startTime || '';
+                document.getElementById('dpEndTimeInput').value = plan.endTime || '';
+                document.querySelector('#dailyPlanModal h2').textContent = '编辑每日计划';
                 openModal('dailyPlanModal');
             };
 
             window.saveDailyPlan = function () {
                 const text = document.getElementById('dpTextInput').value.trim();
                 if (!text) { showSyncToast('请输入计划内容'); return; }
-                state.dailyPlans.push({
-                    id: Date.now(),
-                    date: new Date().toISOString().split('T')[0],
-                    text,
-                    startTime: document.getElementById('dpStartTimeInput').value || '',
-                    endTime: document.getElementById('dpEndTimeInput').value || '',
-                    completed: false
-                });
+
+                if (editingDailyPlanId) {
+                    // 编辑现有计划
+                    const plan = state.dailyPlans.find(p => p.id === editingDailyPlanId);
+                    if (plan) {
+                        plan.text = text;
+                        plan.startTime = document.getElementById('dpStartTimeInput').value || '';
+                        plan.endTime = document.getElementById('dpEndTimeInput').value || '';
+                    }
+                } else {
+                    // 添加新计划
+                    state.dailyPlans.push({
+                        id: Date.now(),
+                        date: new Date().toISOString().split('T')[0],
+                        text,
+                        startTime: document.getElementById('dpStartTimeInput').value || '',
+                        endTime: document.getElementById('dpEndTimeInput').value || '',
+                        completed: false
+                    });
+                }
+
                 save();
                 closeModal('dailyPlanModal');
                 renderDailyPlans();
+                editingDailyPlanId = null;
             };
 
             window.toggleDailyPlan = function (id) {
@@ -14837,7 +14872,9 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 if (p) { p.completed = !p.completed; save(); renderDailyPlans(); }
             };
 
-            window.deleteDailyPlan = function (id) {
+            window.deleteDailyPlan = async function (id) {
+                const confirmed = await showConfirm('删除计划', '确定要删除这个计划吗？', ['取消', '删除']);
+                if (confirmed === 0) return;
                 state.dailyPlans = state.dailyPlans.filter(p => p.id !== id);
                 save();
                 renderDailyPlans();

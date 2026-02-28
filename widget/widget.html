@@ -230,6 +230,20 @@ html, body {
     padding: 10px 12px;
     margin-bottom: 8px;
     box-shadow: 3px 3px 0 0 var(--border-color);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.project-card:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 var(--border-color);
+}
+.project-card .expand-icon {
+    font-size: 10px;
+    transition: transform 0.2s;
+    margin-left: 6px;
+}
+.project-card.expanded .expand-icon {
+    transform: rotate(90deg);
 }
 .project-name {
     font-weight: 700;
@@ -265,6 +279,24 @@ html, body {
     display: flex;
     justify-content: space-between;
 }
+.project-tasks {
+    display: none;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-color);
+}
+.project-card.expanded .project-tasks {
+    display: block;
+}
+.project-tasks .task-item {
+    box-shadow: none;
+    border-width: 1px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+}
+.project-tasks .task-item:last-child {
+    margin-bottom: 0;
+}
 
 /* Daily plan item */
 .plan-item {
@@ -275,7 +307,7 @@ html, body {
     margin-bottom: 8px;
     box-shadow: 3px 3px 0 0 var(--border-color);
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 8px;
 }
 .plan-item.done { opacity: 0.5; }
@@ -285,7 +317,7 @@ html, body {
     font-weight: 700;
     color: var(--accent-color);
     white-space: nowrap;
-    margin-top: 1px;
+    margin-left: auto;
 }
 .plan-text {
     font-size: 13px;
@@ -357,6 +389,92 @@ html, body {
     border-radius: 10px;
     margin-left: 4px;
 }
+
+/* Subtasks in widget */
+.task-subtasks {
+    margin-top: 4px;
+    padding-left: 2px;
+}
+.task-subtasks .subtask-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 1px 0;
+}
+.task-subtasks .subtask-row.st-done .st-text {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+.task-subtasks .st-check {
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card-bg);
+}
+.task-subtasks .st-check.checked {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+.task-subtasks .st-check.checked::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 7px;
+    color: white;
+}
+.task-meta .priority-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0 5px;
+    border-radius: var(--radius);
+    border: 1px solid;
+}
+.task-meta .priority-tag.high {
+    color: var(--danger-color);
+    border-color: var(--danger-color);
+}
+.task-meta .priority-tag.medium {
+    color: var(--warning-color);
+    border-color: var(--warning-color);
+}
+.task-meta .priority-tag.low {
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+.subtask-summary {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.subtask-summary:hover {
+    color: var(--accent-color);
+}
+.subtask-summary .st-bar {
+    height: 4px;
+    flex: 1;
+    max-width: 60px;
+    background: var(--bg-color);
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+.subtask-summary .st-bar-fill {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s;
+}
 </style>
 </head>
 <body>
@@ -367,6 +485,7 @@ html, body {
             <button onclick="refreshData()" title="刷新"><i class="fas fa-sync-alt"></i></button>
             <button onclick="toggleDark()" title="主题"><i class="fas fa-moon" id="themeIcon"></i></button>
             <button onclick="togglePin()" title="置顶"><i class="fas fa-thumbtack" id="pinIcon"></i></button>
+            <button onclick="closeWidget()" title="关闭" style="color:var(--danger-color);"><i class="fas fa-times"></i></button>
         </div>
     </div>
     <div id="tabs">
@@ -569,8 +688,8 @@ function renderAll() {
 
 function renderTasks() {
     const panel = document.getElementById('panel-tasks');
-    // 只显示独立任务（不属于任何项目的任务）
-    const todos = (data.todos || []).filter(t => !t.done && !t.projectId);
+    // 只显示未完成的独立任务（不属于任何项目的任务）
+    const todos = (data.todos || []).filter(t => !t.completed && !t.projectId);
     const countEl = document.getElementById('taskCount');
 
     if (todos.length === 0) {
@@ -612,15 +731,42 @@ function renderTasks() {
             if (t.time) ddlText += ' ' + t.time;
         }
 
-        html += `<div class="task-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
-            <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTodo('${t.id}')"></div>
+        const priLabels = { high: '高', medium: '中', low: '低' };
+        const priLabel = priLabels[t.priority] || '中';
+        const priClass = t.priority || 'medium';
+
+        // 子任务
+        let subtasksHtml = '';
+        if (t.subtasks && t.subtasks.length > 0) {
+            const stDone = t.subtasks.filter(st => st.completed).length;
+            const stTotal = t.subtasks.length;
+            const stPct = Math.round(stDone / stTotal * 100);
+            subtasksHtml = `
+                <div class="subtask-summary" onclick="event.stopPropagation();toggleTaskSubtasks(this)">
+                    <i class="fas fa-chevron-right" style="font-size:8px;transition:transform 0.2s;"></i>
+                    <i class="fas fa-tasks" style="font-size:9px;"></i> ${stDone}/${stTotal}
+                    <div class="st-bar"><div class="st-bar-fill" style="width:${stPct}%"></div></div>
+                </div>
+                <div class="task-subtasks" style="display:none;">
+                    ${t.subtasks.map(st => `
+                        <div class="subtask-row ${st.completed ? 'st-done' : ''}">
+                            <div class="st-check ${st.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleSubtask('${t.id}','${st.id}')"></div>
+                            <span class="st-text">${escHtml(st.text)}</span>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+
+        html += `<div class="task-item ${t.completed ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
+            <div class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTodo('${t.id}')"></div>
             <div class="task-info">
                 <div class="task-name">${escHtml(t.text)}</div>
                 <div class="task-meta">
-                    <span class="priority-dot" style="background:${priColor}"></span>
+                    <span class="priority-tag ${priClass}">${priLabel}</span>
                     ${ddlText ? `<span class="ddl ${isOverdue ? 'overdue' : ''}">${ddlText}</span>` : ''}
                     ${groupName ? `<span class="group-tag" style="background:${groupColor}">${escHtml(groupName)}</span>` : ''}
                 </div>
+                ${subtasksHtml}
             </div>
         </div>`;
     });
@@ -638,14 +784,16 @@ function renderProjects() {
 
     let html = '';
     projects.forEach(p => {
-        const tasks = p.tasks || [];
-        const done = tasks.filter(t => t.done).length;
+        // 从 todos 中查找属于该项目的任务
+        const tasks = (data.todos || []).filter(t => String(t.projectId) == String(p.id));
+        const done = tasks.filter(t => t.completed).length;
         const total = tasks.length;
         const pct = total > 0 ? Math.round(done / total * 100) : 0;
 
         let statusText = '进行中';
         let statusColor = 'var(--accent-color)';
-        if (p.status === 'completed') { statusText = '已完成'; statusColor = 'var(--success-color)'; }
+        if (pct === 100 && total > 0) { statusText = '已完成'; statusColor = 'var(--success-color)'; }
+        else if (p.status === 'completed') { statusText = '已完成'; statusColor = 'var(--success-color)'; }
         else if (p.status === 'paused') { statusText = '暂停'; statusColor = 'var(--warning-color)'; }
 
         let ddlText = '';
@@ -655,9 +803,58 @@ function renderProjects() {
             if (new Date(p.deadline) < new Date()) ddlText = `<span style="color:var(--danger-color)">${ddlText} 逾期</span>`;
         }
 
-        html += `<div class="project-card">
+        // 渲染项目下的任务列表
+        let tasksHtml = '';
+        if (tasks.length > 0) {
+            const pending = tasks.filter(t => !t.completed);
+            const completed = tasks.filter(t => t.completed);
+            const sortedTasks = [...pending, ...completed];
+            sortedTasks.forEach(t => {
+                const priLabels = { high: '高', medium: '中', low: '低' };
+                const priLabel = priLabels[t.priority] || '中';
+                const priClass = t.priority || 'medium';
+
+                // 子任务
+                let stHtml = '';
+                if (t.subtasks && t.subtasks.length > 0) {
+                    const stDone = t.subtasks.filter(st => st.completed).length;
+                    const stTotal = t.subtasks.length;
+                    const stPct = Math.round(stDone / stTotal * 100);
+                    stHtml = `
+                        <div class="subtask-summary" onclick="event.stopPropagation();toggleTaskSubtasks(this)">
+                            <i class="fas fa-chevron-right" style="font-size:8px;transition:transform 0.2s;"></i>
+                            <i class="fas fa-tasks" style="font-size:9px;"></i> ${stDone}/${stTotal}
+                            <div class="st-bar"><div class="st-bar-fill" style="width:${stPct}%"></div></div>
+                        </div>
+                        <div class="task-subtasks" style="display:none;">
+                            ${t.subtasks.map(st => `
+                                <div class="subtask-row ${st.completed ? 'st-done' : ''}">
+                                    <div class="st-check ${st.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleSubtask('${t.id}','${st.id}')"></div>
+                                    <span class="st-text">${escHtml(st.text)}</span>
+                                </div>
+                            `).join('')}
+                        </div>`;
+                }
+
+                tasksHtml += `<div class="task-item ${t.completed ? 'done' : ''}">
+                    <div class="task-check ${t.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleTodo('${t.id}')"></div>
+                    <div class="task-info">
+                        <div class="task-name">${escHtml(t.text)}</div>
+                        <div class="task-meta">
+                            <span class="priority-tag ${priClass}">${priLabel}</span>
+                            ${t.date ? `<span class="ddl">${new Date(t.date).getMonth()+1}/${new Date(t.date).getDate()}</span>` : ''}
+                        </div>
+                        ${stHtml}
+                    </div>
+                </div>`;
+            });
+        } else {
+            tasksHtml = '<div style="text-align:center;color:var(--text-secondary);font-size:11px;padding:6px 0;">暂无任务</div>';
+        }
+
+        html += `<div class="project-card" onclick="toggleProjectExpand(this)">
             <div class="project-name">
-                <span>${escHtml(p.name)}</span>
+                <span><i class="fas fa-chevron-right expand-icon"></i> ${escHtml(p.name)}</span>
                 <span class="status" style="color:${statusColor};border-color:${statusColor}">${statusText}</span>
             </div>
             <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${statusColor}"></div></div>
@@ -665,9 +862,14 @@ function renderProjects() {
                 <span>${done}/${total} 任务 (${pct}%)</span>
                 ${ddlText ? `<span>${ddlText}</span>` : ''}
             </div>
+            <div class="project-tasks">${tasksHtml}</div>
         </div>`;
     });
     panel.innerHTML = html;
+}
+
+function toggleProjectExpand(el) {
+    el.classList.toggle('expanded');
 }
 
 function renderPlans() {
@@ -680,15 +882,30 @@ function renderPlans() {
         return;
     }
 
-    // 按时间排序
-    const sorted = [...plans].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    // 按开始时间排序
+    const sorted = [...plans].sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        const ta = a.startTime || a.time || '';
+        const tb = b.startTime || b.time || '';
+        return ta.localeCompare(tb);
+    });
 
     let html = '';
     sorted.forEach(p => {
-        html += `<div class="plan-item ${p.done ? 'done' : ''}">
-            <div class="task-check ${p.done ? 'checked' : ''}" onclick="togglePlan('${p.id}')"></div>
-            ${p.time ? `<span class="plan-time">${p.time}</span>` : ''}
+        const isDone = p.completed || p.done;
+        // 构建时间显示
+        let timeLabel = '';
+        if (p.startTime) {
+            timeLabel = p.startTime;
+            if (p.endTime) timeLabel += ' - ' + p.endTime;
+        } else if (p.time) {
+            timeLabel = p.time;
+        }
+
+        html += `<div class="plan-item ${isDone ? 'done' : ''}">
+            <div class="task-check ${isDone ? 'checked' : ''}" onclick="togglePlan('${p.id}')"></div>
             <span class="plan-text">${escHtml(p.text || p.content || '')}</span>
+            ${timeLabel ? `<span class="plan-time"><i class="far fa-clock" style="font-size:10px;margin-right:3px;"></i>${timeLabel}</span>` : ''}
         </div>`;
     });
     panel.innerHTML = html;
@@ -696,28 +913,53 @@ function renderPlans() {
 
 // --- 交互 ---
 function toggleTodo(id) {
-    const todo = data.todos.find(t => t.id === id);
+    const todo = data.todos.find(t => String(t.id) === String(id));
     if (!todo) return;
-    todo.done = !todo.done;
+    todo.completed = !todo.completed;
     todo.updatedAt = new Date().toISOString();
     saveLocalData();
-    renderTasks();
+    renderAll();
     syncToggleToCloud();
 }
 
 function togglePlan(id) {
-    const plan = data.dailyPlans.find(p => p.id === id);
+    const plan = data.dailyPlans.find(p => String(p.id) === String(id));
     if (!plan) return;
-    plan.done = !plan.done;
+    plan.completed = !plan.completed;
     saveLocalData();
     renderPlans();
     syncToggleToCloud();
 }
 
+function toggleTaskSubtasks(el) {
+    const subtasksDiv = el.nextElementSibling;
+    const icon = el.querySelector('.fa-chevron-right');
+    if (subtasksDiv.style.display === 'none') {
+        subtasksDiv.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(90deg)';
+    } else {
+        subtasksDiv.style.display = 'none';
+        if (icon) icon.style.transform = '';
+    }
+}
+
+function toggleSubtask(todoId, subtaskId) {
+    const todo = data.todos.find(t => String(t.id) === String(todoId));
+    if (!todo || !todo.subtasks) return;
+    const st = todo.subtasks.find(s => String(s.id) === String(subtaskId));
+    if (!st) return;
+    st.completed = !st.completed;
+    saveLocalData();
+    renderTasks();
+    syncToggleToCloud();
+}
+
 function openProLife() {
-    const { exec } = require('child_process');
-    const mainDir = path.join(__dirname, '..');
-    exec(`cd /d "${mainDir}" && npx electron .`);
+    ipcRenderer.send('widget-open-main');
+}
+
+function closeWidget() {
+    window.close();
 }
 
 // --- 工具 ---

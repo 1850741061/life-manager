@@ -35,8 +35,8 @@ Thumbs.db
 pre/
 builder-debug.yml
 
-# Package lock files (optional)
-# package-lock.json
+# Package lock files
+package-lock.json
 
 # Config files with project IDs
 supabase/config.toml
@@ -45,3 +45,22 @@ android/
 
 # Build scripts (local use only)
 *.bat
+
+# Non-core files (keep locally, exclude from repo)
+.npmrc
+ANDROID_PROGRESS.md
+HANDOFF.md
+PROJECT_CONTEXT.md
+Supabase Snippet Replication Identity for user_data.csv
+capacitor.config.ts
+index_no_sync.html
+styles.css
+temp_old_version.html
+widget/README.md
+widget/TEST.md
+widget/package.json
+widget/widget-main.js
+www/
+.github/
+任务导入示例.csv
+assets/

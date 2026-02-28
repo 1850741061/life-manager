@@ -1,9 +1,9 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
 
 let mainWindow;
-let widgetProcess = null;
+let widgetWindow = null;
+let widgetTray = null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -34,6 +34,10 @@ function createWindow() {
 
     mainWindow.on('closed', () => {
         mainWindow = null;
+        // 主窗口关闭时也关闭小组件
+        if (widgetWindow && !widgetWindow.isDestroyed()) {
+            widgetWindow.close();
+        }
     });
 }
 
@@ -61,46 +65,132 @@ ipcMain.on('launch-widget', () => {
     launchWidget();
 });
 
+// 小组件置顶切换
+ipcMain.on('widget-toggle-top', (e, val) => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+        widgetWindow.setAlwaysOnTop(val);
+    }
+});
+
+// 小组件请求打开主窗口
+ipcMain.on('widget-open-main', () => {
+    if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+    }
+});
+
 function launchWidget() {
-    // 如果已经在运行，不重复启动
-    if (widgetProcess && !widgetProcess.killed) {
-        console.log('[Widget] 小组件已在运行');
+    // 如果已经打开，聚焦并显示
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+        widgetWindow.show();
+        widgetWindow.focus();
+        console.log('[Widget] 小组件已在运行，聚焦窗口');
         return;
     }
 
     try {
-        const electronPath = process.execPath; // 当前 Electron 可执行文件路径
+        const fs = require('fs');
 
-        // 打包后 widget 在 app.asar.unpacked/widget/ 下，开发时在 __dirname/widget/
-        let widgetDir = path.join(__dirname, 'widget');
-        if (!require('fs').existsSync(widgetDir)) {
-            widgetDir = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'widget');
-        }
-        const widgetMainPath = path.join(widgetDir, 'widget-main.js');
+        // 恢复窗口位置
+        let posX, posY;
+        try {
+            const posFile = path.join(process.env.APPDATA || '', 'ProLife', 'widget-pos.json');
+            if (fs.existsSync(posFile)) {
+                const pos = JSON.parse(fs.readFileSync(posFile, 'utf-8'));
+                posX = pos.x;
+                posY = pos.y;
+            }
+        } catch(e) {}
 
-        console.log('[Widget] 启动小组件:', electronPath, widgetMainPath);
-
-        widgetProcess = spawn(electronPath, [widgetMainPath], {
-            detached: true,
-            stdio: 'ignore',
-            cwd: widgetDir
+        widgetWindow = new BrowserWindow({
+            width: 400,
+            height: 700,
+            x: posX,
+            y: posY,
+            frame: false,
+            transparent: true,
+            alwaysOnTop: true,
+            resizable: true,
+            minimizable: false,
+            maximizable: false,
+            skipTaskbar: true,
+            icon: path.join(__dirname, 'assets', 'icon.png'),
+            webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false
+            }
         });
 
-        widgetProcess.unref(); // 允许父进程独立退出
+        widgetWindow.loadFile(path.join(__dirname, 'widget', 'widget.html'));
 
-        widgetProcess.on('error', (err) => {
-            console.error('[Widget] 启动失败:', err);
-            widgetProcess = null;
+        // 记住窗口位置
+        widgetWindow.on('moved', () => {
+            if (widgetWindow.isDestroyed()) return;
+            const pos = widgetWindow.getPosition();
+            try {
+                const dir = path.join(process.env.APPDATA || '', 'ProLife');
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(path.join(dir, 'widget-pos.json'), JSON.stringify({ x: pos[0], y: pos[1] }));
+            } catch(e) {}
         });
 
-        widgetProcess.on('exit', (code) => {
-            console.log('[Widget] 进程退出，代码:', code);
-            widgetProcess = null;
+        widgetWindow.on('closed', () => {
+            widgetWindow = null;
+            // 清理托盘图标
+            if (widgetTray) {
+                widgetTray.destroy();
+                widgetTray = null;
+            }
         });
+
+        // 创建托盘图标
+        createWidgetTray();
+
+        console.log('[Widget] 小组件窗口已创建');
 
     } catch (e) {
         console.error('[Widget] 启动异常:', e);
     }
+}
+
+function createWidgetTray() {
+    if (widgetTray) return;
+
+    const iconPath = path.join(__dirname, 'assets', 'icon.png');
+    let trayIcon;
+    try {
+        trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+    } catch(e) {
+        trayIcon = nativeImage.createEmpty();
+    }
+
+    widgetTray = new Tray(trayIcon);
+    widgetTray.setToolTip('ProLife Widget');
+
+    const contextMenu = Menu.buildFromTemplate([
+        { label: '显示/隐藏', click: () => {
+            if (widgetWindow && !widgetWindow.isDestroyed()) {
+                if (widgetWindow.isVisible()) widgetWindow.hide();
+                else widgetWindow.show();
+            }
+        }},
+        { label: '刷新', click: () => {
+            if (widgetWindow && !widgetWindow.isDestroyed()) widgetWindow.reload();
+        }},
+        { type: 'separator' },
+        { label: '关闭小组件', click: () => {
+            if (widgetWindow && !widgetWindow.isDestroyed()) widgetWindow.close();
+        }}
+    ]);
+
+    widgetTray.setContextMenu(contextMenu);
+    widgetTray.on('click', () => {
+        if (widgetWindow && !widgetWindow.isDestroyed()) {
+            if (widgetWindow.isVisible()) widgetWindow.hide();
+            else widgetWindow.show();
+        }
+    });
 }
 
 // 创建菜单（隐藏）
