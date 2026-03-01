@@ -61,8 +61,11 @@ ipcMain.on('window-close', () => {
 });
 
 // 启动小组件
-ipcMain.on('launch-widget', () => {
+ipcMain.on('launch-widget', (event) => {
+    const alreadyOpen = widgetWindow && !widgetWindow.isDestroyed();
     launchWidget();
+    // 通知主窗口是否已打开
+    event.reply('widget-launch-result', { alreadyOpen });
 });
 
 // 小组件置顶切换
@@ -77,6 +80,20 @@ ipcMain.on('widget-open-main', () => {
     if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
+    }
+});
+
+// 主应用通知小组件刷新
+ipcMain.on('main-data-changed', () => {
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+        widgetWindow.webContents.send('refresh-widget-data');
+    }
+});
+
+// 小组件通知主应用刷新
+ipcMain.on('widget-data-changed', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('refresh-main-data');
     }
 });
 

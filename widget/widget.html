@@ -475,6 +475,52 @@ html, body {
     background: var(--accent-color);
     transition: width 0.3s;
 }
+
+/* Overdue collapsible section */
+.overdue-section {
+    margin-top: 10px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: 3px 3px 0 0 var(--border-color);
+    overflow: hidden;
+}
+.overdue-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: var(--card-bg);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--danger-color);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+.overdue-header:hover {
+    background: rgba(255,107,107,0.05);
+}
+.overdue-section.expanded .overdue-header {
+    border-bottom-color: var(--border-color);
+}
+.overdue-header .overdue-icon {
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+.overdue-section.expanded .overdue-header .overdue-icon {
+    transform: rotate(90deg);
+}
+.overdue-body {
+    display: none;
+    padding: 8px;
+}
+.overdue-section.expanded .overdue-body {
+    display: block;
+}
+.overdue-body .task-item {
+    box-shadow: none;
+    border-width: 1px;
+}
 </style>
 </head>
 <body>
@@ -531,6 +577,10 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshData();
     // 每60秒自动刷新
     setInterval(refreshData, 60000);
+    // 监听主应用数据变更通知
+    ipcRenderer.on('refresh-widget-data', () => {
+        refreshData();
+    });
 });
 
 function updateDate() {
@@ -688,22 +738,43 @@ function renderAll() {
 
 function renderTasks() {
     const panel = document.getElementById('panel-tasks');
-    // 只显示未完成的独立任务（不属于任何项目的任务）
-    const todos = (data.todos || []).filter(t => !t.completed && !t.projectId);
-    const countEl = document.getElementById('taskCount');
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    now.setHours(0,0,0,0);
 
-    if (todos.length === 0) {
+    // 今日任务：今天到期的未完成 + 无日期的未完成 + 今天完成的
+    const todayTasks = (data.todos || []).filter(t => {
+        if (t.projectId) return false;
+        if (!t.completed && (!t.date || t.date === today)) return true;
+        if (t.completed && t.updatedAt && t.updatedAt.slice(0, 10) === today) return true;
+        return false;
+    });
+
+    // 超时任务：往日到期且未完成的（date < today）
+    const overdueTasks = (data.todos || []).filter(t => {
+        if (t.projectId) return false;
+        if (t.completed) return false;
+        if (t.date && t.date < today) return true;
+        return false;
+    });
+
+    const countEl = document.getElementById('taskCount');
+    const pendingCount = todayTasks.filter(t => !t.completed).length + overdueTasks.length;
+
+    if (todayTasks.length === 0 && overdueTasks.length === 0) {
         panel.innerHTML = '<div class="empty"><i class="fas fa-check-circle"></i>没有待办任务</div>';
         countEl.style.display = 'none';
         return;
     }
 
-    countEl.textContent = todos.length;
-    countEl.style.display = 'inline';
+    countEl.textContent = pendingCount;
+    countEl.style.display = pendingCount > 0 ? 'inline' : 'none';
 
-    // 排序：优先级 high>medium>low，同优先级按DDL升序
     const priOrder = { high: 0, medium: 1, low: 2 };
-    const sorted = [...todos].sort((a, b) => {
+
+    // 排序今日任务
+    const sortedToday = [...todayTasks].sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
         const pa = priOrder[a.priority] ?? 1;
         const pb = priOrder[b.priority] ?? 1;
         if (pa !== pb) return pa - pb;
@@ -712,65 +783,85 @@ function renderTasks() {
         return da - db;
     });
 
-    const now = new Date();
-    now.setHours(0,0,0,0);
-
     let html = '';
-    sorted.forEach(t => {
-        const priColors = { high: 'var(--danger-color)', medium: 'var(--warning-color)', low: 'var(--success-color)' };
-        const priColor = priColors[t.priority] || 'var(--warning-color)';
-        const isOverdue = t.date && new Date(t.date) < now;
-        const group = (data.groups || []).find(g => g.id === t.groupId);
-        const groupName = group ? group.name : '';
-        const groupColor = group ? group.color : 'var(--accent-color)';
+    sortedToday.forEach(t => { html += buildTaskItemHtml(t, now); });
 
-        let ddlText = '';
-        if (t.date) {
-            const d = new Date(t.date);
-            ddlText = `${d.getMonth()+1}/${d.getDate()}`;
-            if (t.time) ddlText += ' ' + t.time;
-        }
-
-        const priLabels = { high: '高', medium: '中', low: '低' };
-        const priLabel = priLabels[t.priority] || '中';
-        const priClass = t.priority || 'medium';
-
-        // 子任务
-        let subtasksHtml = '';
-        if (t.subtasks && t.subtasks.length > 0) {
-            const stDone = t.subtasks.filter(st => st.completed).length;
-            const stTotal = t.subtasks.length;
-            const stPct = Math.round(stDone / stTotal * 100);
-            subtasksHtml = `
-                <div class="subtask-summary" onclick="event.stopPropagation();toggleTaskSubtasks(this)">
-                    <i class="fas fa-chevron-right" style="font-size:8px;transition:transform 0.2s;"></i>
-                    <i class="fas fa-tasks" style="font-size:9px;"></i> ${stDone}/${stTotal}
-                    <div class="st-bar"><div class="st-bar-fill" style="width:${stPct}%"></div></div>
-                </div>
-                <div class="task-subtasks" style="display:none;">
-                    ${t.subtasks.map(st => `
-                        <div class="subtask-row ${st.completed ? 'st-done' : ''}">
-                            <div class="st-check ${st.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleSubtask('${t.id}','${st.id}')"></div>
-                            <span class="st-text">${escHtml(st.text)}</span>
-                        </div>
-                    `).join('')}
-                </div>`;
-        }
-
-        html += `<div class="task-item ${t.completed ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
-            <div class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTodo('${t.id}')"></div>
-            <div class="task-info">
-                <div class="task-name">${escHtml(t.text)}</div>
-                <div class="task-meta">
-                    <span class="priority-tag ${priClass}">${priLabel}</span>
-                    ${ddlText ? `<span class="ddl ${isOverdue ? 'overdue' : ''}">${ddlText}</span>` : ''}
-                    ${groupName ? `<span class="group-tag" style="background:${groupColor}">${escHtml(groupName)}</span>` : ''}
-                </div>
-                ${subtasksHtml}
+    // 超时任务折叠区
+    if (overdueTasks.length > 0) {
+        const sortedOverdue = [...overdueTasks].sort((a, b) => {
+            const pa = priOrder[a.priority] ?? 1;
+            const pb = priOrder[b.priority] ?? 1;
+            if (pa !== pb) return pa - pb;
+            const da = a.date ? new Date(a.date).getTime() : Infinity;
+            const db = b.date ? new Date(b.date).getTime() : Infinity;
+            return da - db;
+        });
+        let overdueHtml = '';
+        sortedOverdue.forEach(t => { overdueHtml += buildTaskItemHtml(t, now); });
+        html += `<div class="overdue-section" onclick="this.classList.toggle('expanded')">
+            <div class="overdue-header">
+                <i class="fas fa-chevron-right overdue-icon"></i>
+                <i class="fas fa-exclamation-circle"></i> 已超时
+                <span class="count-badge" style="background:var(--danger-color)">${overdueTasks.length}</span>
             </div>
+            <div class="overdue-body" onclick="event.stopPropagation()">${overdueHtml}</div>
         </div>`;
-    });
+    }
+
     panel.innerHTML = html;
+}
+
+function buildTaskItemHtml(t, now) {
+    const isOverdue = t.date && new Date(t.date) < now;
+    const group = (data.groups || []).find(g => g.id === t.groupId);
+    const groupName = group ? group.name : '';
+    const groupColor = group ? group.color : 'var(--accent-color)';
+
+    let ddlText = '';
+    if (t.date) {
+        const d = new Date(t.date);
+        ddlText = `${d.getMonth()+1}/${d.getDate()}`;
+        if (t.time) ddlText += ' ' + t.time;
+    }
+
+    const priLabels = { high: '高', medium: '中', low: '低' };
+    const priLabel = priLabels[t.priority] || '中';
+    const priClass = t.priority || 'medium';
+
+    let subtasksHtml = '';
+    if (t.subtasks && t.subtasks.length > 0) {
+        const stDone = t.subtasks.filter(st => st.completed).length;
+        const stTotal = t.subtasks.length;
+        const stPct = Math.round(stDone / stTotal * 100);
+        const hasIncomplete = stDone < stTotal;
+        subtasksHtml = `
+            <div class="subtask-summary" onclick="event.stopPropagation();toggleTaskSubtasks(this)">
+                <i class="fas fa-chevron-right" style="font-size:8px;transition:transform 0.2s;${hasIncomplete ? 'transform:rotate(90deg);' : ''}"></i>
+                <i class="fas fa-tasks" style="font-size:9px;"></i> ${stDone}/${stTotal}
+                <div class="st-bar"><div class="st-bar-fill" style="width:${stPct}%"></div></div>
+            </div>
+            <div class="task-subtasks" style="display:${hasIncomplete ? 'block' : 'none'};">
+                ${t.subtasks.map(st => `
+                    <div class="subtask-row ${st.completed ? 'st-done' : ''}">
+                        <div class="st-check ${st.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleSubtask('${t.id}','${st.id}')"></div>
+                        <span class="st-text">${escHtml(st.text)}</span>
+                    </div>
+                `).join('')}
+            </div>`;
+    }
+
+    return `<div class="task-item ${t.completed ? 'done' : ''} ${isOverdue ? 'overdue' : ''}">
+        <div class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTodo('${t.id}')"></div>
+        <div class="task-info">
+            <div class="task-name">${escHtml(t.text)}</div>
+            <div class="task-meta">
+                <span class="priority-tag ${priClass}">${priLabel}</span>
+                ${ddlText ? `<span class="ddl ${isOverdue ? 'overdue' : ''}">${ddlText}</span>` : ''}
+                ${groupName ? `<span class="group-tag" style="background:${groupColor}">${escHtml(groupName)}</span>` : ''}
+            </div>
+            ${subtasksHtml}
+        </div>
+    </div>`;
 }
 
 function renderProjects() {
@@ -820,13 +911,14 @@ function renderProjects() {
                     const stDone = t.subtasks.filter(st => st.completed).length;
                     const stTotal = t.subtasks.length;
                     const stPct = Math.round(stDone / stTotal * 100);
+                    const hasIncomplete = stDone < stTotal;
                     stHtml = `
                         <div class="subtask-summary" onclick="event.stopPropagation();toggleTaskSubtasks(this)">
-                            <i class="fas fa-chevron-right" style="font-size:8px;transition:transform 0.2s;"></i>
+                            <i class="fas fa-chevron-right" style="font-size:8px;transition:transform 0.2s;${hasIncomplete ? 'transform:rotate(90deg);' : ''}" data-expanded="${hasIncomplete}"></i>
                             <i class="fas fa-tasks" style="font-size:9px;"></i> ${stDone}/${stTotal}
                             <div class="st-bar"><div class="st-bar-fill" style="width:${stPct}%"></div></div>
                         </div>
-                        <div class="task-subtasks" style="display:none;">
+                        <div class="task-subtasks" style="display:${hasIncomplete ? 'block' : 'none'};">
                             ${t.subtasks.map(st => `
                                 <div class="subtask-row ${st.completed ? 'st-done' : ''}">
                                     <div class="st-check ${st.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleSubtask('${t.id}','${st.id}')"></div>
@@ -852,6 +944,7 @@ function renderProjects() {
             tasksHtml = '<div style="text-align:center;color:var(--text-secondary);font-size:11px;padding:6px 0;">暂无任务</div>';
         }
 
+        // 项目默认折叠
         html += `<div class="project-card" onclick="toggleProjectExpand(this)">
             <div class="project-name">
                 <span><i class="fas fa-chevron-right expand-icon"></i> ${escHtml(p.name)}</span>
@@ -920,6 +1013,8 @@ function toggleTodo(id) {
     saveLocalData();
     renderAll();
     syncToggleToCloud();
+    // 通知主应用刷新
+    ipcRenderer.send('widget-data-changed');
 }
 
 function togglePlan(id) {
@@ -929,6 +1024,8 @@ function togglePlan(id) {
     saveLocalData();
     renderPlans();
     syncToggleToCloud();
+    // 通知主应用刷新
+    ipcRenderer.send('widget-data-changed');
 }
 
 function toggleTaskSubtasks(el) {
@@ -952,6 +1049,8 @@ function toggleSubtask(todoId, subtaskId) {
     saveLocalData();
     renderTasks();
     syncToggleToCloud();
+    // 通知主应用刷新
+    ipcRenderer.send('widget-data-changed');
 }
 
 function openProLife() {

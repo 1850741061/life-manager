@@ -5849,11 +5849,14 @@
 
         function renderGroups() {
             const l = document.getElementById('groupList');
-            l.innerHTML = `<li class="group-item ${state.currentGroupId === 'all' && state.filter !== 'today' ? 'active' : ''}" onclick="selectGroup('all')">
+            l.innerHTML = `<li class="group-item ${state.currentGroupId === 'all' && state.filter !== 'today' && state.filter !== 'overdue' ? 'active' : ''}" onclick="selectGroup('all')">
                 <div class="group-name"><i class="fas fa-th-large"></i> 全部任务</div>
             </li>
             <li class="group-item ${state.filter === 'today' ? 'active' : ''}" id="btnSidebarToday" onclick="selectTodayFilter()">
                 <div class="group-name"><i class="fas fa-sun" style="color: var(--warning-color);"></i> 今日</div>
+            </li>
+            <li class="group-item ${state.filter === 'overdue' ? 'active' : ''}" id="btnSidebarOverdue" onclick="selectOverdueFilter()">
+                <div class="group-name"><i class="fas fa-exclamation-circle" style="color: var(--danger-color);"></i> 超时任务</div>
             </li>`;
 
             state.groups.forEach((g, index) => {
@@ -6220,6 +6223,10 @@
                 const todayStr = new Date().toISOString().split('T')[0];
                 list = list.filter(t => t.date === todayStr);
             }
+            if (state.filter === 'overdue') {
+                const todayStr = new Date().toISOString().split('T')[0];
+                list = list.filter(t => !t.completed && t.date && t.date < todayStr);
+            }
 
             // 新增：搜索过滤
             if (state.searchQuery) {
@@ -6405,19 +6412,37 @@
             renderGroups();
         };
 
+        window.selectOverdueFilter = () => {
+            state.currentGroupId = 'all';
+            state.currentProjectId = null;
+            state.filter = 'overdue';
+            updateTodoFilterUI();
+            renderTodos();
+            renderGroups();
+            // 移动端：关闭侧边栏
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('mobileSidebarOverlay');
+                if (sidebar) sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+            }
+        };
+
         function updateTodoFilterUI() {
             const isTodayView = state.filter === 'today';
+            const isOverdueView = state.filter === 'overdue';
+            const isSpecialView = isTodayView || isOverdueView;
 
-            // 今日筛选时隐藏筛选按钮和视图切换按钮
+            // 今日/超时筛选时隐藏筛选按钮和视图切换按钮
             const filterBar = document.getElementById('todoFilterBar');
             if (filterBar) {
-                filterBar.style.display = isTodayView ? 'none' : 'flex';
+                filterBar.style.display = isSpecialView ? 'none' : 'flex';
             }
 
             // 隐藏视图切换和清除按钮的父容器
             const viewTabsContainer = filterBar?.nextElementSibling;
             if (viewTabsContainer) {
-                viewTabsContainer.style.display = isTodayView ? 'none' : 'flex';
+                viewTabsContainer.style.display = isSpecialView ? 'none' : 'flex';
             }
 
             const allBtn = document.getElementById('btnFilterAll');
@@ -6490,6 +6515,9 @@
             } else if (state.filter === 'today') {
                 if (todayBtn) todayBtn.style.background = 'var(--warning-color)';
                 if (sidebarTodayBtn) sidebarTodayBtn.classList.add('active');
+            } else if (state.filter === 'overdue') {
+                const sidebarOverdueBtn = document.getElementById('btnSidebarOverdue');
+                if (sidebarOverdueBtn) sidebarOverdueBtn.classList.add('active');
             }
         }
 
@@ -8823,6 +8851,9 @@
                         },
                         updatedAt: new Date().toISOString()
                     }));
+                    // 通知小组件刷新
+                    const { ipcRenderer } = require('electron');
+                    ipcRenderer.send('main-data-changed');
                 } catch(e) { console.warn('[Widget Export]', e); }
             }
         }
@@ -14885,11 +14916,42 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                 if (typeof require !== 'undefined') {
                     const { ipcRenderer } = require('electron');
                     ipcRenderer.send('launch-widget');
-                    showSyncToast('正在启动桌面小组件...', 'success');
+                    ipcRenderer.once('widget-launch-result', (event, result) => {
+                        if (result.alreadyOpen) {
+                            showSyncToast('小组件已在运行中，已切换到前台', 'warning');
+                        } else {
+                            showSyncToast('正在启动桌面小组件...', 'success');
+                        }
+                    });
                 } else {
                     alert('桌面小组件仅在 Electron 桌面版中可用');
                 }
             };
+
+            // 监听小组件数据变更，重新加载本地数据并刷新界面
+            if (typeof require !== 'undefined') {
+                const { ipcRenderer: ipcR } = require('electron');
+                ipcR.on('refresh-main-data', () => {
+                    try {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const dataFile = path.join(process.env.APPDATA || '', 'ProLife', 'widget-data.json');
+                        if (fs.existsSync(dataFile)) {
+                            const raw = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+                            if (raw.todos) state.todos = raw.todos;
+                            if (raw.projects) state.projects = raw.projects;
+                            if (raw.dailyPlans) state.dailyPlans = raw.dailyPlans;
+                            if (raw.groups) state.groups = raw.groups;
+                            // 只保存到 localStorage，不写回 widget-data.json 避免循环
+                            localStorage.setItem('todos', JSON.stringify(state.todos));
+                            localStorage.setItem('groups', JSON.stringify(state.groups));
+                            localStorage.setItem('projects', JSON.stringify(state.projects));
+                            localStorage.setItem('dailyPlans', JSON.stringify(state.dailyPlans));
+                            renderAll();
+                        }
+                    } catch(e) { console.warn('[Widget Sync]', e); }
+                });
+            }
 
     </script>
 </body>
