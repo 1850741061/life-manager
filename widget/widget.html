@@ -742,11 +742,11 @@ function renderTasks() {
     const now = new Date();
     now.setHours(0,0,0,0);
 
-    // 今日任务：今天到期的未完成 + 无日期的未完成 + 今天完成的
+    // 今日任务：今天到期的未完成 + 无日期的未完成 + 今天完成的（仅今日到期或无日期的）
     const todayTasks = (data.todos || []).filter(t => {
         if (t.projectId) return false;
         if (!t.completed && (!t.date || t.date === today)) return true;
-        if (t.completed && t.updatedAt && t.updatedAt.slice(0, 10) === today) return true;
+        if (t.completed && (!t.date || t.date === today) && t.updatedAt && t.updatedAt.slice(0, 10) === today) return true;
         return false;
     });
 
