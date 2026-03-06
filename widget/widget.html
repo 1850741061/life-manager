@@ -54,6 +54,7 @@ html, body {
     flex-direction: column;
     overflow: hidden;
     box-shadow: var(--shadow);
+    position: relative;
 }
 
 /* Header */
@@ -125,9 +126,95 @@ html, body {
     overflow-x: hidden;
     padding: 10px;
 }
-#content::-webkit-scrollbar { width: 4px; }
-#content::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
-#content::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+#content:not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
+
+/* Add task floating button */
+.add-task-fab {
+    position: absolute;
+    bottom: 50px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    background: var(--accent-color);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    box-shadow: 2px 2px 0 0 var(--border-color);
+    cursor: pointer;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    transition: all 0.15s;
+}
+.add-task-fab:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 0 var(--border-color); }
+.add-task-fab:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 0 var(--border-color); }
+
+/* Add task popup */
+.add-task-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.add-task-overlay.show { display: flex; }
+.add-task-card {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    width: 100%;
+    max-width: 340px;
+}
+.add-task-card h4 {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+.add-task-card input, .add-task-card select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--bg-color);
+    font-family: var(--font-family);
+    font-size: 12px;
+    color: var(--text-main);
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+.add-task-card .btn-row {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.add-task-card .btn-sm {
+    padding: 6px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    font-family: var(--font-family);
+    font-weight: 700;
+    font-size: 11px;
+    cursor: pointer;
+    background: var(--card-bg);
+    color: var(--text-main);
+    box-shadow: 2px 2px 0 0 var(--border-color);
+}
+.add-task-card .btn-sm:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 0 var(--border-color); }
+.add-task-card .btn-sm.primary { background: var(--accent-color); color: white; }
+
+/* Widget transparency transition */
+#widget-root { transition: opacity 0.3s ease; }
 
 /* Section panels */
 .panel { display: none; }
@@ -550,6 +637,43 @@ html, body {
             <div class="loading"><i class="fas fa-spinner"></i> 加载中...</div>
         </div>
     </div>
+    <!-- 添加任务浮动按钮 -->
+    <button class="add-task-fab" onclick="showAddTaskCard()" title="快速添加任务"><i class="fas fa-plus"></i></button>
+
+    <!-- 添加任务弹出卡片 -->
+    <div class="add-task-overlay" id="addTaskOverlay" onclick="if(event.target===this)hideAddTaskCard()">
+        <div class="add-task-card">
+            <h4><i class="fas fa-plus-circle" style="margin-right:6px;color:var(--accent-color);"></i>添加任务</h4>
+            <input type="text" id="widgetTaskName" placeholder="添加一个新的任务..." autocomplete="off">
+            <!-- 日期 + 优先级 -->
+            <div style="display:flex;gap:8px;">
+                <input type="date" id="widgetTaskDate" style="flex:1;">
+                <select id="widgetTaskPriority" style="flex:0 0 80px;">
+                    <option value="low">低优先级</option>
+                    <option value="medium" selected>中优先级</option>
+                    <option value="high">高优先级</option>
+                </select>
+            </div>
+            <!-- 时间段 -->
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-weight:700;font-size:10px;white-space:nowrap;color:var(--text-secondary);">时间段</span>
+                <input type="time" id="widgetTaskStartTime" style="flex:1;">
+                <span style="font-weight:700;font-size:10px;color:var(--text-secondary);">至</span>
+                <input type="time" id="widgetTaskEndTime" style="flex:1;">
+            </div>
+            <!-- 归属 -->
+            <select id="widgetTaskGroup">
+                <option value="">选择分组或项目</option>
+            </select>
+            <!-- 备注 -->
+            <textarea id="widgetTaskNotes" placeholder="备注（可选）" style="width:100%;padding:8px 10px;border:2px solid var(--border-color);border-radius:var(--radius);background:var(--bg-color);font-family:var(--font-family);font-size:12px;color:var(--text-main);margin-bottom:10px;box-sizing:border-box;min-height:50px;resize:vertical;"></textarea>
+            <div class="btn-row">
+                <button class="btn-sm" onclick="hideAddTaskCard()">取消</button>
+                <button class="btn-sm primary" onclick="submitWidgetTask()"><i class="fas fa-plus" style="margin-right:4px;"></i>添加</button>
+            </div>
+        </div>
+    </div>
+
     <div id="footer">
         <span class="sync-status" id="syncStatus">就绪</span>
         <button class="open-btn" onclick="openProLife()"><i class="fas fa-external-link-alt"></i> 打开 ProLife</button>
@@ -928,7 +1052,7 @@ function renderProjects() {
                         </div>`;
                 }
 
-                tasksHtml += `<div class="task-item ${t.completed ? 'done' : ''}">
+                tasksHtml += `<div class="task-item ${t.completed ? 'done' : ''}" onclick="event.stopPropagation();openTaskInMain('${t.id}','${p.id}')" style="cursor:pointer;" title="点击查看详情">
                     <div class="task-check ${t.completed ? 'checked' : ''}" onclick="event.stopPropagation();toggleTodo('${t.id}')"></div>
                     <div class="task-info">
                         <div class="task-name">${escHtml(t.text)}</div>
@@ -938,6 +1062,7 @@ function renderProjects() {
                         </div>
                         ${stHtml}
                     </div>
+                    <i class="fas fa-external-link-alt" style="font-size:9px;color:var(--text-secondary);margin-left:4px;flex-shrink:0;"></i>
                 </div>`;
             });
         } else {
@@ -1060,6 +1185,100 @@ function openProLife() {
 function closeWidget() {
     window.close();
 }
+
+// --- 打开主应用任务详情 ---
+function openTaskInMain(taskId, projectId) {
+    if (projectId) {
+        ipcRenderer.send('widget-open-project-task-detail', {
+            projectId: parseInt(projectId) || projectId,
+            taskId: parseInt(taskId) || taskId
+        });
+    } else {
+        ipcRenderer.send('widget-open-task-detail', parseInt(taskId) || taskId);
+    }
+}
+
+// --- 添加任务 ---
+function showAddTaskCard() {
+    const overlay = document.getElementById('addTaskOverlay');
+    overlay.classList.add('show');
+    document.getElementById('widgetTaskName').value = '';
+    document.getElementById('widgetTaskDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('widgetTaskPriority').value = 'medium';
+    document.getElementById('widgetTaskStartTime').value = '';
+    document.getElementById('widgetTaskEndTime').value = '';
+    document.getElementById('widgetTaskNotes').value = '';
+    // 填充分组和项目
+    const groupSel = document.getElementById('widgetTaskGroup');
+    groupSel.innerHTML = '<option value="">选择分组或项目</option>';
+    groupSel.innerHTML += '<optgroup label="分组">';
+    (data.groups || []).forEach(g => {
+        groupSel.innerHTML += `<option value="g_${g.id}">${escHtml(g.name)}</option>`;
+    });
+    groupSel.innerHTML += '</optgroup>';
+    if (data.projects && data.projects.length > 0) {
+        groupSel.innerHTML += '<optgroup label="项目">';
+        data.projects.forEach(p => {
+            groupSel.innerHTML += `<option value="p_${p.id}">${escHtml(p.name)}</option>`;
+        });
+        groupSel.innerHTML += '</optgroup>';
+    }
+    setTimeout(() => document.getElementById('widgetTaskName').focus(), 100);
+}
+
+function hideAddTaskCard() {
+    document.getElementById('addTaskOverlay').classList.remove('show');
+}
+
+function submitWidgetTask() {
+    const name = document.getElementById('widgetTaskName').value.trim();
+    if (!name) return;
+    const date = document.getElementById('widgetTaskDate').value;
+    const priority = document.getElementById('widgetTaskPriority').value;
+    const catValue = document.getElementById('widgetTaskGroup').value;
+    const startTime = document.getElementById('widgetTaskStartTime').value;
+    const endTime = document.getElementById('widgetTaskEndTime').value;
+    const notes = document.getElementById('widgetTaskNotes').value.trim();
+
+    let groupId = null;
+    let projectId = null;
+    if (catValue.startsWith('g_')) {
+        groupId = parseInt(catValue.substring(2));
+    } else if (catValue.startsWith('p_')) {
+        projectId = parseInt(catValue.substring(2));
+    }
+
+    const newTodo = {
+        id: Date.now(),
+        text: name,
+        completed: false,
+        date: date || null,
+        priority: priority,
+        groupId: groupId,
+        projectId: projectId,
+        startTime: startTime || null,
+        endTime: endTime || null,
+        notes: notes || '',
+        subtasks: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+
+    data.todos.push(newTodo);
+    saveLocalData();
+    renderAll();
+    syncToggleToCloud();
+    ipcRenderer.send('widget-data-changed');
+    hideAddTaskCard();
+}
+
+// --- 失焦透明 ---
+ipcRenderer.on('widget-blur', () => {
+    document.getElementById('widget-root').style.opacity = '0.6';
+});
+ipcRenderer.on('widget-focus', () => {
+    document.getElementById('widget-root').style.opacity = '1';
+});
 
 // --- 工具 ---
 function escHtml(s) {

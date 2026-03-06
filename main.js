@@ -97,6 +97,24 @@ ipcMain.on('widget-data-changed', () => {
     }
 });
 
+// 小组件请求打开任务详情（普通任务）
+ipcMain.on('widget-open-task-detail', (e, taskId) => {
+    if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('open-task-detail', taskId);
+    }
+});
+
+// 小组件请求打开项目任务详情（项目下的任务 → 思维导图视图 + 右侧详情面板）
+ipcMain.on('widget-open-project-task-detail', (e, { projectId, taskId }) => {
+    if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('open-project-task-detail', { projectId, taskId });
+    }
+});
+
 function launchWidget() {
     // 如果已经打开，聚焦并显示
     if (widgetWindow && !widgetWindow.isDestroyed()) {
@@ -158,6 +176,20 @@ function launchWidget() {
             if (widgetTray) {
                 widgetTray.destroy();
                 widgetTray = null;
+            }
+        });
+
+        // 置顶模式下失焦变透明
+        widgetWindow.on('blur', () => {
+            if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.isAlwaysOnTop()) {
+                widgetWindow.setOpacity(0.4);
+                widgetWindow.webContents.send('widget-blur');
+            }
+        });
+        widgetWindow.on('focus', () => {
+            if (widgetWindow && !widgetWindow.isDestroyed()) {
+                widgetWindow.setOpacity(1);
+                widgetWindow.webContents.send('widget-focus');
             }
         });
 
