@@ -5492,6 +5492,8 @@
             drinkViewFilter: localStorage.getItem('drinkViewFilter') || 'all', // 'all', 'milktea', 'coffee'
             // 新增：每日计划（临时任务）
             dailyPlans: JSON.parse(localStorage.getItem('dailyPlans')) || [],
+            // 新增：记录已删除的ID（用于云端同步时排除已删除的数据）
+            deletedIds: JSON.parse(localStorage.getItem('deletedIds')) || [],
             // 新增：记账月份展开状态
             financeExpandedMonths: new Set()
         };
@@ -5927,6 +5929,17 @@
 
         window.deleteGroup = (id) => {
             if (!confirm('删除分组将删除所有任务，确定？')) return;
+            // 记录分组下任务的删除ID
+            const tasksToDelete = state.todos.filter(t => t.groupId === id);
+            tasksToDelete.forEach(t => {
+                if (!state.deletedIds.includes(t.id)) {
+                    state.deletedIds.push(t.id);
+                }
+            });
+            // 记录分组ID到 deletedIds
+            if (!state.deletedIds.includes(id)) {
+                state.deletedIds.push(id);
+            }
             state.groups = state.groups.filter(g => g.id !== id);
             state.todos = state.todos.filter(t => t.groupId !== id);
             if (state.currentGroupId === id) state.currentGroupId = 'all';
@@ -6746,6 +6759,10 @@
         window.deleteTodo = async (id) => {
             const confirmed = await showConfirm('删除任务', '确定要删除这个任务吗？', ['取消', '删除']);
             if (confirmed === 0) return;
+            // 记录已删除的ID，用于云端同步
+            if (!state.deletedIds.includes(id)) {
+                state.deletedIds.push(id);
+            }
             state.todos = state.todos.filter(t => t.id !== id);
             save(); renderTodos();
         };
@@ -8507,6 +8524,10 @@
 
         window.deleteEditTransaction = () => {
             if (!confirm('确定删除此记录？')) return;
+            // 记录删除ID
+            if (!state.deletedIds.includes(state.editingTransId)) {
+                state.deletedIds.push(state.editingTransId);
+            }
             state.transactions = state.transactions.filter(t => t.id !== state.editingTransId);
             save();
             closeModal('transModal');
@@ -8936,6 +8957,7 @@
             localStorage.setItem('coffee', JSON.stringify(state.coffee));
             localStorage.setItem('drinkViewFilter', state.drinkViewFilter);
             localStorage.setItem('dailyPlans', JSON.stringify(state.dailyPlans));
+            localStorage.setItem('deletedIds', JSON.stringify(state.deletedIds));
 
             // 导出数据供桌面小组件使用
             if (typeof require !== 'undefined') {
@@ -9099,15 +9121,26 @@
         `;
         document.head.appendChild(style);
 
-        // 智能合并：基于 updatedAt 时间戳保留最新数据
-        function mergeArrays(local, remote) {
+        // 智能合并：基于 updatedAt 时间戳保留最新数据，排除已删除的ID
+        function mergeArrays(local, remote, deletedIds = []) {
             const merged = new Map();
+            const deletedSet = new Set(deletedIds);
 
-            // 先添加所有本地数据
-            local.forEach(item => merged.set(item.id, item));
+            // 先添加所有本地数据（排除在 deletedIds 中的）
+            local.forEach(item => {
+                // 如果本地数据在 deletedIds 中，跳过（云端已删除）
+                if (!deletedSet.has(item.id)) {
+                    merged.set(item.id, item);
+                }
+            });
 
             // 处理远程数据
             remote.forEach(remoteItem => {
+                // 跳过已删除的ID
+                if (deletedSet.has(remoteItem.id)) {
+                    return;
+                }
+
                 const localItem = merged.get(remoteItem.id);
 
                 if (!localItem) {
@@ -9148,24 +9181,40 @@
                     console.log('[同步] 云端响应:', data);
 
                     if (data && data[0]) {
-                        // 云端有数据，直接覆盖本地
-                        console.log('[同步] 云端有数据，直接使用云端数据...');
+                        // 云端有数据，智能合并（排除已删除的ID）
+                        console.log('[同步] 云端有数据，智能合并...');
 
-                        // 直接使用云端数据（不合并）
-                        state.todos = data[0].todos || [];
-                        state.transactions = data[0].transactions || [];
-                        state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
-                        state.templates = data[0].templates || [];
-                        state.archivedTodos = data[0].archivedTodos || [];
-                        state.habits = data[0].habits || [];
-                        state.habitRecords = data[0].habitRecords || {};
-                        state.projects = data[0].projects || [];
-                        state.milktea = data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } };
-                        state.coffee = data[0].coffee || { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } };
+                        // 合并本地的 deletedIds 和云端的 deletedids（取并集）
+                        const cloudDeletedIds = data[0].deletedids || [];
+                        const localDeletedIds = state.deletedIds || [];
+                        // 合并并去重
+                        const allDeletedIds = [...new Set([...localDeletedIds, ...cloudDeletedIds])];
+
+                        // 使用 mergeArrays 智能合并（传递合并后的 deletedIds 过滤云端数据）
+                        state.todos = mergeArrays(state.todos, data[0].todos || [], allDeletedIds);
+                        state.transactions = mergeArrays(state.transactions, data[0].transactions || [], allDeletedIds);
+                        state.groups = mergeArrays(state.groups, data[0].groups || [], allDeletedIds);
+                        state.templates = mergeArrays(state.templates, data[0].templates || [], allDeletedIds);
+                        state.archivedTodos = mergeArrays(state.archivedTodos, data[0].archivedTodos || [], allDeletedIds);
+                        state.habits = mergeArrays(state.habits, data[0].habits || [], allDeletedIds);
+                        state.habitRecords = { ...(data[0].habitRecords || {}), ...state.habitRecords };
+                        state.projects = mergeArrays(state.projects, data[0].projects || [], allDeletedIds);
+                        state.milktea = { ...(data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } }), ...state.milktea };
+                        state.coffee = { ...(data[0].coffee || { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } }), ...state.coffee };
+
+                        // 同步完成后清除本地的 deletedIds（已合并到上传中）
+                        state.deletedIds = [];
 
                         // 保存到本地
                         baseSave(); // 使用 baseSave 避免循环上传
                         renderAll();
+
+                        // 上传合并后的数据到云端，让其他设备也能同步到
+                        console.log('[同步] 上传合并后的数据到云端...');
+                        const uploaded = await syncToCloud(allDeletedIds);
+                        if (uploaded) {
+                            console.log('[同步] 合并数据已上传到云端');
+                        }
 
                         showSyncToast(`已合并数据: ${state.todos.length} 个待办，${state.transactions.length} 条记录`);
                     } else {
@@ -9454,7 +9503,8 @@
         }
 
         // 云端同步 - 上传（使用 PATCH 确保数据更新）
-        async function syncToCloud() {
+        // deletedIds 参数用于在同步时使用合并后的 deletedIds（可选）
+        async function syncToCloud(mergedDeletedIds = null) {
             if (!currentUser || !accessToken) {
                 console.log('[同步] 未登录，跳过上传');
                 return false;
@@ -9467,19 +9517,28 @@
                 console.log('[同步] 记账数量:', state.transactions.length);
                 console.log('[同步] 分组数量:', state.groups.length);
 
+                // 使用传入的 mergedDeletedIds 或 state.deletedIds
+                const deletedIds = mergedDeletedIds || state.deletedIds || [];
+
+                // 过滤掉已删除的数据
+                const deletedSet = new Set(deletedIds);
+                const filterDeleted = (arr) => arr.filter(item => !deletedSet.has(item.id));
+
                 const payload = {
                     id: currentUser.id,
-                    todos: state.todos,
-                    transactions: state.transactions,
-                    groups: state.groups,
-                    templates: state.templates,
-                    archivedTodos: state.archivedTodos,
-                    habits: state.habits,
+                    todos: filterDeleted(state.todos),
+                    transactions: filterDeleted(state.transactions),
+                    groups: filterDeleted(state.groups),
+                    templates: filterDeleted(state.templates),
+                    archivedTodos: filterDeleted(state.archivedTodos),
+                    habits: filterDeleted(state.habits),
                     habitRecords: state.habitRecords,
-                    projects: state.projects,
+                    projects: filterDeleted(state.projects),
                     milktea: state.milktea,
                     coffee: state.coffee,
-                    dailyPlans: state.dailyPlans,
+                    dailyPlans: filterDeleted(state.dailyPlans),
+                    // 上传 deletedIds，让其他设备知道哪些被删除了
+                    deletedids: deletedIds,
                     updated_at: new Date().toISOString()
                 };
 
@@ -9533,7 +9592,7 @@
             }
         }
 
-        // 云端同步 - 下载（直接覆盖，用于手动刷新）
+        // 云端同步 - 下载（智能合并，用于手动刷新）
         async function syncFromCloud() {
             if (!currentUser || !accessToken) {
                 showSyncToast('未登录，无法刷新', 'error');
@@ -9557,21 +9616,35 @@
 
                 const data = await res.json();
                 if (data && data[0]) {
-                    // 直接用云端数据覆盖本地
-                    state.todos = data[0].todos || [];
-                    state.transactions = data[0].transactions || [];
-                    state.groups = data[0].groups || [{ id: 'default', name: '默认', color: '#3b82f6' }];
-                    state.templates = data[0].templates || [];
-                    state.archivedTodos = data[0].archivedTodos || [];
-                    state.habits = data[0].habits || [];
-                    state.habitRecords = data[0].habitRecords || {};
-                    state.projects = data[0].projects || [];
-                    state.milktea = data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } };
-                    state.dailyPlans = data[0].dailyPlans || [];
+                    // 合并本地的 deletedIds 和云端的 deletedids（取并集）
+                    const cloudDeletedIds = data[0].deletedids || [];
+                    const localDeletedIds = state.deletedIds || [];
+                    const allDeletedIds = [...new Set([...localDeletedIds, ...cloudDeletedIds])];
+
+                    // 智能合并（排除已删除的ID，按时间戳保留最新）
+                    state.todos = mergeArrays(state.todos, data[0].todos || [], allDeletedIds);
+                    state.transactions = mergeArrays(state.transactions, data[0].transactions || [], allDeletedIds);
+                    state.groups = mergeArrays(state.groups, data[0].groups || [], allDeletedIds);
+                    state.templates = mergeArrays(state.templates, data[0].templates || [], allDeletedIds);
+                    state.archivedTodos = mergeArrays(state.archivedTodos, data[0].archivedTodos || [], allDeletedIds);
+                    state.habits = mergeArrays(state.habits, data[0].habits || [], allDeletedIds);
+                    state.habitRecords = { ...(data[0].habitRecords || {}), ...state.habitRecords };
+                    state.projects = mergeArrays(state.projects, data[0].projects || [], allDeletedIds);
+                    state.milktea = { ...(data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } }), ...state.milktea };
+                    state.coffee = { ...(data[0].coffee || { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } }), ...state.coffee };
+                    state.dailyPlans = mergeArrays(state.dailyPlans, data[0].dailyPlans || [], allDeletedIds);
+
+                    // 同步完成后清除已删除的ID记录
+                    state.deletedIds = [];
 
                     // 更新本地存储
                     baseSave();
                     renderAll();
+
+                    // 上传合并后的数据到云端，让其他设备也能同步到
+                    console.log('[刷新] 上传合并后的数据到云端...');
+                    await syncToCloud(allDeletedIds);
+
                     showSyncToast('刷新成功');
                     console.log('[刷新] 数据已更新');
                 } else {
@@ -11765,6 +11838,10 @@
             );
             if (confirmed === 0) return;
 
+            // 记录删除的ID
+            if (!state.deletedIds.includes(id)) {
+                state.deletedIds.push(id);
+            }
             state.archivedTodos = state.archivedTodos.filter(t => t.id !== id);
             if (selectedArchivedTodos.has(id)) {
                 selectedArchivedTodos.delete(id);
@@ -11790,6 +11867,12 @@
             if (confirmed === 0) return;
 
             const count = selectedArchivedTodos.size;
+            // 记录所有删除的ID
+            selectedArchivedTodos.forEach(id => {
+                if (!state.deletedIds.includes(id)) {
+                    state.deletedIds.push(id);
+                }
+            });
             state.archivedTodos = state.archivedTodos.filter(t => !selectedArchivedTodos.has(t.id));
             selectedArchivedTodos.clear();
 
@@ -12099,6 +12182,10 @@
         window.deleteHabit = function (habitId) {
             if (!confirm('确定要删除这个习惯吗？打卡记录也会被删除。')) return;
 
+            // 记录删除的ID
+            if (!state.deletedIds.includes(habitId)) {
+                state.deletedIds.push(habitId);
+            }
             state.habits = state.habits.filter(h => h.id !== habitId);
             delete state.habitRecords[habitId];
 
@@ -12346,6 +12433,11 @@
                         return;
                     } else if (action === 1) {
                         // 用户选择删除项目下的所有任务
+                        projectTasks.forEach(t => {
+                            if (!state.deletedIds.includes(t.id)) {
+                                state.deletedIds.push(t.id);
+                            }
+                        });
                         state.todos = state.todos.filter(t => t.projectId != projectId);
                     } else if (action === 2) {
                         // 用户选择移至默认分组
@@ -12382,6 +12474,9 @@
                 }
 
                 // 删除项目
+                if (!state.deletedIds.includes(projectId)) {
+                    state.deletedIds.push(projectId);
+                }
                 state.projects = state.projects.filter(p => p.id !== projectId);
 
                 // 清除当前项目选择（如果删除的是当前选中的项目）
@@ -12495,6 +12590,12 @@
             if (confirmed === 0) return;
 
             const count = state.selectedTodos.size;
+            // 记录所有删除的ID
+            state.selectedTodos.forEach(id => {
+                if (!state.deletedIds.includes(id)) {
+                    state.deletedIds.push(id);
+                }
+            });
             state.todos = state.todos.filter(t => !state.selectedTodos.has(t.id));
             state.selectedTodos.clear();
             save();
@@ -13213,6 +13314,10 @@
 
             if (!confirm(`确定删除模板 "${template.text}"？`)) return;
 
+            // 记录删除ID
+            if (!state.deletedIds.includes(templateId)) {
+                state.deletedIds.push(templateId);
+            }
             state.templates = state.templates.filter(t => t.id !== templateId);
             save();
             renderTemplateList();
@@ -15168,6 +15273,10 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
             window.deleteDailyPlan = async function (id) {
                 const confirmed = await showConfirm('删除计划', '确定要删除这个计划吗？', ['取消', '删除']);
                 if (confirmed === 0) return;
+                // 记录删除ID
+                if (!state.deletedIds.includes(id)) {
+                    state.deletedIds.push(id);
+                }
                 state.dailyPlans = state.dailyPlans.filter(p => p.id !== id);
                 save();
                 renderDailyPlans();
