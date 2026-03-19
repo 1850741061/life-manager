@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <title>ProLife Widget</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
 <style>
 :root {
     --primary-color: #383838;
     --accent-color: #6fc2ff;
+    --accent-contrast: #202020;
     --header-bg: #ffde00;
     --success-color: #4ade80;
     --danger-color: #ff6b6b;
@@ -21,9 +22,17 @@
     --shadow: 4px 4px 0 0 #383838;
     --radius: 2px;
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --display-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --ui-text-transform: uppercase;
+    --ui-letter-spacing: 0.08em;
+    --panel-shadow: var(--shadow);
+    --theme-chip-bg: rgba(0, 0, 0, 0.08);
+    --theme-chip-color: var(--text-main);
+    --theme-option-border: rgba(56, 56, 56, 0.16);
 }
-.dark-mode {
+body.dark-mode {
     --primary-color: #e0e0e0;
+    --accent-contrast: #0d1117;
     --bg-color: #1e1e1e;
     --card-bg: #2d2d2d;
     --text-main: #e8e8e8;
@@ -35,6 +44,225 @@
     --success-color: #6dd89a;
     --danger-color: #ff8787;
     --warning-color: #ffc876;
+    --theme-chip-bg: rgba(255,255,255,0.08);
+    --theme-option-border: rgba(255,255,255,0.12);
+}
+body[data-theme="pixel-art"] {
+    --primary-color: #0f3460;
+    --accent-color: #e94560;
+    --accent-contrast: #ffffff;
+    --header-bg: #16213e;
+    --success-color: #4ade80;
+    --danger-color: #fb7185;
+    --warning-color: #fbbf24;
+    --bg-color: #1a1a2e;
+    --card-bg: #16213e;
+    --text-main: #eeeeee;
+    --text-secondary: #b9b9c8;
+    --border-color: #533483;
+    --shadow: 6px 6px 0 0 #e94560;
+    --radius: 0px;
+    --font-family: 'VT323', monospace;
+    --display-font-family: 'Press Start 2P', monospace;
+    --ui-letter-spacing: 0.04em;
+    --theme-chip-bg: rgba(233, 69, 96, 0.16);
+    --theme-chip-color: #ffdbe2;
+    --theme-option-border: rgba(233, 69, 96, 0.3);
+}
+body.dark-mode[data-theme="pixel-art"] {
+    --primary-color: #6aa7ff;
+    --accent-color: #ff5f87;
+    --accent-contrast: #160d15;
+    --header-bg: #111827;
+    --bg-color: #090c17;
+    --card-bg: #111827;
+    --text-main: #f4f7ff;
+    --text-secondary: #9eb0d8;
+    --border-color: #2c4f90;
+    --shadow: 6px 6px 0 0 rgba(255, 95, 135, 0.45);
+}
+body[data-theme="art-nouveau"] {
+    --primary-color: #2d5016;
+    --accent-color: #d4af37;
+    --accent-contrast: #f8f3e8;
+    --header-bg: #f7efdb;
+    --success-color: #4a7a2e;
+    --danger-color: #a0522d;
+    --warning-color: #b8860b;
+    --bg-color: #f4f1e8;
+    --card-bg: #fbf7ef;
+    --text-main: #3a3a3a;
+    --text-secondary: #7b6b58;
+    --border-color: #cbb991;
+    --shadow: 0 12px 26px rgba(45, 80, 22, 0.14);
+    --radius: 14px;
+    --font-family: 'Cormorant Garamond', serif;
+    --display-font-family: 'Cormorant Garamond', serif;
+    --ui-text-transform: none;
+    --ui-letter-spacing: 0.06em;
+    --theme-chip-bg: rgba(212, 175, 55, 0.12);
+    --theme-chip-color: #7b5d18;
+    --theme-option-border: rgba(212, 175, 55, 0.24);
+}
+body.dark-mode[data-theme="art-nouveau"] {
+    --primary-color: #d7c897;
+    --accent-color: #f2c76b;
+    --accent-contrast: #1d2418;
+    --header-bg: #20311d;
+    --bg-color: #162014;
+    --card-bg: #1f2b1b;
+    --text-main: #ece3c7;
+    --text-secondary: #c1b28a;
+    --border-color: #536c41;
+    --shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
+}
+body[data-theme="ink-wash"] {
+    --primary-color: #1d201d;
+    --accent-color: #b73a28;
+    --accent-contrast: #fff8f1;
+    --header-bg: #eee3cf;
+    --success-color: #6b8764;
+    --danger-color: #b84b43;
+    --warning-color: #c7902f;
+    --bg-color: #f4edde;
+    --card-bg: #fbf7ee;
+    --text-main: #1f201c;
+    --text-secondary: #72685a;
+    --border-color: #5d5449;
+    --shadow: 0 18px 36px rgba(38, 31, 24, 0.14);
+    --radius: 18px;
+    --font-family: 'Noto Serif SC', 'Songti SC', serif;
+    --display-font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+    --ui-text-transform: none;
+    --ui-letter-spacing: 0.06em;
+    --panel-shadow: 0 22px 42px rgba(38, 31, 24, 0.12), 0 0 0 1px rgba(93, 84, 73, 0.08);
+    --theme-chip-bg: rgba(183, 58, 40, 0.1);
+    --theme-chip-color: #8a2b1d;
+    --theme-option-border: rgba(93, 84, 73, 0.18);
+}
+body.dark-mode[data-theme="ink-wash"] {
+    --primary-color: #f0e8d4;
+    --accent-color: #d56b54;
+    --accent-contrast: #1f1713;
+    --header-bg: #1f241f;
+    --bg-color: #111512;
+    --card-bg: #1a201c;
+    --text-main: #ece3cf;
+    --text-secondary: #b9ac95;
+    --border-color: #6f6558;
+    --shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
+    --panel-shadow: 0 24px 44px rgba(0, 0, 0, 0.36), 0 0 0 1px rgba(213, 107, 84, 0.08);
+}
+body[data-theme="swiss"] {
+    --primary-color: #111111;
+    --accent-color: #e30613;
+    --accent-contrast: #ffffff;
+    --header-bg: #f7f7f3;
+    --success-color: #1d8a5a;
+    --danger-color: #e30613;
+    --warning-color: #ff9f1a;
+    --bg-color: #ffffff;
+    --card-bg: #ffffff;
+    --text-main: #111111;
+    --text-secondary: #666666;
+    --border-color: #111111;
+    --shadow: 0 12px 24px rgba(0, 0, 0, 0.04);
+    --radius: 0px;
+    --font-family: "Helvetica Neue", "Arial Narrow", "Nimbus Sans", sans-serif;
+    --display-font-family: "Helvetica Neue", "Arial Narrow", "Nimbus Sans", sans-serif;
+    --ui-text-transform: none;
+    --ui-letter-spacing: 0.02em;
+    --panel-shadow: 0 12px 24px rgba(0, 0, 0, 0.04);
+    --theme-chip-bg: rgba(227, 6, 19, 0.08);
+    --theme-chip-color: #b20510;
+    --theme-option-border: rgba(17, 17, 17, 0.18);
+}
+body.dark-mode[data-theme="swiss"] {
+    --primary-color: #f5f5f5;
+    --accent-color: #ff4d57;
+    --accent-contrast: #100809;
+    --header-bg: #0d0d0d;
+    --bg-color: #121212;
+    --card-bg: #171717;
+    --text-main: #f5f5f5;
+    --text-secondary: #a6a6a6;
+    --border-color: #d9d9d9;
+    --shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+    --panel-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+body[data-theme="vaporwave"] {
+    --primary-color: #4c1f78;
+    --accent-color: #ff4fd8;
+    --accent-contrast: #fff8ff;
+    --header-bg: #fde7ff;
+    --success-color: #1ee1d2;
+    --danger-color: #ff5c96;
+    --warning-color: #ffc86b;
+    --bg-color: #fdeefe;
+    --card-bg: #fff6ff;
+    --text-main: #35184f;
+    --text-secondary: #7c5a98;
+    --border-color: #7343b6;
+    --shadow: 0 20px 42px rgba(117, 58, 184, 0.2);
+    --radius: 18px;
+    --font-family: 'Outfit', 'Segoe UI', sans-serif;
+    --display-font-family: 'VT323', 'Outfit', monospace;
+    --ui-text-transform: uppercase;
+    --ui-letter-spacing: 0.08em;
+    --panel-shadow: 0 24px 46px rgba(117, 58, 184, 0.24), 0 0 0 1px rgba(255, 79, 216, 0.12);
+    --theme-chip-bg: rgba(255, 79, 216, 0.12);
+    --theme-chip-color: #b12990;
+    --theme-option-border: rgba(115, 67, 182, 0.22);
+}
+body.dark-mode[data-theme="vaporwave"] {
+    --primary-color: #f7d7ff;
+    --accent-color: #ff4fd8;
+    --accent-contrast: #2a0733;
+    --header-bg: #180c32;
+    --bg-color: #090318;
+    --card-bg: #170b31;
+    --text-main: #f4dcff;
+    --text-secondary: #cb9fe9;
+    --border-color: #8e52d4;
+    --shadow: 0 24px 46px rgba(0, 0, 0, 0.42);
+    --panel-shadow: 0 26px 50px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(124, 244, 255, 0.1);
+}
+body[data-theme="brutalist"] {
+    --primary-color: #111111;
+    --accent-color: #ffe500;
+    --accent-contrast: #111111;
+    --header-bg: #f7f3ec;
+    --success-color: #32b96a;
+    --danger-color: #ff5833;
+    --warning-color: #ff9f1a;
+    --bg-color: #f2ede4;
+    --card-bg: #fffaf0;
+    --text-main: #111111;
+    --text-secondary: #4f4f4f;
+    --border-color: #111111;
+    --shadow: 7px 7px 0 0 #111111;
+    --radius: 0px;
+    --font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    --display-font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    --ui-text-transform: none;
+    --ui-letter-spacing: 0.02em;
+    --panel-shadow: 7px 7px 0 0 rgba(17, 17, 17, 0.95);
+    --theme-chip-bg: rgba(255, 229, 0, 0.18);
+    --theme-chip-color: #111111;
+    --theme-option-border: rgba(17, 17, 17, 0.22);
+}
+body.dark-mode[data-theme="brutalist"] {
+    --primary-color: #ffffff;
+    --accent-color: #ff6a3d;
+    --accent-contrast: #140c08;
+    --header-bg: #111111;
+    --bg-color: #090909;
+    --card-bg: #151515;
+    --text-main: #f6f6f6;
+    --text-secondary: #bbbbbb;
+    --border-color: #f6f6f6;
+    --shadow: 7px 7px 0 0 rgba(255, 255, 255, 0.95);
+    --panel-shadow: 7px 7px 0 0 rgba(255, 255, 255, 0.9);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body {
@@ -55,6 +283,18 @@ html, body {
     overflow: hidden;
     box-shadow: var(--shadow);
     position: relative;
+    isolation: isolate;
+}
+
+#widget-root::before,
+#widget-root::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 0.35s ease;
 }
 
 /* Header */
@@ -67,11 +307,16 @@ html, body {
     border-bottom: 2px solid var(--border-color);
     -webkit-app-region: drag;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
 }
 #header .date {
     font-weight: 800;
     font-size: 14px;
     color: var(--primary-color);
+    font-family: var(--display-font-family);
+    text-transform: var(--ui-text-transform);
+    letter-spacing: var(--ui-letter-spacing);
 }
 #header .actions {
     display: flex;
@@ -88,7 +333,8 @@ html, body {
     border-radius: var(--radius);
 }
 #header .actions button:hover {
-    background: rgba(0,0,0,0.1);
+    background: var(--accent-color);
+    color: var(--accent-contrast);
 }
 
 /* Tabs */
@@ -97,6 +343,8 @@ html, body {
     border-bottom: 2px solid var(--border-color);
     flex-shrink: 0;
     background: var(--card-bg);
+    position: relative;
+    z-index: 1;
 }
 #tabs button {
     flex: 1;
@@ -112,7 +360,8 @@ html, body {
     transition: all 0.15s;
 }
 #tabs button.active {
-    color: var(--accent-color);
+    color: var(--accent-contrast);
+    background: var(--accent-color);
     border-bottom-color: var(--accent-color);
 }
 #tabs button:hover:not(.active) {
@@ -125,6 +374,8 @@ html, body {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 10px;
+    position: relative;
+    z-index: 1;
 }
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
@@ -179,7 +430,9 @@ html, body {
     font-size: 13px;
     font-weight: 800;
     margin-bottom: 12px;
-    text-transform: uppercase;
+    text-transform: var(--ui-text-transform);
+    letter-spacing: var(--ui-letter-spacing);
+    font-family: var(--display-font-family);
 }
 .add-task-card input, .add-task-card select {
     width: 100%;
@@ -202,16 +455,591 @@ html, body {
     padding: 6px 14px;
     border: 2px solid var(--border-color);
     border-radius: var(--radius);
-    font-family: var(--font-family);
+    font-family: var(--display-font-family);
     font-weight: 700;
     font-size: 11px;
     cursor: pointer;
     background: var(--card-bg);
     color: var(--text-main);
     box-shadow: 2px 2px 0 0 var(--border-color);
+    text-transform: var(--ui-text-transform);
+    letter-spacing: var(--ui-letter-spacing);
 }
 .add-task-card .btn-sm:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 0 var(--border-color); }
-.add-task-card .btn-sm.primary { background: var(--accent-color); color: white; }
+.add-task-card .btn-sm.primary { background: var(--accent-color); color: var(--accent-contrast); }
+
+.widget-theme-switcher {
+    position: absolute;
+    top: 56px;
+    right: 12px;
+    width: min(270px, calc(100% - 24px));
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: calc(var(--radius) + 12px);
+    box-shadow: var(--panel-shadow);
+    padding: 12px;
+    display: none;
+    z-index: 180;
+    max-height: calc(100% - 68px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.widget-theme-switcher.open {
+    display: block;
+}
+
+.widget-theme-switcher::-webkit-scrollbar {
+    width: 8px;
+}
+
+.widget-theme-switcher::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 999px;
+    border: 2px solid var(--card-bg);
+}
+
+.widget-theme-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 1;
+}
+
+.widget-theme-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.widget-theme-title strong {
+    font-family: var(--display-font-family);
+    font-size: 11px;
+    text-transform: var(--ui-text-transform);
+    letter-spacing: var(--ui-letter-spacing);
+}
+
+.widget-theme-title span {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.widget-theme-mode {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--theme-chip-bg);
+    color: var(--theme-chip-color);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.widget-theme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.widget-theme-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 2px solid var(--theme-option-border);
+    border-radius: calc(var(--radius) + 8px);
+    background: var(--bg-color);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+}
+
+.widget-theme-option.active {
+    background: var(--accent-color);
+    color: var(--accent-contrast);
+    border-color: var(--accent-color);
+}
+
+.widget-theme-option:hover {
+    transform: translateY(-1px);
+}
+
+.widget-theme-preview {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3px;
+    padding: 3px;
+    border: 2px solid var(--border-color);
+    border-radius: calc(var(--radius) + 6px);
+    flex-shrink: 0;
+}
+
+.widget-theme-preview span {
+    border-radius: 5px;
+}
+
+.widget-theme-preview.pop-art {
+    background: #ffde00;
+}
+
+.widget-theme-preview.pop-art span:nth-child(1) { background: #6fc2ff; }
+.widget-theme-preview.pop-art span:nth-child(2) { background: #ff6b6b; }
+.widget-theme-preview.pop-art span:nth-child(3) { background: #383838; }
+.widget-theme-preview.pop-art span:nth-child(4) { background: #ffffff; }
+
+.widget-theme-preview.pixel-art {
+    background: #1a1a2e;
+    border-radius: 0;
+}
+
+.widget-theme-preview.pixel-art span {
+    border-radius: 0;
+}
+
+.widget-theme-preview.pixel-art span:nth-child(1) { background: #e94560; }
+.widget-theme-preview.pixel-art span:nth-child(2) { background: #533483; }
+.widget-theme-preview.pixel-art span:nth-child(3) { background: #0f3460; }
+.widget-theme-preview.pixel-art span:nth-child(4) { background: #eeeeee; }
+
+.widget-theme-preview.art-nouveau {
+    background: linear-gradient(135deg, #f4f1e8, #fbf7ef);
+}
+
+.widget-theme-preview.art-nouveau span:nth-child(1) { background: #2d5016; }
+.widget-theme-preview.art-nouveau span:nth-child(2) { background: #d4af37; }
+.widget-theme-preview.art-nouveau span:nth-child(3) { background: #8b6f47; }
+.widget-theme-preview.art-nouveau span:nth-child(4) { background: #f7efdb; }
+
+.widget-theme-preview.ink-wash {
+    background: linear-gradient(135deg, #f4edde, #fbf7ee);
+}
+
+.widget-theme-preview.ink-wash span:nth-child(1) { background: #1f201c; }
+.widget-theme-preview.ink-wash span:nth-child(2) { background: #b73a28; }
+.widget-theme-preview.ink-wash span:nth-child(3) { background: #6b8764; }
+.widget-theme-preview.ink-wash span:nth-child(4) { background: #efe4cf; }
+
+.widget-theme-preview.swiss {
+    background: #ffffff;
+    border-radius: 0;
+}
+
+.widget-theme-preview.swiss span {
+    border-radius: 0;
+}
+
+.widget-theme-preview.swiss span:nth-child(1) { background: #e30613; }
+.widget-theme-preview.swiss span:nth-child(2) { background: #111111; }
+.widget-theme-preview.swiss span:nth-child(3) { background: #d9d9d9; }
+.widget-theme-preview.swiss span:nth-child(4) { background: #ffffff; border: 1px solid rgba(17,17,17,0.12); }
+
+.widget-theme-preview.vaporwave {
+    background: linear-gradient(135deg, #2a0a54, #ff73db 58%, #7df6ff);
+    border-color: rgba(255, 79, 216, 0.4);
+}
+
+.widget-theme-preview.vaporwave span:nth-child(1) { background: #ff4fd8; }
+.widget-theme-preview.vaporwave span:nth-child(2) { background: #7cf4ff; }
+.widget-theme-preview.vaporwave span:nth-child(3) { background: #6d46ff; }
+.widget-theme-preview.vaporwave span:nth-child(4) { background: #ffb36f; }
+
+.widget-theme-preview.brutalist {
+    background: #f2ede4;
+    border-radius: 0;
+}
+
+.widget-theme-preview.brutalist span {
+    border-radius: 0;
+}
+
+.widget-theme-preview.brutalist span:nth-child(1) { background: #111111; }
+.widget-theme-preview.brutalist span:nth-child(2) { background: #ffe500; }
+.widget-theme-preview.brutalist span:nth-child(3) { background: #ff5833; }
+.widget-theme-preview.brutalist span:nth-child(4) { background: #ffffff; }
+
+.widget-theme-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.widget-theme-copy strong {
+    font-size: 12px;
+}
+
+.widget-theme-copy span {
+    font-size: 10px;
+    opacity: 0.78;
+}
+
+body[data-theme="pixel-art"] #widget-root,
+body[data-theme="pixel-art"] .add-task-card,
+body[data-theme="pixel-art"] .widget-theme-switcher {
+    border-radius: 0;
+}
+
+body[data-theme="pixel-art"] #tabs button,
+body[data-theme="pixel-art"] .count-badge,
+body[data-theme="pixel-art"] .sync-status,
+body[data-theme="pixel-art"] .open-btn {
+    font-family: var(--display-font-family);
+    text-transform: var(--ui-text-transform);
+    letter-spacing: var(--ui-letter-spacing);
+}
+
+body[data-theme="art-nouveau"] #widget-root,
+body[data-theme="art-nouveau"] .add-task-card,
+body[data-theme="art-nouveau"] .widget-theme-switcher {
+    border-width: 1px;
+    box-shadow: 0 12px 24px rgba(45, 80, 22, 0.14);
+}
+
+body[data-theme="art-nouveau"] #tabs button,
+body[data-theme="art-nouveau"] .sync-status,
+body[data-theme="art-nouveau"] .open-btn {
+    font-family: var(--display-font-family);
+    text-transform: var(--ui-text-transform);
+    letter-spacing: var(--ui-letter-spacing);
+}
+
+body[data-theme="ink-wash"] #widget-root,
+body[data-theme="ink-wash"] .add-task-card,
+body[data-theme="ink-wash"] .widget-theme-switcher,
+body[data-theme="ink-wash"] .task-item {
+    border-width: 1px;
+    box-shadow: 0 18px 34px rgba(38, 31, 24, 0.12);
+}
+
+body[data-theme="ink-wash"] #tabs button,
+body[data-theme="ink-wash"] .sync-status,
+body[data-theme="ink-wash"] .open-btn,
+body[data-theme="ink-wash"] .task-name {
+    letter-spacing: 0.06em;
+}
+
+body[data-theme="swiss"] #widget-root,
+body[data-theme="swiss"] .add-task-card,
+body[data-theme="swiss"] .widget-theme-switcher,
+body[data-theme="swiss"] .task-item,
+body[data-theme="swiss"] #tabs button,
+body[data-theme="swiss"] .count-badge,
+body[data-theme="swiss"] .sync-status,
+body[data-theme="swiss"] .open-btn {
+    border-radius: 0;
+    box-shadow: none;
+}
+
+body[data-theme="swiss"] .task-item:hover,
+body[data-theme="swiss"] #tabs button:hover,
+body[data-theme="swiss"] .open-btn:hover {
+    transform: translateY(-1px);
+}
+
+body[data-theme="vaporwave"] {
+    background:
+        radial-gradient(circle at 50% -8%, rgba(255, 210, 118, 0.64), transparent 26%),
+        radial-gradient(circle at 18% 14%, rgba(255, 79, 216, 0.22), transparent 24%),
+        radial-gradient(circle at 86% 20%, rgba(124, 244, 255, 0.18), transparent 22%),
+        linear-gradient(180deg, #ffe9ff 0%, #f4d9ff 38%, #d4b4ff 64%, #8e63d7 100%);
+}
+
+body.dark-mode[data-theme="vaporwave"] {
+    background:
+        radial-gradient(circle at 50% -8%, rgba(255, 190, 95, 0.52), transparent 22%),
+        radial-gradient(circle at 18% 14%, rgba(255, 79, 216, 0.24), transparent 24%),
+        radial-gradient(circle at 86% 20%, rgba(124, 244, 255, 0.18), transparent 22%),
+        linear-gradient(180deg, #17062d 0%, #0d0420 48%, #080315 100%);
+}
+
+body[data-theme="vaporwave"] #widget-root,
+body[data-theme="vaporwave"] .add-task-card,
+body[data-theme="vaporwave"] .widget-theme-switcher,
+body[data-theme="vaporwave"] .task-item,
+body[data-theme="vaporwave"] #tabs button,
+body[data-theme="vaporwave"] .sync-status,
+body[data-theme="vaporwave"] .open-btn {
+    border-width: 1px;
+    box-shadow: 0 18px 36px rgba(45, 8, 86, 0.22);
+}
+
+body[data-theme="vaporwave"] #tabs button.active {
+    background: linear-gradient(90deg, rgba(255, 79, 216, 0.92), rgba(124, 244, 255, 0.9));
+    color: #230228;
+    border-bottom-color: rgba(255, 255, 255, 0.24);
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.12),
+        0 0 18px rgba(255, 79, 216, 0.24);
+}
+
+body[data-theme="brutalist"] #widget-root,
+body[data-theme="brutalist"] .add-task-card,
+body[data-theme="brutalist"] .widget-theme-switcher,
+body[data-theme="brutalist"] .task-item,
+body[data-theme="brutalist"] #tabs button,
+body[data-theme="brutalist"] .count-badge,
+body[data-theme="brutalist"] .sync-status,
+body[data-theme="brutalist"] .open-btn {
+    border-radius: 0;
+    border-width: 3px;
+}
+
+body[data-theme="brutalist"] .task-item,
+body[data-theme="brutalist"] .add-task-card,
+body[data-theme="brutalist"] .widget-theme-switcher {
+    box-shadow: 5px 5px 0 0 var(--border-color);
+}
+
+body[data-theme="brutalist"] #tabs button.active {
+    background: #111111;
+    color: #ffe500;
+}
+
+/* More extreme theme treatments */
+body[data-theme="ink-wash"] #widget-root::before {
+    opacity: 1;
+    background:
+        linear-gradient(180deg, rgba(255, 251, 244, 0.18), rgba(255, 255, 255, 0) 36%),
+        repeating-linear-gradient(95deg, rgba(120, 108, 93, 0.06) 0 1px, transparent 1px 12px),
+        repeating-linear-gradient(8deg, rgba(255, 255, 255, 0.18) 0 2px, transparent 2px 18px),
+        radial-gradient(circle at 0 0, rgba(39, 42, 40, 0.045) 0 1px, transparent 1px);
+    background-size: auto, auto, auto, 14px 14px;
+    mix-blend-mode: multiply;
+}
+
+body[data-theme="ink-wash"] #widget-root::after {
+    opacity: 0.52;
+    background:
+        radial-gradient(circle at 18% 14%, rgba(33, 36, 37, 0.18), transparent 18%),
+        radial-gradient(circle at 76% 18%, rgba(183, 58, 40, 0.14), transparent 14%),
+        radial-gradient(ellipse at 52% 90%, rgba(39, 42, 40, 0.2), transparent 34%);
+    filter: blur(2px);
+    mix-blend-mode: multiply;
+}
+
+body[data-theme="ink-wash"] #header,
+body[data-theme="ink-wash"] #tabs,
+body[data-theme="ink-wash"] .task-item,
+body[data-theme="ink-wash"] .add-task-card,
+body[data-theme="ink-wash"] .widget-theme-switcher {
+    background-image:
+        linear-gradient(180deg, rgba(251, 247, 238, 0.97), rgba(239, 228, 207, 0.92)),
+        repeating-linear-gradient(96deg, rgba(120, 108, 93, 0.05) 0 1px, transparent 1px 12px),
+        radial-gradient(circle at 0 0, rgba(39, 42, 40, 0.05) 0 1px, transparent 1px);
+    background-size: auto, auto, 12px 12px;
+}
+
+body[data-theme="ink-wash"] #header .date {
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+body[data-theme="ink-wash"] #tabs {
+    border-bottom-width: 1px;
+}
+
+body[data-theme="ink-wash"] #tabs button.active {
+    background: rgba(183, 58, 40, 0.12);
+    color: var(--text-main);
+    border-bottom-color: rgba(183, 58, 40, 0.58);
+}
+
+body[data-theme="ink-wash"] .task-item {
+    position: relative;
+    overflow: hidden;
+}
+
+body[data-theme="ink-wash"] .task-item::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    right: 44%;
+    top: 8px;
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(183, 58, 40, 0.16), rgba(183, 58, 40, 0));
+    filter: blur(8px);
+    opacity: 0.72;
+}
+
+body[data-theme="ink-wash"] .task-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 28px rgba(38, 31, 24, 0.16);
+}
+
+body[data-theme="swiss"] #widget-root::before {
+    opacity: 1;
+    inset: 0 auto 0 18px;
+    width: 8px;
+    background: var(--accent-color);
+}
+
+body[data-theme="swiss"] #header {
+    padding-left: 28px;
+}
+
+body[data-theme="swiss"] #header .date {
+    letter-spacing: 0.08em;
+}
+
+body[data-theme="swiss"] #tabs {
+    gap: 12px;
+    padding: 0;
+    border-bottom: 1.5px solid var(--border-color);
+    background: transparent;
+}
+
+body[data-theme="swiss"] #tabs button {
+    position: relative;
+    border-radius: 0;
+    padding: 9px 0 11px;
+}
+
+body[data-theme="swiss"] #tabs button.active {
+    background: transparent;
+    color: var(--text-main);
+}
+
+body[data-theme="swiss"] #tabs button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 3px;
+    background: var(--accent-color);
+}
+
+body[data-theme="swiss"] .task-item {
+    padding-left: 14px;
+}
+
+body[data-theme="swiss"] .task-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: var(--accent-color);
+}
+
+body[data-theme="vaporwave"] #widget-root::before {
+    opacity: 0.96;
+    inset: -18% -12% 18%;
+    background:
+        repeating-linear-gradient(0deg, rgba(124, 244, 255, 0.18) 0 1px, transparent 1px 24px),
+        linear-gradient(180deg, rgba(255, 79, 216, 0) 0 52%, rgba(111, 57, 219, 0.18) 52% 100%),
+        linear-gradient(90deg, rgba(255, 79, 216, 0.12), rgba(124, 244, 255, 0.08));
+    transform: perspective(420px) rotateX(72deg) scale(1.42);
+    transform-origin: center bottom;
+    mix-blend-mode: screen;
+}
+
+body[data-theme="vaporwave"] #widget-root::after {
+    opacity: 0.94;
+    inset: 4% 10% auto 54%;
+    height: 36%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 208, 108, 0.98) 0 28%, rgba(255, 129, 208, 0.96) 28% 58%, rgba(143, 97, 255, 0) 60%);
+    filter: blur(4px);
+    mix-blend-mode: screen;
+}
+
+body[data-theme="vaporwave"] #header,
+body[data-theme="vaporwave"] #tabs,
+body[data-theme="vaporwave"] .task-item,
+body[data-theme="vaporwave"] .add-task-card,
+body[data-theme="vaporwave"] .widget-theme-switcher {
+    background-image:
+        linear-gradient(180deg, rgba(41, 11, 79, 0.94), rgba(18, 6, 39, 0.94)),
+        linear-gradient(135deg, rgba(255, 79, 216, 0.08), rgba(124, 244, 255, 0.04));
+    box-shadow:
+        0 18px 34px rgba(16, 0, 36, 0.34),
+        0 0 0 1px rgba(124, 244, 255, 0.08);
+}
+
+body[data-theme="vaporwave"] #header .date {
+    text-shadow: 0 0 16px rgba(124, 244, 255, 0.4), 0 0 24px rgba(255, 79, 216, 0.18);
+}
+
+body[data-theme="vaporwave"] .widget-theme-option.active {
+    background: linear-gradient(135deg, rgba(255, 79, 216, 0.34), rgba(124, 244, 255, 0.24));
+    color: var(--text-main);
+    border-color: rgba(124, 244, 255, 0.62);
+    box-shadow:
+        0 0 18px rgba(255, 79, 216, 0.24),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+body[data-theme="vaporwave"] .task-item:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 22px 36px rgba(16, 0, 36, 0.42),
+        0 0 20px rgba(255, 79, 216, 0.16);
+}
+
+body[data-theme="brutalist"] #widget-root::before {
+    opacity: 0.82;
+    inset: auto 0 0 0;
+    height: 132px;
+    background: repeating-linear-gradient(-45deg, rgba(255, 229, 0, 0.24) 0 16px, transparent 16px 32px);
+    mix-blend-mode: multiply;
+}
+
+body[data-theme="brutalist"] #header .date {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-shadow: 2px 2px 0 var(--accent-color);
+}
+
+body[data-theme="brutalist"] #tabs {
+    gap: 6px;
+    padding: 0 8px 8px;
+    border-bottom: none;
+    background: transparent;
+}
+
+body[data-theme="brutalist"] #tabs button {
+    border: 3px solid var(--border-color);
+    background: var(--card-bg);
+    border-radius: 0;
+}
+
+body[data-theme="brutalist"] .task-item:nth-child(odd) {
+    transform: rotate(-0.45deg);
+}
+
+body[data-theme="brutalist"] .task-item:nth-child(even) {
+    transform: rotate(0.45deg);
+}
+
+body[data-theme="brutalist"] .task-item:hover {
+    transform: translate(-2px, -2px) rotate(-0.6deg);
+    box-shadow: 6px 6px 0 0 var(--accent-color);
+}
+
+body[data-theme="brutalist"] .task-item:nth-child(even):hover {
+    transform: translate(-2px, -2px) rotate(0.6deg);
+}
+
+body[data-theme="brutalist"] .task-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    background: repeating-linear-gradient(180deg, var(--accent-color) 0 8px, var(--border-color) 8px 16px);
+}
 
 /* Widget transparency transition */
 #widget-root { transition: opacity 0.3s ease; }
@@ -233,6 +1061,7 @@ html, body {
     gap: 8px;
     transition: all 0.15s;
     cursor: default;
+    position: relative;
 }
 .task-item:hover {
     transform: translate(-1px, -1px);
@@ -616,9 +1445,70 @@ html, body {
         <span class="date" id="headerDate"></span>
         <div class="actions">
             <button onclick="refreshData()" title="刷新"><i class="fas fa-sync-alt"></i></button>
-            <button onclick="toggleDark()" title="主题"><i class="fas fa-moon" id="themeIcon"></i></button>
+            <button onclick="event.stopPropagation(); toggleThemePanel()" title="切换风格"><i class="fas fa-palette"></i></button>
+            <button onclick="toggleDark()" title="切换明暗模式"><i class="fas fa-moon" id="themeIcon"></i></button>
             <button onclick="togglePin()" title="置顶"><i class="fas fa-thumbtack" id="pinIcon"></i></button>
             <button onclick="closeWidget()" title="关闭" style="color:var(--danger-color);"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+    <div class="widget-theme-switcher" id="widgetThemePanel">
+        <div class="widget-theme-header">
+            <div class="widget-theme-title">
+                <strong>主题风格</strong>
+                <span>与主应用双向同步</span>
+            </div>
+            <div class="widget-theme-mode" id="widgetThemeMode">亮色模式</div>
+        </div>
+        <div class="widget-theme-list">
+            <button class="widget-theme-option" data-theme-style="pop-art">
+                <span class="widget-theme-preview pop-art"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>波普风</strong>
+                    <span>当前默认视觉</span>
+                </span>
+            </button>
+            <button class="widget-theme-option" data-theme-style="pixel-art">
+                <span class="widget-theme-preview pixel-art"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>像素风</strong>
+                    <span>8-bit / 硬边 / 点阵</span>
+                </span>
+            </button>
+            <button class="widget-theme-option" data-theme-style="art-nouveau">
+                <span class="widget-theme-preview art-nouveau"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>新艺术</strong>
+                    <span>自然曲线 / 金色细节</span>
+                </span>
+            </button>
+            <button class="widget-theme-option" data-theme-style="ink-wash">
+                <span class="widget-theme-preview ink-wash"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>水墨风</strong>
+                    <span>宣纸底 / 墨迹层次</span>
+                </span>
+            </button>
+            <button class="widget-theme-option" data-theme-style="swiss">
+                <span class="widget-theme-preview swiss"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>瑞士国际风</strong>
+                    <span>网格秩序 / 红黑白</span>
+                </span>
+            </button>
+            <button class="widget-theme-option" data-theme-style="vaporwave">
+                <span class="widget-theme-preview vaporwave"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>蒸汽波</strong>
+                    <span>霓虹网格 / 落日光晕</span>
+                </span>
+            </button>
+            <button class="widget-theme-option" data-theme-style="brutalist">
+                <span class="widget-theme-preview brutalist"><span></span><span></span><span></span><span></span></span>
+                <span class="widget-theme-copy">
+                    <strong>粗野主义</strong>
+                    <span>重黑边 / 强硬块面</span>
+                </span>
+            </button>
         </div>
     </div>
     <div id="tabs">
@@ -693,12 +1583,128 @@ const DATA_FILE = path.join(DATA_DIR, 'widget-data.json');
 
 let data = { todos: [], projects: [], dailyPlans: [], groups: [], auth: {} };
 let pinned = true;
+const THEME_STYLE_META = {
+    'pop-art': {
+        label: '波普风',
+        modeLabels: { light: '亮色模式', dark: '暗色模式' }
+    },
+    'pixel-art': {
+        label: '像素风',
+        modeLabels: { light: '像素亮色', dark: '像素暗色' }
+    },
+    'art-nouveau': {
+        label: '新艺术',
+        modeLabels: { light: '新艺术亮色', dark: '新艺术暗色' }
+    },
+    'ink-wash': {
+        label: '水墨风',
+        modeLabels: { light: '水墨亮色', dark: '水墨暗色' }
+    },
+    'swiss': {
+        label: '瑞士国际风',
+        modeLabels: { light: '瑞士亮色', dark: '瑞士暗色' }
+    },
+    'vaporwave': {
+        label: '蒸汽波',
+        modeLabels: { light: '蒸汽波亮色', dark: '蒸汽波暗色' }
+    },
+    'brutalist': {
+        label: '粗野主义',
+        modeLabels: { light: '粗野亮色', dark: '粗野暗色' }
+    }
+};
+
+const THEME_STYLE_ALIASES = {
+    'risograph': 'ink-wash',
+    'glassmorphism': 'vaporwave'
+};
+
+function normalizeThemeStyle(style) {
+    const normalized = THEME_STYLE_ALIASES[style] || style;
+    return THEME_STYLE_META[normalized] ? normalized : 'pop-art';
+}
+
+function getStoredThemeStyle() {
+    return normalizeThemeStyle(localStorage.getItem('themeStyle'));
+}
+
+function getStoredThemeMode() {
+    const stored = localStorage.getItem('themeMode');
+    if (stored === 'light' || stored === 'dark') return stored;
+    const legacy = localStorage.getItem('theme');
+    if (legacy === 'light' || legacy === 'dark') return legacy;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+let themeState = {
+    style: getStoredThemeStyle(),
+    mode: getStoredThemeMode()
+};
+
+function getThemePrefs() {
+    return {
+        style: themeState.style,
+        mode: themeState.mode
+    };
+}
+
+function persistThemePrefs() {
+    localStorage.setItem('themeStyle', themeState.style);
+    localStorage.setItem('themeMode', themeState.mode);
+    localStorage.setItem('theme', themeState.mode === 'dark' ? 'dark' : 'light');
+}
+
+function updateThemeUI() {
+    document.getElementById('themeIcon').className = themeState.mode === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+    document.getElementById('widgetThemeMode').textContent = THEME_STYLE_META[themeState.style].modeLabels[themeState.mode];
+    document.querySelectorAll('.widget-theme-option').forEach(option => {
+        option.classList.toggle('active', option.dataset.themeStyle === themeState.style);
+    });
+}
+
+function applyTheme(options = {}) {
+    const { persist = false, sync = false } = options;
+    document.body.dataset.theme = themeState.style;
+    document.body.classList.toggle('dark-mode', themeState.mode === 'dark');
+    updateThemeUI();
+
+    if (persist) {
+        persistThemePrefs();
+    }
+
+    if (sync) {
+        saveLocalData();
+        ipcRenderer.send('widget-data-changed');
+    }
+}
+
+function toggleThemePanel(forceOpen) {
+    const panel = document.getElementById('widgetThemePanel');
+    const nextState = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
+    panel.classList.toggle('open', nextState);
+}
+
+function setThemeStyle(style) {
+    if (!THEME_STYLE_META[style] || themeState.style === style) return;
+    themeState.style = style;
+    applyTheme({ persist: true, sync: true });
+    toggleThemePanel(false);
+}
 
 // --- 初始化 ---
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     updateDate();
     refreshData();
+    document.querySelectorAll('.widget-theme-option').forEach(option => {
+        option.addEventListener('click', () => setThemeStyle(option.dataset.themeStyle));
+    });
+    document.addEventListener('click', (event) => {
+        const panel = document.getElementById('widgetThemePanel');
+        if (panel && panel.classList.contains('open') && !panel.contains(event.target)) {
+            toggleThemePanel(false);
+        }
+    });
     // 每60秒自动刷新
     setInterval(refreshData, 60000);
     // 监听主应用数据变更通知
@@ -716,20 +1722,12 @@ function updateDate() {
 
 // --- 主题 ---
 function initTheme() {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.body.classList.add('dark-mode');
-        document.getElementById('themeIcon').className = 'fas fa-sun';
-    }
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        document.body.classList.toggle('dark-mode', e.matches);
-        document.getElementById('themeIcon').className = e.matches ? 'fas fa-sun' : 'fas fa-moon';
-    });
+    applyTheme({ persist: true });
 }
 
 function toggleDark() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-    document.getElementById('themeIcon').className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    themeState.mode = themeState.mode === 'dark' ? 'light' : 'dark';
+    applyTheme({ persist: true, sync: true });
 }
 
 function togglePin() {
@@ -773,6 +1771,14 @@ function loadLocalData() {
             const raw = fs.readFileSync(DATA_FILE, 'utf-8');
             const parsed = JSON.parse(raw);
             data = { ...data, ...parsed };
+            const syncedThemeStyle = normalizeThemeStyle(parsed.themePrefs?.style);
+            if (parsed.themePrefs && THEME_STYLE_META[syncedThemeStyle]) {
+                themeState.style = syncedThemeStyle;
+                if (parsed.themePrefs.mode === 'light' || parsed.themePrefs.mode === 'dark') {
+                    themeState.mode = parsed.themePrefs.mode;
+                }
+                applyTheme({ persist: true });
+            }
             return true;
         }
     } catch(e) { console.warn('[Local]', e); }
@@ -822,8 +1828,26 @@ async function loadCloudData() {
 function saveLocalData() {
     try {
         if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+        let current = {};
+        if (fs.existsSync(DATA_FILE)) {
+            try {
+                current = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+            } catch (e) {}
+        }
+
+        const merged = { ...current, ...data };
+        ['todos', 'projects', 'dailyPlans', 'groups'].forEach(key => {
+            if (Array.isArray(data[key]) && data[key].length === 0 && Array.isArray(current[key]) && current[key].length > 0) {
+                merged[key] = current[key];
+            }
+        });
+        if ((!data.auth || !data.auth.access_token) && current.auth) {
+            merged.auth = current.auth;
+        }
+
         fs.writeFileSync(DATA_FILE, JSON.stringify({
-            ...data,
+            ...merged,
+            themePrefs: getThemePrefs(),
             updatedAt: new Date().toISOString()
         }));
     } catch(e) { console.warn('[Save]', e); }
@@ -1274,7 +2298,7 @@ function submitWidgetTask() {
 
 // --- 失焦透明 ---
 ipcRenderer.on('widget-blur', () => {
-    document.getElementById('widget-root').style.opacity = '0.6';
+    document.getElementById('widget-root').style.opacity = '0.92';
 });
 ipcRenderer.on('widget-focus', () => {
     document.getElementById('widget-root').style.opacity = '1';

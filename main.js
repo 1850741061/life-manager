@@ -1,9 +1,72 @@
-const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, screen } = require('electron');
 const path = require('path');
 
 let mainWindow;
 let widgetWindow = null;
 let widgetTray = null;
+const WIDGET_WIDTH = 400;
+const WIDGET_HEIGHT = 700;
+const WIDGET_REVEAL_MARGIN = 24;
+
+function getDefaultWidgetPosition(width = WIDGET_WIDTH, height = WIDGET_HEIGHT) {
+    const area = screen.getPrimaryDisplay().workArea;
+    return {
+        x: Math.round(area.x + area.width - width - WIDGET_REVEAL_MARGIN),
+        y: Math.round(area.y + WIDGET_REVEAL_MARGIN)
+    };
+}
+
+function isWidgetPositionVisible(x, y, width, height) {
+    return screen.getAllDisplays().some(display => {
+        const area = display.workArea;
+        const visibleWidth = Math.min(x + width, area.x + area.width) - Math.max(x, area.x);
+        const visibleHeight = Math.min(y + height, area.y + area.height) - Math.max(y, area.y);
+        return visibleWidth >= Math.min(160, width * 0.45) && visibleHeight >= Math.min(160, height * 0.35);
+    });
+}
+
+function getSafeWidgetPosition(x, y, width = WIDGET_WIDTH, height = WIDGET_HEIGHT) {
+    const fallback = getDefaultWidgetPosition(width, height);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return fallback;
+    }
+    if (isWidgetPositionVisible(x, y, width, height)) {
+        return { x, y };
+    }
+
+    const nearestDisplay = screen.getDisplayNearestPoint({ x, y }) || screen.getPrimaryDisplay();
+    const area = nearestDisplay.workArea;
+    return {
+        x: Math.max(area.x, Math.min(x, area.x + area.width - width)),
+        y: Math.max(area.y, Math.min(y, area.y + area.height - height))
+    };
+}
+
+function revealWidgetWindow({ focus = true } = {}) {
+    if (!widgetWindow || widgetWindow.isDestroyed()) return;
+
+    if (widgetWindow.isMinimized()) {
+        widgetWindow.restore();
+    }
+
+    const [width, height] = widgetWindow.getSize();
+    const [currentX, currentY] = widgetWindow.getPosition();
+    const safePos = getSafeWidgetPosition(currentX, currentY, width, height);
+
+    widgetWindow.setBounds({ x: safePos.x, y: safePos.y, width, height }, false);
+    widgetWindow.setOpacity(1);
+    widgetWindow.show();
+
+    if (typeof widgetWindow.moveTop === 'function') {
+        widgetWindow.moveTop();
+    }
+
+    if (focus) {
+        widgetWindow.focus();
+    }
+
+    widgetWindow.webContents.send('widget-focus');
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -118,8 +181,7 @@ ipcMain.on('widget-open-project-task-detail', (e, { projectId, taskId }) => {
 function launchWidget() {
     // 如果已经打开，聚焦并显示
     if (widgetWindow && !widgetWindow.isDestroyed()) {
-        widgetWindow.show();
-        widgetWindow.focus();
+        revealWidgetWindow();
         console.log('[Widget] 小组件已在运行，聚焦窗口');
         return;
     }
@@ -138,11 +200,13 @@ function launchWidget() {
             }
         } catch(e) {}
 
+        const initialPos = getSafeWidgetPosition(posX, posY, WIDGET_WIDTH, WIDGET_HEIGHT);
+
         widgetWindow = new BrowserWindow({
-            width: 400,
-            height: 700,
-            x: posX,
-            y: posY,
+            width: WIDGET_WIDTH,
+            height: WIDGET_HEIGHT,
+            x: initialPos.x,
+            y: initialPos.y,
             frame: false,
             transparent: true,
             alwaysOnTop: true,
@@ -182,7 +246,7 @@ function launchWidget() {
         // 置顶模式下失焦变透明
         widgetWindow.on('blur', () => {
             if (widgetWindow && !widgetWindow.isDestroyed() && widgetWindow.isAlwaysOnTop()) {
-                widgetWindow.setOpacity(0.4);
+                widgetWindow.setOpacity(0.94);
                 widgetWindow.webContents.send('widget-blur');
             }
         });
@@ -195,6 +259,7 @@ function launchWidget() {
 
         // 创建托盘图标
         createWidgetTray();
+        revealWidgetWindow();
 
         console.log('[Widget] 小组件窗口已创建');
 
@@ -221,7 +286,7 @@ function createWidgetTray() {
         { label: '显示/隐藏', click: () => {
             if (widgetWindow && !widgetWindow.isDestroyed()) {
                 if (widgetWindow.isVisible()) widgetWindow.hide();
-                else widgetWindow.show();
+                else revealWidgetWindow({ focus: false });
             }
         }},
         { label: '刷新', click: () => {
@@ -237,7 +302,7 @@ function createWidgetTray() {
     widgetTray.on('click', () => {
         if (widgetWindow && !widgetWindow.isDestroyed()) {
             if (widgetWindow.isVisible()) widgetWindow.hide();
-            else widgetWindow.show();
+            else revealWidgetWindow({ focus: false });
         }
     });
 }
