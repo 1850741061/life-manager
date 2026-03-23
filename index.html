@@ -2863,6 +2863,50 @@
             font-size: 1.5rem;
         }
 
+        .category-manager-modal {
+            width: min(960px, calc(100vw - 40px));
+            max-width: 960px;
+            max-height: min(88vh, 920px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .category-manager-list {
+            flex: 1;
+            min-height: 0;
+            max-height: none;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 6px;
+        }
+
+        .category-manager-form-shell {
+            flex-shrink: 0;
+        }
+
+        .category-manager-form-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        @media (max-width: 900px) {
+            .category-manager-modal {
+                width: calc(100vw - 24px);
+                max-height: calc(100vh - 24px);
+                padding: 20px;
+            }
+
+            .category-manager-form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .category-manager-list {
+                padding-right: 0;
+            }
+        }
+
         /* 模态框内的 Select 保持完整倒V箭头 */
         .modal select {
             width: 100%;
@@ -5975,7 +6019,7 @@
 
     <!-- 分类管理模态框 -->
     <div class="modal-overlay" id="categoryManagerModal">
-        <div class="modal" style="max-width: 800px;">
+        <div class="modal category-manager-modal">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
                 <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
                     <i class="fas fa-tags" style="color: var(--accent-color);"></i>
@@ -6004,17 +6048,17 @@
             </div>
 
             <!-- 分类列表 -->
-            <div id="categoryManagerList" style="max-height: 450px; overflow-y: auto; margin-bottom: 20px;">
+            <div id="categoryManagerList" class="category-manager-list">
                 <!-- 动态生成 -->
             </div>
 
             <!-- 添加新分类 -->
-            <div
+            <div class="category-manager-form-shell"
                 style="padding: 20px; background: var(--bg-color); border-radius: var(--radius); border: 2px solid var(--border-color);">
                 <h3 style="margin: 0 0 15px 0; font-size: 1rem; font-weight: 800; text-transform: uppercase;">
                     <i class="fas fa-plus-circle" style="color: var(--accent-color);"></i> 添加新分类
                 </h3>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: end;">
+                <div class="category-manager-form-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: end;">
                     <div>
                         <label
                             style="display:block; margin-bottom:5px; font-weight:700; font-size:0.75rem; text-transform:uppercase;">名称</label>
@@ -7106,6 +7150,100 @@
             // 新增：记账月份展开状态
             financeExpandedMonths: new Set()
         };
+
+        const ACCOUNT_SCOPED_STORAGE_KEYS = [
+            'todos', 'groups', 'transactions', 'templates', 'archivedTodos',
+            'habits', 'habitRecords', 'projects', 'milktea', 'coffee', 'dailyPlans', 'deletedIds'
+        ];
+
+        function getAccountScopedDefaults() {
+            return {
+                todos: [],
+                groups: [{ id: 'default', name: '\u9ed8\u8ba4', color: '#3b82f6' }],
+                transactions: [],
+                templates: [],
+                archivedTodos: [],
+                habits: [],
+                habitRecords: {},
+                projects: [],
+                milktea: { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } },
+                coffee: { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } },
+                dailyPlans: [],
+                deletedIds: []
+            };
+        }
+
+        function hasAccountScopedLocalData() {
+            const defaults = getAccountScopedDefaults();
+            return ACCOUNT_SCOPED_STORAGE_KEYS.some(key => JSON.stringify(state[key]) !== JSON.stringify(defaults[key]));
+        }
+
+        function backupAccountScopedLocalData(ownerUserId) {
+            try {
+                const snapshot = {
+                    ownerUserId: ownerUserId || null,
+                    createdAt: new Date().toISOString(),
+                    data: {
+                        todos: ensureSyncArray(state.todos),
+                        groups: ensureSyncArray(state.groups),
+                        transactions: dedupeFinanceTransactions(state.transactions),
+                        templates: ensureSyncArray(state.templates),
+                        archivedTodos: ensureSyncArray(state.archivedTodos),
+                        habits: ensureSyncArray(state.habits),
+                        habitRecords: ensureSyncObject(state.habitRecords),
+                        projects: ensureSyncArray(state.projects),
+                        milktea: ensureSyncObject(state.milktea),
+                        coffee: ensureSyncObject(state.coffee),
+                        dailyPlans: ensureSyncArray(state.dailyPlans),
+                        deletedIds: ensureSyncArray(state.deletedIds)
+                    }
+                };
+                localStorage.setItem('last_account_data_backup', JSON.stringify(snapshot));
+            } catch (e) {
+                console.warn('[account-isolation] backup failed:', e);
+            }
+        }
+
+        function resetAccountScopedState() {
+            const defaults = getAccountScopedDefaults();
+            state.todos = defaults.todos;
+            state.groups = defaults.groups;
+            state.transactions = defaults.transactions;
+            state.templates = defaults.templates;
+            state.archivedTodos = defaults.archivedTodos;
+            state.habits = defaults.habits;
+            state.habitRecords = defaults.habitRecords;
+            state.projects = defaults.projects;
+            state.milktea = defaults.milktea;
+            state.coffee = defaults.coffee;
+            state.dailyPlans = defaults.dailyPlans;
+            state.deletedIds = defaults.deletedIds;
+            state.currentGroupId = 'all';
+            state.selectedTodos = new Set();
+            state.batchMode = false;
+            state.editingId = null;
+            state.editingGroupId = null;
+            state.editingTransId = null;
+        }
+
+        function isolateLocalDataForUser(nextUserId) {
+            if (!nextUserId) return false;
+            const ownerUserId = localStorage.getItem('data_owner_user_id');
+            if (!ownerUserId || ownerUserId === nextUserId) {
+                return false;
+            }
+
+            if (hasAccountScopedLocalData()) {
+                backupAccountScopedLocalData(ownerUserId);
+            }
+
+            console.warn('[account-isolation] switching cached local data owner:', ownerUserId, '=>', nextUserId);
+            resetAccountScopedState();
+            localStorage.setItem('data_owner_user_id', nextUserId);
+            baseSave();
+            renderAll();
+            return true;
+        }
 
         // --- 初始化 ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -10550,6 +10688,12 @@
             renderTodos();
             renderCalendar();
             renderFinance();
+            if (document.getElementById('statTotal')) {
+                updateStats();
+            }
+            if (document.getElementById('statTotalTasks')) {
+                updateStatsCards();
+            }
         }
 
         function exportWidgetData() {
@@ -10595,6 +10739,9 @@
                 localStorage.setItem('drinkViewFilter', state.drinkViewFilter);
                 localStorage.setItem('dailyPlans', JSON.stringify(ensureSyncArray(state.dailyPlans)));
                 localStorage.setItem('deletedIds', JSON.stringify(ensureSyncArray(state.deletedIds)));
+                if (currentUser && currentUser.id) {
+                    localStorage.setItem('data_owner_user_id', currentUser.id);
+                }
                 exportWidgetData();
             } catch (e) {
                 console.error('[save] local cache failed:', e);
@@ -10867,7 +11014,54 @@
             const detail = window.__lastSyncErrorMessage ? String(window.__lastSyncErrorMessage).replace(/\s+/g, ' ').slice(0, 96) : '';
             return detail ? (fallback + '：' + detail) : fallback;
         }
+        async function ensureUserDataRow(payload) {
+            const lookupUrl = `${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}&select=id`;
+            const res = await apiRequest(lookupUrl, {
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
 
+            if (!res.ok) {
+                const errorText = await res.text().catch(() => '');
+                throw new Error(`ensure user_data lookup failed (${res.status}) ${errorText}`.trim());
+            }
+
+            const rows = await res.json().catch(() => []);
+            if (Array.isArray(rows) && rows[0]) {
+                return { created: false };
+            }
+
+            console.log('[sync] user_data row missing, creating...');
+            const createRes = await apiRequest(`${SUPABASE_URL}/rest/v1/user_data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (createRes.ok) {
+                try {
+                    console.log('[sync] user_data row created:', await createRes.json());
+                } catch (e) {
+                    console.log('[sync] user_data row created (no response body)');
+                }
+                return { created: true };
+            }
+
+            if (createRes.status === 409) {
+                console.warn('[sync] user_data row already created by another client');
+                return { created: false, raced: true };
+            }
+
+            const errorText = await createRes.text().catch(() => '');
+            throw new Error(`create user_data failed (${createRes.status}) ${errorText}`.trim());
+        }
         function mergeArrays(local, remote, deletedIds = []) {
             local = ensureSyncArray(local);
             remote = ensureSyncArray(remote);
@@ -11163,6 +11357,8 @@
                 localStorage.setItem('user_id', data.user.id);
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('refresh_token', data.refresh_token);
+                isolateLocalDataForUser(data.user.id);
+                localStorage.setItem('data_owner_user_id', data.user.id);
 
                 // 启动定时刷新
                 scheduleTokenRefresh();
@@ -11224,6 +11420,9 @@
                 }
 
                 // 清理本地状态
+                if (currentUser && currentUser.id) {
+                    localStorage.setItem('data_owner_user_id', currentUser.id);
+                }
                 currentUser = null;
                 accessToken = null;
                 refreshToken = null;
@@ -11294,6 +11493,11 @@
                     updated_at: new Date().toISOString()
                 };
 
+                const ensureResult = await ensureUserDataRow(payload);
+                if (ensureResult.created) {
+                    console.log('[sync] first sync created user_data row');
+                    return true;
+                }
                 // 先尝试更新（PATCH）
                 let res = await apiRequest(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${currentUser.id}`, {
                     method: 'PATCH',
@@ -11581,6 +11785,8 @@
                     currentUser = { id: savedUserId };
                     accessToken = savedToken;
                     refreshToken = savedRefreshToken;
+                    isolateLocalDataForUser(savedUserId);
+                    localStorage.setItem('data_owner_user_id', savedUserId);
 
                     // 启动定时刷新
                     if (refreshToken) {

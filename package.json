@@ -1,7 +1,7 @@
 {
   "name": "pro-life",
-  "version": "3.3.1",
-  "description": "ProLife - 生活管理系统：任务管理、项目管理、习惯打卡、番茄钟、记账",
+  "version": "3.3.2",
+  "description": "ProLife desktop life manager for tasks, projects, habits, pomodoro, and finance",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
