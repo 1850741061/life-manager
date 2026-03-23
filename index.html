@@ -9912,7 +9912,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div class="t-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${t.amount}</div>
-                        <i class="fas fa-pen action-icon" onclick="openEditTransaction(${t.id})" style="cursor:pointer; font-size:0.9rem; color:var(--text-secondary);"></i>
+                        <i class="fas fa-pen action-icon" onclick='openEditTransaction(${JSON.stringify(String(t.id))})' style="cursor:pointer; font-size:0.9rem; color:var(--text-secondary);"></i>
                     </div>
                 `;
                 l.appendChild(div);
@@ -10035,7 +10035,7 @@
                             </div>
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <div class="t-amount ${t.type}">${t.type === 'income' ? '+' : '-'}${t.amount}</div>
-                                <i class="fas fa-pen action-icon" onclick="openEditTransaction(${t.id})" style="cursor:pointer; font-size:0.9rem; color:var(--text-secondary);"></i>
+                                <i class="fas fa-pen action-icon" onclick='openEditTransaction(${JSON.stringify(String(t.id))})' style="cursor:pointer; font-size:0.9rem; color:var(--text-secondary);"></i>
                             </div>
                         `;
                         transContainer.appendChild(div);
