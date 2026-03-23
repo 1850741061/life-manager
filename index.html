@@ -10097,9 +10097,9 @@
         };
 
         window.openEditTransaction = (id) => {
-            const t = state.transactions.find(x => x.id === id);
+            const t = state.transactions.find(x => sameFinanceTransactionId(x.id, id));
             if (!t) return;
-            state.editingTransId = id;
+            state.editingTransId = t.id;
             setCustomSelectValue('editTransTypeCustom', t.type);
             document.getElementById('editTransDate').value = t.date;
             setCustomSelectValue('editTransCategoryCustom', t.category);
@@ -10121,7 +10121,7 @@
             // 更新颜色
             const catObj = getAllCategories().find(c => c.name === category);
 
-            state.transactions = state.transactions.map(t => t.id === state.editingTransId ? {
+            state.transactions = state.transactions.map(t => sameFinanceTransactionId(t.id, state.editingTransId) ? {
                 ...t, type, date, category, amount, note, catColor: catObj.color
             } : t);
 
@@ -10134,10 +10134,10 @@
         window.deleteEditTransaction = () => {
             if (!confirm('确定删除此记录？')) return;
             // 记录删除ID
-            if (!state.deletedIds.includes(state.editingTransId)) {
+            if (!state.deletedIds.some(id => sameFinanceTransactionId(id, state.editingTransId) || id === state.editingTransId)) {
                 state.deletedIds.push(state.editingTransId);
             }
-            state.transactions = state.transactions.filter(t => t.id !== state.editingTransId);
+            state.transactions = state.transactions.filter(t => !sameFinanceTransactionId(t.id, state.editingTransId));
             save();
             closeModal('transModal');
             state.editingTransId = null;
@@ -10581,20 +10581,25 @@
 
         // 基础保存函数 - 只保存到本地
         function baseSave() {
-            localStorage.setItem('todos', JSON.stringify(state.todos));
-            localStorage.setItem('groups', JSON.stringify(state.groups));
-            localStorage.setItem('transactions', JSON.stringify(state.transactions));
-            localStorage.setItem('templates', JSON.stringify(state.templates));
-            localStorage.setItem('archivedTodos', JSON.stringify(state.archivedTodos));
-            localStorage.setItem('habits', JSON.stringify(state.habits));
-            localStorage.setItem('habitRecords', JSON.stringify(state.habitRecords));
-            localStorage.setItem('projects', JSON.stringify(state.projects));
-            localStorage.setItem('milktea', JSON.stringify(state.milktea));
-            localStorage.setItem('coffee', JSON.stringify(state.coffee));
-            localStorage.setItem('drinkViewFilter', state.drinkViewFilter);
-            localStorage.setItem('dailyPlans', JSON.stringify(state.dailyPlans));
-            localStorage.setItem('deletedIds', JSON.stringify(state.deletedIds));
-            exportWidgetData();
+            try {
+                localStorage.setItem('todos', JSON.stringify(ensureSyncArray(state.todos)));
+                localStorage.setItem('groups', JSON.stringify(ensureSyncArray(state.groups)));
+                localStorage.setItem('transactions', JSON.stringify(dedupeFinanceTransactions(state.transactions)));
+                localStorage.setItem('templates', JSON.stringify(ensureSyncArray(state.templates)));
+                localStorage.setItem('archivedTodos', JSON.stringify(ensureSyncArray(state.archivedTodos)));
+                localStorage.setItem('habits', JSON.stringify(ensureSyncArray(state.habits)));
+                localStorage.setItem('habitRecords', JSON.stringify(ensureSyncObject(state.habitRecords)));
+                localStorage.setItem('projects', JSON.stringify(ensureSyncArray(state.projects)));
+                localStorage.setItem('milktea', JSON.stringify(ensureSyncObject(state.milktea)));
+                localStorage.setItem('coffee', JSON.stringify(ensureSyncObject(state.coffee)));
+                localStorage.setItem('drinkViewFilter', state.drinkViewFilter);
+                localStorage.setItem('dailyPlans', JSON.stringify(ensureSyncArray(state.dailyPlans)));
+                localStorage.setItem('deletedIds', JSON.stringify(ensureSyncArray(state.deletedIds)));
+                exportWidgetData();
+            } catch (e) {
+                console.error('[save] local cache failed:', e);
+                window.__lastSyncErrorMessage = e?.stack || e?.message || String(e);
+            }
         }
 
         function animateValue(id, start, end, duration) {
@@ -10761,7 +10766,112 @@
         document.head.appendChild(style);
 
         // 智能合并：基于 updatedAt 时间戳保留最新数据，排除已删除的ID
+        function normalizeFinanceTransactionId(id) {
+            const raw = String(id ?? '').trim();
+            if (!raw) return '';
+            const prefixed = raw.match(/^(?:tx|mt)_(\d+)$/i);
+            const normalized = prefixed ? prefixed[1] : raw;
+            return /^\d+$/.test(normalized) ? String(Number(normalized)) : normalized;
+        }
+
+        function scoreFinanceTransaction(record) {
+            if (!record || typeof record !== 'object') return 0;
+            let score = 0;
+            Object.values(record).forEach(value => {
+                if (value !== null && value !== undefined && value !== '') {
+                    score += 1;
+                }
+            });
+            if (record.milkteaRecordId != null) score += 5;
+            if (record.catColor) score += 1;
+            if (typeof record.id === 'number') score += 1;
+            if (/^mt_\d+$/i.test(String(record.id ?? ''))) score += 2;
+            return score;
+        }
+
+        function mergeFinanceTransactionRecords(primary, secondary, normalizedId) {
+            const merged = { ...(secondary || {}), ...(primary || {}) };
+
+            [primary, secondary].forEach(source => {
+                if (!source || typeof source !== 'object') return;
+                Object.entries(source).forEach(([key, value]) => {
+                    if (merged[key] === null || merged[key] === undefined || merged[key] === '') {
+                        merged[key] = value;
+                    }
+                });
+            });
+
+            const milkteaRecordId = merged.milkteaRecordId ?? primary?.milkteaRecordId ?? secondary?.milkteaRecordId;
+            if (milkteaRecordId != null) {
+                merged.milkteaRecordId = milkteaRecordId;
+                merged.id = 'mt_' + normalizeFinanceTransactionId(milkteaRecordId);
+            } else if (/^\d+$/.test(normalizedId)) {
+                merged.id = Number(normalizedId);
+            } else {
+                merged.id = normalizedId;
+            }
+
+            return merged;
+        }
+
+        function sameFinanceTransactionId(left, right) {
+            const normalizedLeft = normalizeFinanceTransactionId(left);
+            const normalizedRight = normalizeFinanceTransactionId(right);
+            return normalizedLeft && normalizedLeft === normalizedRight;
+        }
+
+        function dedupeFinanceTransactions(records) {
+            const merged = new Map();
+
+            (records || []).forEach(record => {
+                if (!record || typeof record !== 'object') return;
+
+                const key = normalizeFinanceTransactionId(record.id);
+                if (!key) return;
+
+                const existing = merged.get(key);
+                if (!existing) {
+                    merged.set(key, mergeFinanceTransactionRecords(record, null, key));
+                    return;
+                }
+
+                const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime() || 0;
+                const currentTime = new Date(record.updatedAt || record.createdAt || 0).getTime() || 0;
+
+                let preferred = existing;
+                let fallback = record;
+
+                if (currentTime > existingTime) {
+                    preferred = record;
+                    fallback = existing;
+                } else if (currentTime === existingTime && scoreFinanceTransaction(record) > scoreFinanceTransaction(existing)) {
+                    preferred = record;
+                    fallback = existing;
+                }
+
+                merged.set(key, mergeFinanceTransactionRecords(preferred, fallback, key));
+            });
+
+            return Array.from(merged.values());
+        }
+
+        function ensureSyncArray(value) {
+            return Array.isArray(value) ? value : [];
+        }
+
+        function ensureSyncObject(value) {
+            return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        }
+
+        function getSyncErrorToastMessage(fallback) {
+            const detail = window.__lastSyncErrorMessage ? String(window.__lastSyncErrorMessage).replace(/\s+/g, ' ').slice(0, 96) : '';
+            return detail ? (fallback + '：' + detail) : fallback;
+        }
+
         function mergeArrays(local, remote, deletedIds = []) {
+            local = ensureSyncArray(local);
+            remote = ensureSyncArray(remote);
+            deletedIds = ensureSyncArray(deletedIds);
             const merged = new Map();
             const deletedSet = new Set(deletedIds);
 
@@ -10831,12 +10941,12 @@
 
                         // 使用 mergeArrays 智能合并（传递合并后的 deletedIds 过滤云端数据）
                         state.todos = mergeArrays(state.todos, data[0].todos || [], allDeletedIds);
-                        state.transactions = mergeArrays(state.transactions, data[0].transactions || [], allDeletedIds);
+                        state.transactions = dedupeFinanceTransactions(mergeArrays(dedupeFinanceTransactions(state.transactions), dedupeFinanceTransactions(data[0].transactions || []), allDeletedIds.map(normalizeFinanceTransactionId)));
                         state.groups = mergeArrays(state.groups, data[0].groups || [], allDeletedIds);
                         state.templates = mergeArrays(state.templates, data[0].templates || [], allDeletedIds);
-                        state.archivedTodos = mergeArrays(state.archivedTodos, data[0].archivedTodos || [], allDeletedIds);
+                        state.archivedTodos = mergeArrays(state.archivedTodos, data[0].archivedTodos || data[0].archivedtodos || [], allDeletedIds);
                         state.habits = mergeArrays(state.habits, data[0].habits || [], allDeletedIds);
-                        state.habitRecords = { ...(data[0].habitRecords || {}), ...state.habitRecords };
+                        state.habitRecords = { ...ensureSyncObject(data[0].habitRecords || data[0].habitrecords), ...ensureSyncObject(state.habitRecords) };
                         state.projects = mergeArrays(state.projects, data[0].projects || [], allDeletedIds);
                         state.milktea = { ...(data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } }), ...state.milktea };
                         state.coffee = { ...(data[0].coffee || { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } }), ...state.coffee };
@@ -10863,7 +10973,7 @@
                         if (uploaded) {
                             showSyncToast(`已上传本地数据到云端 (${state.todos.length} 个待办)`);
                         } else {
-                            showSyncToast('上传失败，请检查网络', 'error');
+                            showSyncToast(getSyncErrorToastMessage('上传失败'), 'error');
                         }
                     }
                 } else {
@@ -10879,7 +10989,7 @@
                         if (uploaded) {
                             showSyncToast('已上传本地数据到云端');
                         } else {
-                            showSyncToast('同步失败，请检查网络', 'error');
+                            showSyncToast(getSyncErrorToastMessage('同步失败'), 'error');
                         }
                     }
                 }
@@ -10890,7 +11000,7 @@
                 if (uploaded) {
                     showSyncToast('已上传本地数据到云端');
                 } else {
-                    showSyncToast('同步失败，请检查网络', 'error');
+                    showSyncToast(getSyncErrorToastMessage('同步失败'), 'error');
                 }
             }
         }
@@ -11160,13 +11270,16 @@
                 const deletedIds = mergedDeletedIds || state.deletedIds || [];
 
                 // 过滤掉已删除的数据
-                const deletedSet = new Set(deletedIds);
-                const filterDeleted = (arr) => arr.filter(item => !deletedSet.has(item.id));
+                const normalizedDeletedIds = [...new Set((deletedIds || []).map(normalizeFinanceTransactionId).filter(Boolean))];
+                const deletedSet = new Set(normalizedDeletedIds);
+                const filterDeleted = (arr) => (arr || []).filter(item => !deletedSet.has(normalizeFinanceTransactionId(item.id)));
+                const normalizedTransactions = dedupeFinanceTransactions(state.transactions);
+                state.transactions = normalizedTransactions;
 
                 const payload = {
                     id: currentUser.id,
                     todos: filterDeleted(state.todos),
-                    transactions: filterDeleted(state.transactions),
+                    transactions: filterDeleted(normalizedTransactions),
                     groups: filterDeleted(state.groups),
                     templates: filterDeleted(state.templates),
                     archivedTodos: filterDeleted(state.archivedTodos),
@@ -11177,7 +11290,7 @@
                     coffee: state.coffee,
                     dailyPlans: filterDeleted(state.dailyPlans),
                     // 上传 deletedIds，让其他设备知道哪些被删除了
-                    deletedids: deletedIds,
+                    deletedids: normalizedDeletedIds.map(id => /^\d+$/.test(id) ? Number(id) : id),
                     updated_at: new Date().toISOString()
                 };
 
@@ -11249,7 +11362,7 @@
 
                 if (!res.ok) {
                     console.error('[刷新] 下载失败:', res.status);
-                    showSyncToast('刷新失败', 'error');
+                    showSyncToast(getSyncErrorToastMessage('刷新失败'), 'error');
                     return;
                 }
 
@@ -11262,7 +11375,7 @@
 
                     // 智能合并（排除已删除的ID，按时间戳保留最新）
                     state.todos = mergeArrays(state.todos, data[0].todos || [], allDeletedIds);
-                    state.transactions = mergeArrays(state.transactions, data[0].transactions || [], allDeletedIds);
+                    state.transactions = dedupeFinanceTransactions(mergeArrays(dedupeFinanceTransactions(state.transactions), dedupeFinanceTransactions(data[0].transactions || []), allDeletedIds.map(normalizeFinanceTransactionId)));
                     state.groups = mergeArrays(state.groups, data[0].groups || [], allDeletedIds);
                     state.templates = mergeArrays(state.templates, data[0].templates || [], allDeletedIds);
                     state.archivedTodos = mergeArrays(state.archivedTodos, data[0].archivedTodos || [], allDeletedIds);
@@ -11271,7 +11384,7 @@
                     state.projects = mergeArrays(state.projects, data[0].projects || [], allDeletedIds);
                     state.milktea = { ...(data[0].milktea || { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } }), ...state.milktea };
                     state.coffee = { ...(data[0].coffee || { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } }), ...state.coffee };
-                    state.dailyPlans = mergeArrays(state.dailyPlans, data[0].dailyPlans || [], allDeletedIds);
+                    state.dailyPlans = mergeArrays(state.dailyPlans, data[0].dailyPlans || data[0].dailyplans || [], allDeletedIds);
 
                     // 同步完成后清除已删除的ID记录
                     state.deletedIds = [];
@@ -11291,7 +11404,7 @@
                 }
             } catch (e) {
                 console.error('[刷新] 下载异常:', e);
-                showSyncToast('刷新失败', 'error');
+                showSyncToast(getSyncErrorToastMessage('刷新失败'), 'error');
             }
         }
 
@@ -11431,6 +11544,8 @@
         }
 
         function save() {
+            state.transactions = dedupeFinanceTransactions(state.transactions);
+
             // 更新 updatedAt 时间戳
             const now = new Date().toISOString();
             state.todos.forEach(t => t.updatedAt = now);
@@ -16884,7 +16999,7 @@ ${template.subtasks && template.subtasks.length > 0 ? `\n子任务 (${template.s
                     if (idx !== -1) state.coffee.records.splice(idx, 1);
                 }
                 // 同步删除交易记录
-                const txIdx = state.transactions.findIndex(t => t.id === 'mt_' + recordId);
+                const txIdx = state.transactions.findIndex(t => sameFinanceTransactionId(t.id, 'mt_' + recordId) || t.milkteaRecordId === recordId);
                 if (txIdx !== -1) state.transactions.splice(txIdx, 1);
                 save();
                 showSyncToast('记录已删除');
