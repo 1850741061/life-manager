@@ -44,7 +44,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico",
+      "icon": "todo.ico",
       "requestedExecutionLevel": "asInvoker",
       "signAndEditExecutable": false
     },
