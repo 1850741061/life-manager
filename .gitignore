@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.exe
+*.dll
+*.pak
+*.dat
+*.bin
+*.jsonc
+
+# Temporary files
+nul
+*.log
+*.tmp
+
+# Screenshots
+截图/
+see.png
+*.png
+*.jpg
+*.jpeg
+
+# IDE and Editor
+.claude/
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+pre/
+builder-debug.yml
+
+# Package lock files
+package-lock.json
+
+# Config files with project IDs
+supabase/config.toml
+vercel.json
+android/
+
+# Build scripts (local use only)
+*.bat
+
+# Non-core files (keep locally, exclude from repo)
+.npmrc
+ANDROID_PROGRESS.md
+HANDOFF.md
+PROJECT_CONTEXT.md
+Supabase Snippet Replication Identity for user_data.csv
+capacitor.config.ts
+index_no_sync.html
+styles.css
+temp_old_version.html
+widget/README.md
+widget/TEST.md
+widget/package.json
+widget/widget-main.js
+www/
+.github/
+任务导入示例.csv
+assets/

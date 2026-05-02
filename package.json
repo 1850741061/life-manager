@@ -1,0 +1,70 @@
+{
+  "name": "todo",
+  "version": "3.4.0",
+  "description": "Todo desktop life manager for tasks, projects, habits, pomodoro, and finance",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --publish never",
+    "build:portable": "electron-builder --win portable --publish never",
+    "build:dir": "electron-builder --dir --publish never"
+  },
+  "keywords": [
+    "todo",
+    "finance",
+    "productivity"
+  ],
+  "author": "Todo",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "electron-packager": "^17.1.2"
+  },
+  "build": {
+    "appId": "com.todo.app",
+    "productName": "Todo",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "manifest.json",
+      "sw.js",
+      "main.js",
+      "package.json",
+      "assets/**/*",
+      "widget/**/*"
+    ],
+    "asarUnpack": [
+      "widget/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "differentialPackage": false,
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false,
+      "language": "2052",
+      "warningsAsErrors": false
+    }
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0"
+  }
+}
+
