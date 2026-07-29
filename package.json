@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node --test tests/sync-contract.test.cjs",
     "build": "electron-builder",
     "build:win": "electron-builder --win --publish never",
     "build:portable": "electron-builder --win portable --publish never",
@@ -33,6 +34,7 @@
       "manifest.json",
       "sw.js",
       "main.js",
+      "preload.js",
       "package.json",
       "assets/**/*",
       "widget/**/*"

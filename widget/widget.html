@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'">
 <title>Todo Widget</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
@@ -1809,19 +1810,55 @@ body[data-theme="brutalist"] .task-item::before {
 </div>
 
 <script>
-const fs = require('fs');
-const path = require('path');
-const { ipcRenderer } = require('electron');
+const widgetRawLocalStorage = window.localStorage;
+const localStorage = Object.freeze({
+    getItem(key) {
+        return widgetRawLocalStorage.getItem(`prolife_claude::${String(key)}`);
+    },
+    setItem(key, value) {
+        widgetRawLocalStorage.setItem(`prolife_claude::${String(key)}`, String(value));
+    },
+    removeItem(key) {
+        widgetRawLocalStorage.removeItem(`prolife_claude::${String(key)}`);
+    }
+});
 
-const SUPABASE_URL = 'https://gcrdheovyzjywwyijjli.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcmRoZW92eXpqeXd3eWlqamxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzQxMDIsImV4cCI6MjA4MjE1MDEwMn0.7bhn24n_-HMPbN_IeTb6cZNrzH3-GFkKtxv0imkOSBM';
+const ipcRenderer = window.desktopAPI.ipc;
+
+const ACTIVE_WIDGET_MARKUP_PATTERN = /<\s*\/?\s*[a-z!][^>]*>|<\s*\/?\s*(?:script|iframe|object|embed|svg|math|img|video|audio|source|track|body|style|link|meta|base|form|input|button|textarea|select|option|details|marquee)(?:[\s/>]|$)/i;
+const SAFE_WIDGET_COLOR_PATTERN = /^(?:#[0-9a-f]{3,8}|(?:rgb|rgba|hsl|hsla)\([0-9.,%\s+-]+\)|var\(--[a-z0-9_-]+\)|[a-z]+)$/i;
+const SAFE_WIDGET_ID_PATTERN = /^[a-z0-9_.:-]+$/i;
+
+function neutralizeWidgetSyncValue(value, keyName = '') {
+    if (typeof value === 'string') {
+        let normalized = value;
+        if (ACTIVE_WIDGET_MARKUP_PATTERN.test(normalized)) {
+            normalized = normalized.replace(/</g, '＜').replace(/>/g, '＞');
+            normalized = normalized.replace(/((?:javascript|vbscript)\s*):/gi, '$1：');
+            normalized = normalized.replace(/(data\s*):\s*(text\/html)/gi, '$1：$2');
+        }
+        if (/^(?:id|.*Id|.*ID)$/.test(keyName) && !SAFE_WIDGET_ID_PATTERN.test(normalized)) {
+            return [...normalized].map(character => SAFE_WIDGET_ID_PATTERN.test(character)
+                ? character
+                : `_u${character.codePointAt(0).toString(16)}_`
+            ).join('');
+        }
+        if (/color$/i.test(keyName) && !SAFE_WIDGET_COLOR_PATTERN.test(normalized.trim())) return '#6b7280';
+        return normalized;
+    }
+    if (Array.isArray(value)) return value.map(item => neutralizeWidgetSyncValue(item, keyName));
+    if (value && typeof value === 'object') {
+        Object.entries(value).forEach(([childKey, child]) => {
+            value[childKey] = neutralizeWidgetSyncValue(child, childKey);
+        });
+    }
+    return value;
+}
+
 let _widCounter = 0;
 function wUniqueId() { return Date.now() * 1000 + (++_widCounter % 1000); }
 
-const DATA_DIR = path.join(process.env.APPDATA || '', 'ProLife');
-const DATA_FILE = path.join(DATA_DIR, 'widget-data.json');
-
-let data = { todos: [], projects: [], dailyPlans: [], groups: [], auth: {} };
+let data = { todos: [], archivedTodos: [], projects: [], dailyPlans: [], groups: [], ideas: [], deletedIds: [] };
 let pinned = true;
 const THEME_STYLE_META = {
     'pop-art': {
@@ -1999,24 +2036,22 @@ function refreshData() {
         renderAll();
         document.getElementById('syncStatus').textContent = '本地数据 ' + formatTime(data.updatedAt);
     }
-    // 尝试从云端刷新
-    loadCloudData().then(ok => {
-        if (ok) {
-            renderAll();
-            document.getElementById('syncStatus').textContent = '已同步 ' + formatTime(new Date().toISOString());
-        } else if (!loaded) {
-            document.getElementById('syncStatus').textContent = '无数据';
-            renderAll();
-        }
-    });
+    if (!loaded) {
+        document.getElementById('syncStatus').textContent = '无数据';
+        renderAll();
+    }
 }
 
 function loadLocalData() {
     try {
-        if (fs.existsSync(DATA_FILE)) {
-            const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-            const parsed = JSON.parse(raw);
+        const raw = window.desktopAPI.readWidgetData();
+        if (raw) {
+            const parsed = neutralizeWidgetSyncValue(JSON.parse(raw));
             data = { ...data, ...parsed, _loaded: true };
+            if (data.auth) {
+                delete data.auth;
+                saveLocalData();
+            }
             const syncedThemeStyle = normalizeThemeStyle(parsed.themePrefs?.style);
             if (parsed.themePrefs && THEME_STYLE_META[syncedThemeStyle]) {
                 themeState.style = syncedThemeStyle;
@@ -2032,59 +2067,69 @@ function loadLocalData() {
 }
 
 async function loadCloudData() {
-    if (!data.auth || !data.auth.access_token || !data.auth.user_id) return false;
-    try {
-        // 先尝试刷新 token
-        let token = data.auth.access_token;
-        if (data.auth.refresh_token) {
-            try {
-                const refreshRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-                    body: JSON.stringify({ refresh_token: data.auth.refresh_token })
-                });
-                if (refreshRes.ok) {
-                    const refreshData = await refreshRes.json();
-                    token = refreshData.access_token;
-                    data.auth.access_token = token;
-                    data.auth.refresh_token = refreshData.refresh_token || data.auth.refresh_token;
-                }
-            } catch(e) { console.warn('[Cloud] Token refresh failed:', e.message); }
-        }
-
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${data.auth.user_id}`, {
-            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-            const arr = await res.json();
-            if (arr && arr[0]) {
-                data.todos = arr[0].todos || [];
-                data.projects = arr[0].projects || [];
-                data.dailyPlans = arr[0].dailyPlans || [];
-                data.groups = arr[0].groups || [];
-                data.ideas = arr[0].ideas || [];
-                data.ideaTags = arr[0].ideaTags || [];
-                data._loaded = true;
-                // 写回本地
-                saveLocalData();
-                return true;
-            }
-        }
-    } catch(e) { console.warn('[Cloud]', e); }
+    // The main renderer is the sole Supabase writer and token owner. The
+    // widget exchanges only a local, versioned snapshot over IPC.
     return false;
+}
+
+function stableWidgetJson(value) {
+    const normalize = input => {
+        if (Array.isArray(input)) return input.map(normalize);
+        if (input && typeof input === 'object') {
+            return Object.fromEntries(
+                Object.entries(input)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([key, nested]) => [key, normalize(nested)])
+            );
+        }
+        return input;
+    };
+    return JSON.stringify(normalize(value));
+}
+
+function mergeWidgetRecords(local, remote, kind, deletedIds = []) {
+    const deletedSet = new Set((deletedIds || []).map(String));
+    const merged = new Map();
+    for (const item of [...(remote || []), ...(local || [])]) {
+        if (!item
+            || deletedSet.has(String(item.id))
+            || deletedSet.has(`${kind}:${String(item.id)}`)
+        ) continue;
+        const key = String(item.id);
+        const current = merged.get(key);
+        const currentTime = new Date(current?.updatedAt || current?.createdAt || 0).getTime() || 0;
+        const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime() || 0;
+        if (!current
+            || itemTime > currentTime
+            || (itemTime === currentTime && stableWidgetJson(item) > stableWidgetJson(current))
+        ) merged.set(key, item);
+    }
+    return [...merged.values()];
+}
+
+function deriveWidgetIdeaTags(ideas) {
+    const tags = new Set();
+    for (const idea of Array.isArray(ideas) ? ideas : []) {
+        for (const tag of Array.isArray(idea?.tags) ? idea.tags : []) {
+            const normalized = String(tag).trim();
+            if (normalized) tags.add(normalized);
+        }
+    }
+    return [...tags].sort();
 }
 
 function saveLocalData() {
     try {
-        if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
         let current = {};
-        if (fs.existsSync(DATA_FILE)) {
+        const currentText = window.desktopAPI.readWidgetData();
+        if (currentText) {
             try {
-                current = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+                current = JSON.parse(currentText);
             } catch (e) {}
         }
 
-        const merged = { ...current, ...data };
+        data.ideaTags = deriveWidgetIdeaTags(data.ideas);
+        const merged = neutralizeWidgetSyncValue({ ...current, ...data });
         // 仅当数据尚未从文件加载时，防止空数组覆盖已有数据
         if (!data._loaded) {
             ['todos', 'projects', 'dailyPlans', 'groups'].forEach(key => {
@@ -2093,42 +2138,21 @@ function saveLocalData() {
                 }
             });
         }
-        if ((!data.auth || !data.auth.access_token) && current.auth) {
-            merged.auth = current.auth;
-        }
-
-        fs.writeFileSync(DATA_FILE, JSON.stringify({
+        delete merged.auth;
+        const serialized = JSON.stringify({
             ...merged,
             themePrefs: getThemePrefs(),
             updatedAt: new Date().toISOString()
-        }));
+        });
+        const result = window.desktopAPI.writeWidgetData(serialized);
+        if (!result?.ok) throw new Error(result?.error || 'widget data write failed');
     } catch(e) { console.warn('[Save]', e); }
 }
 
-async function syncToggleToCloud(todoId, done) {
-    if (!data.auth || !data.auth.access_token || !data.auth.user_id) return;
-    try {
-        const payload = {
-            id: data.auth.user_id,
-            todos: data.todos,
-            projects: data.projects,
-            dailyPlans: data.dailyPlans,
-            groups: data.groups,
-            ideas: data.ideas || [],
-            ideaTags: data.ideaTags || [],
-            updated_at: new Date().toISOString()
-        };
-        await fetch(`${SUPABASE_URL}/rest/v1/user_data?id=eq.${data.auth.user_id}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${data.auth.access_token}`,
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(payload)
-        });
-    } catch(e) { console.warn('[Sync]', e); }
+async function syncToggleToCloud(todoId, done, conflictAttempt = 0) {
+    saveLocalData();
+    ipcRenderer.send('widget-data-changed');
+    return true;
 }
 
 // --- 渲染 ---
@@ -2186,7 +2210,7 @@ function renderTasks() {
         const groupMap = new Map();
         tasks.forEach(t => {
             const key = t.groupId || 'none';
-            const group = (data.groups || []).find(g => g.id === t.groupId);
+            const group = (data.groups || []).find(g => String(g.id) === String(t.groupId));
             const label = group ? group.name : '未分组';
             const color = group ? group.color : '#3b82f6';
             if (!groupMap.has(key)) groupMap.set(key, { label, color, tasks: [] });
@@ -2244,7 +2268,7 @@ function renderTasks() {
 
 function buildTaskItemHtml(t, now) {
     const isOverdue = t.date && new Date(t.date) < now;
-    const group = (data.groups || []).find(g => g.id === t.groupId);
+    const group = (data.groups || []).find(g => String(g.id) === String(t.groupId));
     const groupName = group ? group.name : '';
     const groupColor = group ? group.color : 'var(--accent-color)';
 
@@ -2504,6 +2528,7 @@ function togglePlan(id) {
     const plan = data.dailyPlans.find(p => String(p.id) === String(id));
     if (!plan) return;
     plan.completed = !plan.completed;
+    plan.updatedAt = new Date().toISOString();
     saveLocalData();
     renderPlans();
     syncToggleToCloud();
@@ -2529,6 +2554,7 @@ function toggleSubtask(todoId, subtaskId) {
     const st = todo.subtasks.find(s => String(s.id) === String(subtaskId));
     if (!st) return;
     st.completed = !st.completed;
+    todo.updatedAt = new Date().toISOString();
     saveLocalData();
     renderTasks();
     syncToggleToCloud();
@@ -2548,11 +2574,11 @@ function closeWidget() {
 function openTaskInMain(taskId, projectId) {
     if (projectId) {
         ipcRenderer.send('widget-open-project-task-detail', {
-            projectId: parseInt(projectId) || projectId,
-            taskId: parseInt(taskId) || taskId
+            projectId: String(projectId),
+            taskId: String(taskId)
         });
     } else {
-        ipcRenderer.send('widget-open-task-detail', parseInt(taskId) || taskId);
+        ipcRenderer.send('widget-open-task-detail', String(taskId));
     }
 }
 
@@ -2587,7 +2613,8 @@ function populateWidgetGroupSelect(customId, nativeId, defaultText) {
         gd.innerHTML = '分组';
         optionsContainer.appendChild(gd);
         (data.groups || []).forEach(g => {
-            const val = `g_${g.id}`;
+            const gid = String(g.id);
+            const val = `group:${gid}`;
             const opt = document.createElement('option');
             opt.value = val; opt.innerText = g.name;
             nativeSel.appendChild(opt);
@@ -2613,7 +2640,7 @@ function populateWidgetGroupSelect(customId, nativeId, defaultText) {
         pd.innerHTML = '项目';
         optionsContainer.appendChild(pd);
         (data.projects || []).forEach(p => {
-            const val = `p_${p.id}`;
+            const val = `project:${String(p.id)}`;
             const opt = document.createElement('option');
             opt.value = val; opt.innerText = p.name;
             nativeSel.appendChild(opt);
@@ -2737,10 +2764,10 @@ function submitWidgetTask() {
 
     let groupId = null;
     let projectId = null;
-    if (catValue.startsWith('g_')) {
-        groupId = parseInt(catValue.substring(2));
-    } else if (catValue.startsWith('p_')) {
-        projectId = parseInt(catValue.substring(2));
+    if (catValue.startsWith('group:')) {
+        groupId = catValue.substring('group:'.length);
+    } else if (catValue.startsWith('project:')) {
+        projectId = catValue.substring('project:'.length);
     }
 
     const newTodo = {
@@ -2814,8 +2841,18 @@ function renderWidgetIdeas() {
         const d = new Date(i.createdAt);
         const time = `${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
         const tagHtml = (i.tags || []).map(t => `<span style="padding:1px 6px;border-radius:999px;font-size:0.6rem;font-weight:700;background:var(--accent-color);color:var(--accent-contrast);">${escHtml(t)}</span>`).join(' ');
-        const linkIcon = i.linkedType === 'task' ? '<i class="fas fa-check-circle"></i>' : i.linkedType === 'project' ? '<i class="fas fa-project-diagram"></i>' : i.linkedType === 'group' ? '<i class="fas fa-folder"></i>' : '';
-        const linkHtml = i.linkedName ? `<span style="font-size:0.65rem;color:var(--accent-color);">${linkIcon} ${escHtml(i.linkedName)}</span>` : '';
+        const linkIcon = i.linkedType === 'task' ? 'fa-check-circle' : i.linkedType === 'project' ? 'fa-project-diagram' : i.linkedType === 'group' ? 'fa-folder' : 'fa-link';
+        let linkDotHtml = '';
+        if (i.linkedType === 'group') {
+            const g = (data.groups || []).find(g => String(g.id) === String(i.linkedId));
+            const gc = g ? g.color : '#888';
+            linkDotHtml = `<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${gc};border:1px solid var(--border-color);margin-right:2px;vertical-align:middle;"></span>`;
+        } else if (i.linkedType === 'project') {
+            const p = (data.projects || []).find(p => String(p.id) === String(i.linkedId));
+            const pc = p ? (p.color || '#8b5cf6') : '#8b5cf6';
+            linkDotHtml = `<span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${pc};margin-right:2px;vertical-align:middle;"></span>`;
+        }
+        const linkHtml = i.linkedName ? `<span style="font-size:0.65rem;color:var(--accent-color);">${linkDotHtml}<i class="fas ${linkIcon}" style="margin-right:2px;"></i>${escHtml(i.linkedName)}</span>` : '';
         const borderLeft = i.pinned ? 'border-left:3px solid var(--warning-color);' : i.important ? 'border-left:3px solid var(--danger-color);' : '';
         return `<div class="widget-idea-card" style="padding:8px 10px;border:1.5px solid var(--border-color);border-radius:var(--radius);background:var(--card-bg);${borderLeft}position:relative;">
             <div style="font-size:0.85rem;line-height:1.5;word-break:break-word;white-space:pre-wrap;">${escHtml(i.text)}</div>
@@ -2826,7 +2863,7 @@ function renderWidgetIdeas() {
                 ${i.pinned ? '<i class="fas fa-thumbtack" style="color:var(--warning-color);font-size:0.65rem;"></i>' : ''}
                 ${i.important ? '<i class="fas fa-star" style="color:var(--danger-color);font-size:0.65rem;"></i>' : ''}
             </div>
-            <button onclick="deleteWidgetIdea(${i.id})" class="widget-idea-del" title="删除"><i class="fas fa-trash"></i></button>
+            <button onclick='deleteWidgetIdea(${JSON.stringify(String(i.id))})' class="widget-idea-del" title="删除"><i class="fas fa-trash"></i></button>
         </div>`;
     }).join('');
 }
@@ -2857,12 +2894,14 @@ function showConfirm(title, message, options = ['取消', '确认']) {
 window.deleteWidgetIdea = async function(id) {
     const confirmed = await showConfirm('删除随想', '确定要删除这条随想吗？', ['取消', '删除']);
     if (confirmed !== 1) return;
-    data.ideas = (data.ideas || []).filter(i => i.id !== id);
+    data.ideas = (data.ideas || []).filter(i => String(i.id) !== String(id));
+    data.deletedIds = [...new Set([...(data.deletedIds || []), `idea:${String(id)}`])];
     const allTags = new Set();
     (data.ideas || []).forEach(i => (i.tags || []).forEach(t => allTags.add(t)));
     data.ideaTags = [...allTags].sort();
     saveLocalData();
     renderWidgetIdeas();
+    await syncToggleToCloud();
     ipcRenderer.send('widget-data-changed');
 };
 
@@ -2882,16 +2921,19 @@ function widgetAddIdea() {
     const linkVal = document.getElementById('widgetIdeaLink').value;
     let linkedId = null, linkedType = null, linkedName = null;
     if (linkVal.startsWith('g_')) {
-        const gid = parseInt(linkVal.substring(2));
-        const g = (data.groups || []).find(g => g.id === gid);
-        linkedId = gid; linkedType = 'group'; linkedName = g ? g.name : '';
+        const rawGroupId = linkVal.substring(2);
+        const g = (data.groups || []).find(g =>
+            String(g.id) === linkVal || String(g.id) === rawGroupId
+        );
+        linkedId = g ? String(g.id) : rawGroupId;
+        linkedType = 'group'; linkedName = g ? g.name : '';
     } else if (linkVal.startsWith('p_')) {
-        const pid = parseInt(linkVal.substring(2));
-        const p = (data.projects || []).find(p => p.id === pid);
+        const pid = linkVal.substring(2);
+        const p = (data.projects || []).find(p => String(p.id) === pid);
         linkedId = pid; linkedType = 'project'; linkedName = p ? p.name : '';
     } else if (linkVal.startsWith('t_')) {
-        const tid = parseInt(linkVal.substring(2));
-        const t = (data.todos || []).find(t => t.id === tid);
+        const tid = linkVal.substring(2);
+        const t = (data.todos || []).find(t => String(t.id) === tid);
         linkedId = tid; linkedType = 'task'; linkedName = t ? t.text.substring(0, 30) : '';
     }
     if (!data.ideas) data.ideas = [];
@@ -2904,13 +2946,13 @@ function widgetAddIdea() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     });
-    const allTags = new Set([...data.ideaTags, ...tags]);
-    data.ideaTags = [...allTags].sort();
+    data.ideaTags = deriveWidgetIdeaTags(data.ideas);
     saveLocalData();
     document.getElementById('widgetIdeaText').value = '';
     document.getElementById('widgetIdeaTags').value = '';
     document.getElementById('widgetIdeaLink').value = '';
     renderWidgetIdeas();
+    syncToggleToCloud();
     ipcRenderer.send('widget-data-changed');
 }
 </script>
