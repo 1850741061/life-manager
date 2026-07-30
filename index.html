@@ -7282,12 +7282,19 @@
         const PROLIFE_STORAGE_PREFIX = 'prolife_claude::';
         const rawLocalStorage = window.localStorage;
         const storageMigrationMarker = `${PROLIFE_STORAGE_PREFIX}storage_namespace_v1`;
+        const metadataCleanupMarker = `${PROLIFE_STORAGE_PREFIX}storage_metadata_cleanup_v1`;
         const legacyStorageKeysNotToCopy = new Set([
             'user_id',
             'access_token',
             'refresh_token',
             'sync_base_snapshots_v2',
-            'auth_session_isolation_v2'
+            'auth_session_isolation_v2',
+            'data_owner_user_id',
+            'last_logged_in_user_id',
+            'saved_accounts',
+            'pendingLogoutBackup',
+            'last_account_data_backup',
+            'local_data_revision_v1'
         ]);
 
         if (rawLocalStorage.getItem(storageMigrationMarker) !== 'complete') {
@@ -7303,6 +7310,25 @@
                 if (value !== null) rawLocalStorage.setItem(scopedKey, value);
             });
             rawLocalStorage.setItem(storageMigrationMarker, 'complete');
+        }
+
+        if (rawLocalStorage.getItem(metadataCleanupMarker) !== 'complete') {
+            const scoped = key => `${PROLIFE_STORAGE_PREFIX}${key}`;
+            const ownerId = rawLocalStorage.getItem(scoped('data_owner_user_id'));
+            const sessionUserId = rawLocalStorage.getItem(scoped('user_id'));
+            const hasLiveSession = Boolean(
+                ownerId
+                && sessionUserId
+                && ownerId === sessionUserId
+                && rawLocalStorage.getItem(scoped('access_token'))
+            );
+            if (!hasLiveSession) {
+                ['data_owner_user_id', 'last_logged_in_user_id', 'saved_accounts', 'pendingLogoutBackup']
+                    .forEach(key => rawLocalStorage.removeItem(scoped(key)));
+            } else {
+                rawLocalStorage.removeItem(scoped('saved_accounts'));
+            }
+            rawLocalStorage.setItem(metadataCleanupMarker, 'complete');
         }
 
         if (window.location.protocol === 'file:') {
@@ -7765,9 +7791,13 @@
             }
 
             console.warn('[account-isolation] switching cached local data owner:', ownerUserId, '=>', nextUserId);
+            if (!signalCrossTabOwnershipBoundary(nextUserId, 'switch')) {
+                console.warn('[account-isolation] ownership boundary could not be persisted');
+                return false;
+            }
             resetAccountScopedState();
             localStorage.setItem('data_owner_user_id', nextUserId);
-            baseSave();
+            if (!baseSave()) return false;
             renderAll();
             return true;
         }
@@ -11408,6 +11438,12 @@
             'habits', 'habitRecords', 'projects', 'milktea', 'coffee',
             'dailyPlans', 'ideas', 'ideaTags', 'focusSessions'
         ];
+        const CROSS_TAB_BUSINESS_REVISION_KEY = 'local_data_revision_v1';
+        const CROSS_TAB_INSTANCE_ID = globalThis.crypto?.randomUUID?.()
+            || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        let crossTabRevisionCounter = 0;
+        let crossTabBusinessMergeTimer = null;
+        let crossTabCloudSyncTimer = null;
 
         function syncContentHash(value) {
             const input = stableSyncJson(value);
@@ -11419,14 +11455,24 @@
             return (hash >>> 0).toString(36);
         }
 
+        function syncIdHash(raw) {
+            let hash = 0x811c9dc5;
+            for (const character of raw) {
+                hash ^= character.codePointAt(0);
+                hash = Math.imul(hash, 0x01000193);
+            }
+            return (hash >>> 0).toString(16).padStart(8, '0');
+        }
+
         function encodeUnsafeSyncId(value, fallbackSeed = value) {
             const raw = String(value ?? '').trim();
             if (!raw) return `invalid_${syncContentHash(fallbackSeed)}`;
             if (SAFE_SYNC_ID_PATTERN.test(raw)) return raw;
-            return [...raw].map(character => SAFE_SYNC_ID_PATTERN.test(character)
+            const encoded = [...raw].map(character => SAFE_SYNC_ID_PATTERN.test(character)
                 ? character
                 : `_u${character.codePointAt(0).toString(16)}_`
             ).join('');
+            return `u_${syncIdHash(raw)}_${encoded}`;
         }
 
         function sanitizeSyncTombstone(value) {
@@ -11435,9 +11481,33 @@
             if (habitEvent) {
                 return `${habitEvent[1]}${encodeUnsafeSyncId(habitEvent[2], raw)}:${habitEvent[3]}:${habitEvent[4]}`;
             }
+            const legacyHabitRecord = raw.match(/^(habit-record:)(.*):(\d{4}-\d{2}-\d{2})$/);
+            if (legacyHabitRecord) {
+                return `${legacyHabitRecord[1]}${encodeUnsafeSyncId(legacyHabitRecord[2], raw)}:${legacyHabitRecord[3]}`;
+            }
             const entity = raw.match(/^(todo|group|template|habit|project|daily-plan|idea|focus-session|finance:tx|finance:drink-tx|drink-record:milktea|drink-record:coffee):(.*)$/);
             if (entity) return `${entity[1]}:${encodeUnsafeSyncId(entity[2], raw)}`;
             return encodeUnsafeSyncId(raw, raw);
+        }
+
+        function mergeSanitizedHabitRecordDates(existing, incoming) {
+            if (
+                !existing || typeof existing !== 'object' || Array.isArray(existing)
+                || !incoming || typeof incoming !== 'object' || Array.isArray(incoming)
+            ) return incoming;
+            const merged = { ...existing };
+            Object.entries(incoming).forEach(([date, value]) => {
+                const currentNumber = Number(merged[date]);
+                const incomingNumber = Number(value);
+                if (
+                    !Object.prototype.hasOwnProperty.call(merged, date)
+                    || (Number.isFinite(incomingNumber)
+                        && (!Number.isFinite(currentNumber) || incomingNumber >= currentNumber))
+                ) {
+                    merged[date] = value;
+                }
+            });
+            return merged;
         }
 
         function neutralizeActiveSyncMarkup(value, keyName = '', fallbackSeed = value) {
@@ -11458,6 +11528,18 @@
                 return value.map(item => neutralizeActiveSyncMarkup(item, keyName, fallbackSeed));
             }
             if (value && typeof value === 'object') {
+                if (/^habitrecords$/i.test(keyName)) {
+                    const result = {};
+                    Object.entries(value).forEach(([habitId, dates]) => {
+                        const safeHabitId = encodeUnsafeSyncId(habitId, habitId);
+                        const sanitizedDates = neutralizeActiveSyncMarkup(dates, habitId, value);
+                        result[safeHabitId] = mergeSanitizedHabitRecordDates(
+                            result[safeHabitId],
+                            sanitizedDates
+                        );
+                    });
+                    return result;
+                }
                 Object.entries(value).forEach(([childKey, child]) => {
                     value[childKey] = neutralizeActiveSyncMarkup(child, childKey, value);
                 });
@@ -11503,9 +11585,50 @@
             }
         }
 
-        // 基础保存函数 - 只保存到本地
-        function baseSave() {
+        function readLatestLocalDataRevision() {
             try {
+                const raw = localStorage.getItem(CROSS_TAB_BUSINESS_REVISION_KEY);
+                if (!raw) return null;
+                const revision = JSON.parse(raw);
+                return revision && typeof revision === 'object' ? revision : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function localWriteOwnerIsCurrent(expectedOwner) {
+            const normalizedExpectedOwner = expectedOwner || null;
+            const storedOwner = localStorage.getItem('data_owner_user_id') || null;
+            const revision = readLatestLocalDataRevision();
+            const revisionHasOwner = Boolean(
+                revision
+                && Object.prototype.hasOwnProperty.call(revision, 'ownerId')
+            );
+            const revisionOwner = revisionHasOwner ? (revision.ownerId || null) : null;
+            const revisionOperation = revision?.operation || 'save';
+
+            // A boundary is authoritative even while the old owner key still
+            // exists. This closes the multi-tab logout/account-switch gap.
+            if (
+                revisionHasOwner
+                && (revisionOperation === 'logout' || revisionOperation === 'switch')
+                && revisionOwner !== normalizedExpectedOwner
+            ) return false;
+            if (storedOwner) return storedOwner === normalizedExpectedOwner;
+            if (revisionHasOwner) return revisionOwner === normalizedExpectedOwner;
+            return true;
+        }
+
+        // 基础保存函数 - 只保存到本地
+        function baseSave(ownerOverride = undefined) {
+            try {
+                const expectedOwner = ownerOverride === undefined
+                    ? (currentUser?.id || null)
+                    : (ownerOverride || null);
+                if (!localWriteOwnerIsCurrent(expectedOwner)) {
+                    console.warn('[save] 拒绝写入：本标签页账号归属已过期');
+                    return false;
+                }
                 neutralizeSyncStateInPlace();
                 state.milktea.records = ensureSyncArray(state.milktea?.records)
                     .map(record => normalizeDrinkRecord(record, 'milktea'));
@@ -11531,11 +11654,51 @@
                 if (currentUser && currentUser.id) {
                     localStorage.setItem('data_owner_user_id', currentUser.id);
                 }
+                if (localStorage.getItem('storage_metadata_cleanup_v1') !== 'complete') {
+                    localStorage.setItem('storage_metadata_cleanup_v1', 'complete');
+                }
+                // Written last so other tabs never read a half-written group
+                // of compatibility keys.
+                localStorage.setItem(CROSS_TAB_BUSINESS_REVISION_KEY, JSON.stringify({
+                    tabId: CROSS_TAB_INSTANCE_ID,
+                    ownerId: expectedOwner,
+                    operation: 'save',
+                    savedAt: Date.now(),
+                    counter: ++crossTabRevisionCounter
+                }));
                 exportWidgetData();
+                return true;
             } catch (e) {
                 console.error('[save] local cache failed:', e);
                 window.__lastSyncErrorMessage = e?.stack || e?.message || String(e);
+                return false;
             }
+        }
+
+        function signalCrossTabOwnershipBoundary(ownerId = null, operation = 'logout') {
+            try {
+                localStorage.setItem(CROSS_TAB_BUSINESS_REVISION_KEY, JSON.stringify({
+                    tabId: CROSS_TAB_INSTANCE_ID,
+                    ownerId,
+                    operation,
+                    savedAt: Date.now(),
+                    counter: ++crossTabRevisionCounter
+                }));
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function claimCrossTabDataOwnership(ownerId) {
+            const normalizedOwner = ownerId || null;
+            if (!signalCrossTabOwnershipBoundary(normalizedOwner, 'switch')) return false;
+            if (normalizedOwner) {
+                localStorage.setItem('data_owner_user_id', normalizedOwner);
+            } else {
+                localStorage.removeItem('data_owner_user_id');
+            }
+            return true;
         }
 
         function animateValue(id, start, end, duration) {
@@ -13334,6 +13497,140 @@
             return allDeletedIds;
         }
 
+        function readPersistedCrossTabSyncRow() {
+            const read = (key, fallback) => {
+                try {
+                    const raw = localStorage.getItem(key);
+                    return raw == null ? fallback : JSON.parse(raw);
+                } catch (_) {
+                    return fallback;
+                }
+            };
+            const archivedTodos = read('archivedTodos', []);
+            const habitRecords = read('habitRecords', {});
+            return {
+                todos: read('todos', []),
+                transactions: read('transactions', []),
+                groups: read('groups', []),
+                templates: read('templates', []),
+                archivedTodos,
+                archivedtodos: archivedTodos,
+                habits: read('habits', []),
+                habitRecords,
+                habitrecords: habitRecords,
+                projects: read('projects', []),
+                milktea: read('milktea', { records: [], settings: { weeklyLimit: 2, monthlyLimit: 8 } }),
+                coffee: read('coffee', { records: [], settings: { weeklyLimit: 3, monthlyLimit: 12 } }),
+                dailyPlans: read('dailyPlans', []),
+                ideas: read('ideas', []),
+                ideaTags: read('ideaTags', []),
+                deletedids: read('deletedIds', [])
+            };
+        }
+
+        function crossTabStateFingerprint() {
+            return stableSyncJson({
+                todos: state.todos,
+                transactions: state.transactions,
+                groups: state.groups,
+                templates: state.templates,
+                archivedTodos: state.archivedTodos,
+                habits: state.habits,
+                habitRecords: state.habitRecords,
+                projects: state.projects,
+                milktea: state.milktea,
+                coffee: state.coffee,
+                dailyPlans: state.dailyPlans,
+                ideas: state.ideas,
+                ideaTags: state.ideaTags,
+                deletedIds: state.deletedIds
+            });
+        }
+
+        function crossTabRevisionCompatible(revision) {
+            if (!revision || typeof revision !== 'object') return false;
+            const operation = revision.operation || 'save';
+            if (operation !== 'save') return false;
+            const effectiveOwner = currentUser?.id
+                || localStorage.getItem('user_id')
+                || localStorage.getItem('data_owner_user_id')
+                || null;
+            const ownerId = Object.prototype.hasOwnProperty.call(revision, 'ownerId')
+                ? (revision.ownerId || null)
+                : effectiveOwner;
+            return ownerId === effectiveOwner;
+        }
+
+        function fenceCrossTabSession() {
+            clearTimeout(crossTabBusinessMergeTimer);
+            clearTimeout(crossTabCloudSyncTimer);
+            clearTimeout(save._debounceTimer);
+            authSessionGeneration += 1;
+            refreshAccessTokenPromise = null;
+            if (tokenRefreshTimer) {
+                clearTimeout(tokenRefreshTimer);
+                tokenRefreshTimer = null;
+            }
+            currentUser = null;
+            accessToken = null;
+            refreshToken = null;
+            try {
+                window.setTimeout(() => window.location.reload(), 0);
+            } catch (_) {}
+        }
+
+        function reconcileCrossTabBusinessCache() {
+            const ownerId = localStorage.getItem('data_owner_user_id');
+            if (currentUser ? ownerId !== currentUser.id : Boolean(ownerId)) return false;
+            const before = crossTabStateFingerprint();
+            mergeCloudRowIntoState(
+                readPersistedCrossTabSyncRow(),
+                loadSyncBaseSnapshot(currentUser?.id || localStorage.getItem('user_id'))
+            );
+            const changed = crossTabStateFingerprint() !== before;
+            if (!changed) return false;
+            baseSave();
+            if (typeof renderAll === 'function') renderAll();
+            if (currentUser && typeof syncToCloud === 'function') {
+                clearTimeout(crossTabCloudSyncTimer);
+                crossTabCloudSyncTimer = setTimeout(() => {
+                    crossTabCloudSyncTimer = null;
+                    syncToCloud();
+                }, 500);
+            }
+            return true;
+        }
+
+        if (
+            typeof window !== 'undefined'
+            && typeof window.addEventListener === 'function'
+            && typeof rawLocalStorage !== 'undefined'
+        ) {
+            window.addEventListener('storage', event => {
+                if (event.key === `${PROLIFE_STORAGE_PREFIX}${SYNC_BASE_STORAGE_KEY}`) {
+                    memorySyncBaseSnapshots.clear();
+                    return;
+                }
+                if (
+                    event.key !== `${PROLIFE_STORAGE_PREFIX}${CROSS_TAB_BUSINESS_REVISION_KEY}`
+                    || event.newValue === null
+                ) return;
+                let revision = null;
+                try {
+                    revision = JSON.parse(event.newValue);
+                } catch (_) {}
+                if (!crossTabRevisionCompatible(revision)) {
+                    fenceCrossTabSession();
+                    return;
+                }
+                clearTimeout(crossTabBusinessMergeTimer);
+                crossTabBusinessMergeTimer = setTimeout(() => {
+                    crossTabBusinessMergeTimer = null;
+                    reconcileCrossTabBusinessCache();
+                }, 25);
+            });
+        }
+
         // 登录时的同步：以云端数据为准
         // 登录同步与手动刷新共享同一条串行、乐观并发安全的路径。
         async function syncDataOnLogin() {
@@ -13363,9 +13660,10 @@
             return run;
         }
 
-        function captureSyncSession(expectedUserId) {
+        function captureSyncSession(expectedUserId, allowUnowned = false) {
             if (!currentUser || !accessToken) return null;
             if (expectedUserId && expectedUserId !== currentUser.id) return null;
+            if (!allowUnowned && localStorage.getItem('data_owner_user_id') !== currentUser.id) return null;
             return { userId: currentUser.id, generation: authSessionGeneration, accessToken };
         }
 
@@ -13373,6 +13671,7 @@
             return !!session
                 && session.generation === authSessionGeneration
                 && currentUser?.id === session.userId
+                && localStorage.getItem('data_owner_user_id') === session.userId
                 && !!accessToken;
         }
 
@@ -13672,7 +13971,9 @@
                 if (ownerUserId && ownerUserId !== data.user.id) {
                     isolateLocalDataForUser(data.user.id);
                 }
-                if (!hasAnonymousData) localStorage.setItem('data_owner_user_id', data.user.id);
+                if (!hasAnonymousData && !claimCrossTabDataOwnership(data.user.id)) {
+                    return { error: '无法安全接管本地数据，请重新加载后重试' };
+                }
 
                 // 启动定时刷新
                 scheduleTokenRefresh();
@@ -13742,6 +14043,12 @@
                     }
                 }
 
+                const signingOutUserId = currentUser?.id || null;
+                const storedOwner = localStorage.getItem('data_owner_user_id');
+                const ownsCachedData = Boolean(
+                    signingOutUserId && storedOwner === signingOutUserId
+                );
+
                 // 取消 Realtime 订阅（静默失败，不阻塞登出）
                 try {
                     unsubscribeToRealtime();
@@ -13769,10 +14076,23 @@
                     }
                 }
 
-                // 清理本地状态
-                if (currentUser && currentUser.id) {
-                    localStorage.setItem('data_owner_user_id', currentUser.id);
+                // Publish the ownership boundary immediately before clearing
+                // local state. Auth keys remain usable during the revoke
+                // request above, so publishing earlier would let a reloaded
+                // peer restore the session and supersede the boundary.
+                if (typeof signalCrossTabOwnershipBoundary === 'function') {
+                    signalCrossTabOwnershipBoundary(null, 'logout');
                 }
+
+                // Clear account-owned business data after preserving a
+                // recoverable account-scoped snapshot.
+                if (ownsCachedData) {
+                    if (hasAccountScopedLocalData()) {
+                        backupAccountScopedLocalData(signingOutUserId);
+                    }
+                    resetAccountScopedState();
+                }
+                localStorage.removeItem('data_owner_user_id');
                 currentUser = null;
                 accessToken = null;
                 refreshToken = null;
@@ -13787,6 +14107,10 @@
                 localStorage.removeItem('user_id');
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
+                // Persist the clean anonymous snapshot last. Its owner:null
+                // revision prevents stale authenticated tabs from recreating
+                // the previous owner's cache.
+                baseSave(null);
                 // 登出时保留记住的账号信息，方便下次登录
 
                 console.log('[登出] 已清理登录状态');
@@ -13842,7 +14166,7 @@
         }
 
         async function resolveAnonymousData(keepLocal) {
-            const session = captureSyncSession();
+            const session = captureSyncSession(undefined, true);
             if (!session) return false;
             const accountKeys = Object.keys(getAccountScopedDefaults());
             const backup = Object.fromEntries(accountKeys.map(key => [
@@ -13851,20 +14175,22 @@
             ]));
 
             if (keepLocal) {
-                localStorage.setItem('data_owner_user_id', session.userId);
+                if (!claimCrossTabDataOwnership(session.userId)) return false;
                 return syncDataOnLogin();
             }
 
             backupAccountScopedLocalData(null);
+            if (!signalCrossTabOwnershipBoundary(session.userId, 'switch')) return false;
             resetAccountScopedState();
             localStorage.setItem('data_owner_user_id', session.userId);
-            baseSave();
+            if (!baseSave()) return false;
             const synced = await syncDataOnLogin();
             if (synced) return true;
 
-            Object.assign(state, backup);
-            baseSave();
+            signalCrossTabOwnershipBoundary(null, 'switch');
             localStorage.removeItem('data_owner_user_id');
+            Object.assign(state, backup);
+            baseSave(null);
             renderAll();
             return false;
         }
@@ -14335,11 +14661,10 @@
             }
         }
 
-        // 页面卸载前立即同步
+        // Authenticated PATCH requests are not guaranteed to finish during
+        // unload. Normal saves already persist locally and queue cloud sync.
         window.addEventListener('beforeunload', () => {
-            if (currentUser) {
-                syncToCloud();
-            }
+            baseSave();
         });
 
         // 检查已保存的登录状态（静默失败，不阻塞应用）
@@ -14362,7 +14687,9 @@
                     if (ownerUserId && ownerUserId !== savedUserId) {
                         isolateLocalDataForUser(savedUserId);
                     }
-                    if (!hasAnonymousData) localStorage.setItem('data_owner_user_id', savedUserId);
+                    if (!hasAnonymousData && !claimCrossTabDataOwnership(savedUserId)) {
+                        throw new Error('无法安全接管本地数据');
+                    }
 
                     // 先主动刷新token（确保token有效），再启动定时刷新
                     if (refreshToken) {

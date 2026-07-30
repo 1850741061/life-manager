@@ -1856,7 +1856,12 @@ function neutralizeWidgetSyncValue(value, keyName = '') {
 }
 
 let _widCounter = 0;
-function wUniqueId() { return Date.now() * 1000 + (++_widCounter % 1000); }
+function wUniqueId() {
+    const randomUuid = globalThis.crypto?.randomUUID?.();
+    if (randomUuid) return randomUuid;
+    const random = Math.random().toString(36).slice(2, 12);
+    return `wid_${Date.now().toString(36)}_${++_widCounter}_${random}`;
+}
 
 let data = { todos: [], archivedTodos: [], projects: [], dailyPlans: [], groups: [], ideas: [], deletedIds: [] };
 let pinned = true;
@@ -2939,7 +2944,7 @@ function widgetAddIdea() {
     if (!data.ideas) data.ideas = [];
     if (!data.ideaTags) data.ideaTags = [];
     data.ideas.unshift({
-        id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
+        id: wUniqueId(),
         text, tags,
         linkedId, linkedType, linkedName,
         pinned: false, important: false,

@@ -36,6 +36,10 @@ function createHarness() {
     },
     window: {}
   };
+  context.baseSave = () => {
+    values.set('todos', JSON.stringify(context.state.todos));
+    values.set('local_data_revision_v1', JSON.stringify({ test: true }));
+  };
   vm.createContext(context);
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const sanitizerStart = html.indexOf('const ACTIVE_SYNC_MARKUP_PATTERN');
@@ -47,6 +51,38 @@ function createHarness() {
   const helperStart = html.indexOf('function canonicalSyncJson', coreEnd);
   const helperEnd = html.indexOf('async function syncToCloud', helperStart);
   vm.runInContext(html.slice(helperStart, helperEnd), context);
+  return context;
+}
+
+function createBaseSaveHarness() {
+  const values = new Map();
+  const context = {
+    console: { log() {}, warn() {}, error() {} },
+    currentUser: { id: 'roundtrip-user' },
+    localStorage: {
+      getItem: key => values.has(key) ? values.get(key) : null,
+      setItem: (key, value) => values.set(key, String(value)),
+      removeItem: key => values.delete(key)
+    },
+    state: emptyState(),
+    ensureSyncArray: value => Array.isArray(value) ? value : [],
+    ensureSyncObject: value => value && typeof value === 'object' && !Array.isArray(value) ? value : {},
+    neutralizeSyncStateInPlace() {},
+    normalizeDrinkRecord: record => record,
+    syncIdeaTags() {},
+    compactSyncTombstones: value => value,
+    dedupeFinanceTransactions: value => value,
+    exportWidgetData() {},
+    CROSS_TAB_BUSINESS_REVISION_KEY: 'local_data_revision_v1',
+    CROSS_TAB_INSTANCE_ID: 'test-tab',
+    crossTabRevisionCounter: 0,
+    window: {}
+  };
+  vm.createContext(context);
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const start = html.indexOf('function readLatestLocalDataRevision');
+  const end = html.indexOf('function animateValue', start);
+  vm.runInContext(html.slice(start, end), context);
   return context;
 }
 
@@ -170,6 +206,94 @@ test('accepted entity tombstones stay monotonic across stale clients', () => {
   assert.deepEqual(plain(merged), ['todo:accepted-delete']);
 });
 
+test('cross-tab local snapshots merge additions and advance a complete-snapshot marker', () => {
+  const context = createHarness();
+  context.localTodo = {
+    id: 'local-tab-todo', text: '本标签页', completed: false, subtasks: [],
+    createdAt: '2026-07-29T01:00:00.000Z',
+    updatedAt: '2026-07-29T01:00:00.000Z'
+  };
+  context.otherTodo = {
+    id: 'other-tab-todo', text: '另一标签页', completed: false, subtasks: [],
+    createdAt: '2026-07-29T01:01:00.000Z',
+    updatedAt: '2026-07-29T01:01:00.000Z'
+  };
+  context.state.todos = [context.localTodo];
+  context.localStorage.setItem('data_owner_user_id', context.currentUser.id);
+  context.localStorage.setItem('todos', JSON.stringify([context.otherTodo]));
+
+  assert.equal(
+    vm.runInContext('reconcileCrossTabBusinessCache()', context),
+    true
+  );
+  assert.deepEqual(
+    plain(context.state.todos.map(todo => todo.id).sort()),
+    ['local-tab-todo', 'other-tab-todo']
+  );
+  assert.ok(context.localStorage.getItem('local_data_revision_v1'));
+});
+
+test('base save rejects a stale owner and publishes an owned complete-snapshot marker', () => {
+  const context = createBaseSaveHarness();
+  context.state.todos = [{
+    id: 'owned-todo', text: '账号隔离', completed: false, subtasks: []
+  }];
+  context.localStorage.setItem('data_owner_user_id', 'another-user');
+
+  assert.equal(vm.runInContext('baseSave()', context), false);
+  assert.equal(context.localStorage.getItem('todos'), null);
+
+  context.localStorage.setItem('data_owner_user_id', context.currentUser.id);
+  assert.equal(vm.runInContext('baseSave()', context), true);
+  assert.deepEqual(JSON.parse(context.localStorage.getItem('todos')), context.state.todos);
+  assert.equal(
+    context.localStorage.getItem('storage_metadata_cleanup_v1'),
+    'complete'
+  );
+  const revision = JSON.parse(context.localStorage.getItem('local_data_revision_v1'));
+  assert.equal(revision.ownerId, context.currentUser.id);
+  assert.equal(revision.operation, 'save');
+  assert.equal(revision.tabId, 'test-tab');
+
+  context.localStorage.setItem('data_owner_user_id', context.currentUser.id);
+  assert.equal(
+    vm.runInContext("signalCrossTabOwnershipBoundary(null, 'logout')", context),
+    true
+  );
+  assert.equal(vm.runInContext('baseSave()', context), false);
+});
+
+test('account switch and logout publish boundaries around ownership changes', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const isolateSource = html.slice(
+    html.indexOf('function isolateLocalDataForUser'),
+    html.indexOf('// --- 初始化 ---')
+  );
+  assert.ok(
+    isolateSource.indexOf("signalCrossTabOwnershipBoundary(nextUserId, 'switch')")
+      < isolateSource.indexOf("localStorage.setItem('data_owner_user_id', nextUserId)")
+  );
+
+  const signOutSource = html.slice(
+    html.indexOf('async function signOut'),
+    html.indexOf('function canonicalSyncJson', html.indexOf('async function signOut'))
+  );
+  assert.ok(
+    signOutSource.indexOf('/auth/v1/logout?scope=local')
+      < signOutSource.indexOf("signalCrossTabOwnershipBoundary(null, 'logout')")
+  );
+  assert.ok(
+    signOutSource.indexOf("signalCrossTabOwnershipBoundary(null, 'logout')")
+      < signOutSource.indexOf("localStorage.removeItem('data_owner_user_id')")
+  );
+  assert.match(signOutSource, /backupAccountScopedLocalData\(signingOutUserId\)/);
+  assert.match(signOutSource, /resetAccountScopedState\(\)/);
+  assert.ok(
+    signOutSource.indexOf("localStorage.removeItem('data_owner_user_id')")
+      < signOutSource.indexOf('baseSave(null)')
+  );
+});
+
 test('all embedded application and widget scripts parse', () => {
   for (const file of ['index.html', path.join('widget', 'widget.html')]) {
     const html = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
@@ -191,6 +315,11 @@ test('Electron renderers are sandboxed and remote sync dependencies are pinned',
   assert.equal((main.match(/contextIsolation:\s*true/g) || []).length, 2);
   assert.equal((main.match(/sandbox:\s*true/g) || []).length, 2);
   assert.match(main, /containsSensitiveWidgetKey/);
+  assert.match(main, /requestSingleInstanceLock\(\)/);
+  assert.match(main, /app\.on\('second-instance',[\s\S]*focusOrCreateMainWindow\(\)/);
+  assert.match(main, /function ensureMainWindow\(\)[\s\S]*!mainWindow \|\| mainWindow\.isDestroyed\(\)[\s\S]*createWindow\(\)/);
+  assert.match(main, /function focusOrCreateMainWindow\(\)[\s\S]*!app\.isReady\(\)[\s\S]*app\.whenReady\(\)[\s\S]*ensureMainWindow\(\)/);
+  assert.match(main, /function createWindow\(\)[\s\S]*mainWindow && !mainWindow\.isDestroyed\(\)[\s\S]*return mainWindow/);
   assert.match(main, /setWindowOpenHandler\(\(\) => \(\{ action: 'deny' \}\)\)/);
   assert.ok(fs.existsSync(path.join(root, 'preload.js')));
   assert.ok(fs.existsSync(path.join(root, 'widget', 'preload.js')));
@@ -222,8 +351,9 @@ test('Realtime SDK cannot run a competing auth refresh loop', () => {
 test('browser storage and auth tokens are application-scoped', () => {
   const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.match(index, /PROLIFE_STORAGE_PREFIX\s*=\s*'prolife_claude::'/);
-  assert.match(index, /legacyStorageKeysNotToCopy[\s\S]*'access_token'[\s\S]*'refresh_token'[\s\S]*'sync_base_snapshots_v2'/);
+  assert.match(index, /legacyStorageKeysNotToCopy[\s\S]*'access_token'[\s\S]*'refresh_token'[\s\S]*'sync_base_snapshots_v2'[\s\S]*'data_owner_user_id'[\s\S]*'saved_accounts'[\s\S]*'pendingLogoutBackup'/);
   assert.match(index, /rawLocalStorage\.getItem\(`\$\{PROLIFE_STORAGE_PREFIX\}/);
+  assert.match(index, /local_data_revision_v1/);
 });
 
 test('legacy renderer neutralizes active markup and unsafe attribute values', () => {
@@ -243,4 +373,37 @@ test('legacy renderer neutralizes active markup and unsafe attribute values', ()
   assert.equal(context.state.todos[0].projectColor, '#6b7280');
   assert.equal(context.state.todos[0].icon, 'circle');
   assert.equal(context.state.ideas[0].content, '2 < 3');
+});
+
+test('legacy habit tombstones and nested habit-record keys use the same sanitized id', () => {
+  const context = createHarness();
+  context.unsafeHabitId = '中文 habit';
+  context.rawState = {
+    habits: [{ id: context.unsafeHabitId, name: '兼容习惯' }],
+    habitRecords: { [context.unsafeHabitId]: { '2026-07-29': 100 } },
+    deletedIds: [
+      `habit-record:${context.unsafeHabitId}:2026-07-28`,
+      `habit-record-delete:${context.unsafeHabitId}:2026-07-29:200`
+    ]
+  };
+  const sanitized = vm.runInContext(
+    'neutralizeActiveSyncMarkup(rawState, "")',
+    context
+  );
+  const safeHabitId = vm.runInContext(
+    'encodeUnsafeSyncId(unsafeHabitId)',
+    context
+  );
+
+  assert.equal(safeHabitId, 'u_46d75b0f__u4e2d__u6587__u20_habit');
+  assert.equal(vm.runInContext("encodeUnsafeSyncId('')", context), 'invalid_1yz14zp');
+  assert.equal(sanitized.habits[0].id, safeHabitId);
+  assert.deepEqual(plain(sanitized.habitRecords), {
+    [safeHabitId]: { '2026-07-29': 100 }
+  });
+  assert.deepEqual(plain(sanitized.deletedIds), [
+    `habit-record:${safeHabitId}:2026-07-28`,
+    `habit-record-delete:${safeHabitId}:2026-07-29:200`
+  ]);
+  assert.notEqual(safeHabitId, '_u4e2d__u6587__u20_habit');
 });

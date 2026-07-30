@@ -188,7 +188,11 @@ function revealWidgetWindow({ focus = true } = {}) {
 }
 
 function createWindow() {
-    mainWindow = new BrowserWindow({
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        return mainWindow;
+    }
+
+    const createdWindow = new BrowserWindow({
         width: 1400,
         height: 900,
         minWidth: 800,
@@ -205,9 +209,10 @@ function createWindow() {
         },
         backgroundColor: '#fdfdfd'
     });
-    secureWindow(mainWindow);
+    mainWindow = createdWindow;
+    secureWindow(createdWindow);
 
-    mainWindow.loadFile('index.html');
+    createdWindow.loadFile('index.html');
 
     // 监听开发者工具的打开/关闭
     // mainWindow.webContents.on('devtools-opened', () => {
@@ -217,14 +222,18 @@ function createWindow() {
     //     console.log('开发者工具已关闭');
     // });
 
-    mainWindow.on('closed', () => {
-        mainWindow = null;
+    createdWindow.on('closed', () => {
+        if (mainWindow === createdWindow) {
+            mainWindow = null;
+        }
         if (isQuitting) {
             if (widgetWindow && !widgetWindow.isDestroyed()) {
                 widgetWindow.close();
             }
         }
     });
+
+    return createdWindow;
 }
 
 // IPC 窗口控制
@@ -547,10 +556,46 @@ function createMenu() {
     Menu.setApplicationMenu(menu);
 }
 
-app.whenReady().then(() => {
-    createWindow();
-    createMenu();
-});
+function ensureMainWindow() {
+    if (!app.isReady()) return null;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return createWindow();
+    }
+    return mainWindow;
+}
+
+function focusOrCreateMainWindow() {
+    if (!app.isReady()) {
+        app.whenReady()
+            .then(focusOrCreateMainWindow)
+            .catch(error => console.error('[main] 无法恢复主窗口:', error));
+        return;
+    }
+
+    const targetWindow = ensureMainWindow();
+    if (!targetWindow || targetWindow.isDestroyed()) return;
+    if (targetWindow.isMinimized()) targetWindow.restore();
+    if (!targetWindow.isVisible()) targetWindow.show();
+    targetWindow.focus();
+}
+
+// A single process owns the fixed widget-data temp/backup files and the
+// Chromium profile. A second process could otherwise interleave atomic
+// renames or run a competing auth/session loop.
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        focusOrCreateMainWindow();
+    });
+
+    app.whenReady().then(() => {
+        ensureMainWindow();
+        createMenu();
+    });
+}
 
 app.on('window-all-closed', () => {
     if (isQuitting && process.platform !== 'darwin') {
@@ -598,7 +643,5 @@ function createMainTray() {
 }
 
 app.on('activate', () => {
-    if (mainWindow === null) {
-        createWindow();
-    }
+    focusOrCreateMainWindow();
 });
